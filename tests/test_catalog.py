@@ -31,6 +31,17 @@ calendar month):
 7. Picked rows are returned field-for-field unchanged.
 8. Empty list in -> empty list out.
 
+pick_monthly_n (multi-clip months — STATE R3):
+
+9. pick_monthly_n(videos, n) returns, PER calendar month, the n
+   highest-scored eligible streams: ties (equal score) break by newest
+   available_at first; within a month the output order is (score desc,
+   available_at desc); months are ascending. Fewer eligible streams in
+   a month than n -> all of them; a month with zero eligible streams
+   is absent. n applies per month, not globally. n=1 (explicit or
+   default) produces EXACTLY pick_monthly's output — same picks, same
+   order.
+
 Fixture: tests/fixtures/holodex_videos.json — Holodex-like metadata only
 (one good chatting stream, one clip, one singing stream, one collab).
 No Cover/hololive audio, no real Holodex/YouTube API calls.
@@ -283,3 +294,99 @@ def test_pick_monthly_returns_rows_unchanged() -> None:
 def test_pick_monthly_empty_input() -> None:
     """Rule 8: empty list in -> empty list out."""
     assert catalog.pick_monthly([]) == []
+
+
+# ------------------------------------------------------ pick_monthly_n
+
+
+def test_pick_monthly_n_two_picks_top2_by_score_then_newest() -> None:
+    """Rule 9: n=2 in one month -> the two highest-scored eligible
+    streams, ordered by score desc (the weak-but-newer untopic'd row
+    still ranks above the lowest-scored watchalong)."""
+    strong = _eligible(id="strongjul001", available_at="2025-07-05T12:00:00.000Z")
+    weak = _eligible(
+        id="weakjul0002", available_at="2025-07-20T12:00:00.000Z",
+        topic_id=None, duration=1800,
+    )
+    weakest = _eligible(
+        id="weakjul0003", available_at="2025-07-25T12:00:00.000Z",
+        topic_id="watchalong", duration=1800,
+    )
+    scores = [catalog.score_video(v) for v in (strong, weak, weakest)]
+    assert scores[0] > scores[1] > scores[2], (
+        f"precondition: strictly descending scores expected, got {scores}"
+    )
+    picked = catalog.pick_monthly_n([weak, weakest, strong], n=2)
+    assert _ids(picked) == ["strongjul001", "weakjul0002"]
+
+
+def test_pick_monthly_n_order_within_month_score_desc_then_newest() -> None:
+    """Rule 9: within a month the output order is (score desc,
+    available_at desc) — a score tie lists the newer stream first even
+    though the newest row of all is the lowest-scored one."""
+    older_strong = _eligible(id="strong0700a", available_at="2025-07-01T12:00:00.000Z")
+    newer_strong = _eligible(id="strong0700b", available_at="2025-07-20T12:00:00.000Z")
+    newest_weak = _eligible(
+        id="weakjul0004", available_at="2025-07-25T12:00:00.000Z",
+        topic_id=None, duration=1800,
+    )
+    assert catalog.score_video(older_strong) == catalog.score_video(newer_strong)
+    assert catalog.score_video(older_strong) > catalog.score_video(newest_weak)
+    picked = catalog.pick_monthly_n(
+        [newest_weak, newer_strong, older_strong], n=3
+    )
+    assert _ids(picked) == ["strong0700b", "strong0700a", "weakjul0004"]
+
+
+def test_pick_monthly_n_larger_than_eligible_returns_all() -> None:
+    """Rule 9: fewer eligible streams in a month than n -> all of them,
+    in (score desc, available_at desc) order — no padding, no repeats."""
+    strong = _eligible(id="strong0700c", available_at="2025-07-05T12:00:00.000Z")
+    weak = _eligible(
+        id="weakjul0005", available_at="2025-07-20T12:00:00.000Z",
+        topic_id=None, duration=1800,
+    )
+    picked = catalog.pick_monthly_n([strong, weak], n=5)
+    assert _ids(picked) == ["strong0700c", "weakjul0005"]
+    assert _months(picked) == ["2025-07", "2025-07"]
+
+
+def test_pick_monthly_n_per_month_independent_gaps_absent() -> None:
+    """Rule 9: n applies per calendar month (2 months x n=2 -> up to 4
+    picks), months are ascending, and a month with zero eligible
+    streams is absent — never filled across months."""
+    j1 = _eligible(id="janstrong01", available_at="2025-01-05T12:00:00.000Z")
+    j2 = _eligible(
+        id="janweak0002", available_at="2025-01-20T12:00:00.000Z",
+        topic_id=None, duration=1800,
+    )
+    m1 = _eligible(id="marstrong1", available_at="2025-03-05T12:00:00.000Z")
+    m2 = _eligible(
+        id="marweak0002", available_at="2025-03-20T12:00:00.000Z",
+        topic_id=None, duration=1800,
+    )
+    picked = catalog.pick_monthly_n([m2, m1, j2, j1], n=2)
+    assert _ids(picked) == ["janstrong01", "janweak0002", "marstrong1", "marweak0002"]
+    assert _months(picked) == ["2025-01", "2025-01", "2025-03", "2025-03"]
+
+
+def test_pick_monthly_n_one_matches_pick_monthly_exactly() -> None:
+    """Rule 9 (equivalence pin): n=1 — explicit or default — produces
+    EXACTLY pick_monthly's output (same picks, same order) on a mixed
+    set: ties, score gaps, rejections, and month gaps."""
+    videos = [
+        _eligible(id="weak005000", available_at="2025-07-20T12:00:00.000Z",
+                  topic_id=None, duration=1800),
+        _eligible(id="strong0700d", available_at="2025-07-05T12:00:00.000Z"),
+        _eligible(id="oldermay10", available_at="2025-05-10T12:00:00.000Z"),
+        _eligible(id="newermay28", available_at="2025-05-28T12:00:00.000Z"),
+        _eligible(id="janstream2", available_at="2025-01-08T12:00:00.000Z"),
+        _eligible(id="collabjul02", available_at="2025-07-02T12:00:00.000Z",
+                  mentions=[{"id": "UCother0002"}]),
+        _eligible(id="karaokejul2", available_at="2025-07-03T12:00:00.000Z",
+                  title="karaoke night!!"),
+        _eligible(id="shortjul002", available_at="2025-07-04T12:00:00.000Z",
+                  duration=600),
+    ]
+    assert catalog.pick_monthly_n(videos, n=1) == catalog.pick_monthly(videos)
+    assert catalog.pick_monthly_n(videos) == catalog.pick_monthly(videos)

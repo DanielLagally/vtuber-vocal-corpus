@@ -114,7 +114,10 @@ def _available_dt(video: dict) -> datetime | None:
         return None
 
 
-def pick_monthly(videos: list[dict]) -> list[dict]:
+def _eligible_by_month(videos: list[dict]) -> dict[str, list[tuple[float, float, dict]]]:
+    """Bucket eligible videos per calendar month ("YYYY-MM" of
+    available_at, same key as pick_monthly has always used), each entry
+    carrying (score, available_at timestamp, row)."""
     by_month: dict[str, list[tuple[float, float, dict]]] = {}
     for video in videos:
         points = score_video(video)
@@ -123,10 +126,28 @@ def pick_monthly(videos: list[dict]) -> list[dict]:
             continue
         key = f"{when.year:04d}-{when.month:02d}"
         by_month.setdefault(key, []).append((points, when.timestamp(), video))
+    return by_month
+
+
+def pick_monthly(videos: list[dict]) -> list[dict]:
+    return pick_monthly_n(videos, n=1)
+
+
+def pick_monthly_n(videos: list[dict], n: int = 1) -> list[dict]:
+    """Per calendar month, the n highest-scored eligible streams
+    (STATE R3: multi-clip months). Ties on score break by newest
+    available_at first (same (-score, -timestamp) sort as pick_monthly
+    and pick_for_year). Within a month the output order is
+    (score desc, available_at desc); months are ascending. A month with
+    fewer eligible streams than n contributes all of them; a month with
+    zero eligible streams is absent. n applies per month, not globally;
+    n=1 reproduces pick_monthly exactly (pick_monthly delegates here)."""
+    by_month = _eligible_by_month(videos)
+    take = max(n, 0)
     picked: list[dict] = []
     for key in sorted(by_month):
         bucket = sorted(by_month[key], key=lambda item: (-item[0], -item[1]))
-        picked.append(bucket[0][2])
+        picked.extend(video for _, _, video in bucket[:take])
     return picked
 
 
