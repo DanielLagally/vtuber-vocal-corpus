@@ -22,8 +22,14 @@ User-visible rules (local, explicit ids only — never the network in tests):
 4. data_dir is always pytest's tmp_path — nothing is written into the
    repo root, and no Cover/hololive audio is involved.
 5. The yt-dlp argv must pin the extractor with ``--extractor-args
-   youtube:player_client=android`` — never ``mweb``. Cookies, the
-   ``15:00-30:00`` section, and sequential one-at-a-time runs stay.
+   youtube:player_client=web`` (2026-09: confirmed by direct testing
+   that ``android``/``android_vr`` are skipped by yt-dlp entirely
+   whenever ``--cookies`` is passed — "does not support cookies" — so
+   pairing either with our cookies file silently drops the cookies and
+   the request still hits YouTube's bot-check; ``web`` and ``mweb``
+   both work cleanly with cookies, ``tv`` still fails with "The page
+   needs to be reloaded"). Cookies, the ``15:00-30:00`` section, and
+   sequential one-at-a-time runs stay.
 6. ``fetch_audio_many(video_ids, data_dir, *, runner=None, cookies=None)``
    fetches the ids in order, one yt-dlp run per id (the CLI ``fetch``
    loop over several ids is a batch of these). If one id's run fails
@@ -212,10 +218,12 @@ def test_fetch_audio_with_cookies_passes_flag_and_path(tmp_path: Path) -> None:
     )
 
 
-def test_fetch_audio_uses_android_player_client(tmp_path: Path) -> None:
-    """Rule 5: the yt-dlp extractor must be pinned to player_client=android
-    (tv now fails with "The page needs to be reloaded" on current YouTube);
-    mweb no longer passes YouTube's gate for this flow."""
+def test_fetch_audio_uses_web_player_client(tmp_path: Path) -> None:
+    """Rule 5: the yt-dlp extractor must be pinned to player_client=web.
+    android/android_vr are skipped by yt-dlp whenever --cookies is
+    passed ("does not support cookies") — silently dropping our
+    cookies and still hitting the bot-check; tv fails with "The page
+    needs to be reloaded"; web (and mweb) work cleanly with cookies."""
     calls: list[list[str]] = []
     runner = _make_fake_runner(calls, tmp_path / "audio" / f"{VIDEO_ID}.wav")
 
@@ -225,11 +233,8 @@ def test_fetch_audio_uses_android_player_client(tmp_path: Path) -> None:
     assert "--extractor-args" in argv, (
         f"--extractor-args missing from yt-dlp argv {argv!r}"
     )
-    assert "youtube:player_client=android" in argv, (
-        f"expected youtube:player_client=android in yt-dlp argv, got {argv!r}"
-    )
-    assert not any("mweb" in part for part in argv), (
-        f"mweb must not appear anywhere in yt-dlp argv, got {argv!r}"
+    assert "youtube:player_client=web" in argv, (
+        f"expected youtube:player_client=web in yt-dlp argv, got {argv!r}"
     )
 
 

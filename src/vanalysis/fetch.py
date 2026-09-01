@@ -75,7 +75,7 @@ def fetch_audio(
         "wav",
         "--force-keyframes-at-cuts",
         "--extractor-args",
-        "youtube:player_client=android",
+        "youtube:player_client=web",
         "--download-sections",
         "*15:00-30:00",
         "-o",
