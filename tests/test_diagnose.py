@@ -88,9 +88,11 @@ def test_compare_tracker_record_shape(tmp_path: Path) -> None:
     _write_tone(raw90, 220.0)
 
     [record] = diagnose.compare_tracker([video_id], data_dir, stems_dir)
-    for tracker in ("numpy", "praat"):
+    numpy_keys = {"median_f0", "f0_iqr", "voiced_fraction", "qc"}
+    praat_keys = numpy_keys | {"brightness_hz", "dynamism_semitones"}
+    for tracker, expected_keys in (("numpy", numpy_keys), ("praat", praat_keys)):
         features = record[tracker]
-        assert set(features) == {"median_f0", "f0_iqr", "voiced_fraction", "qc"}
+        assert set(features) == expected_keys
         assert math.isfinite(features["median_f0"])
         assert features["qc"]["pass"] is True
 

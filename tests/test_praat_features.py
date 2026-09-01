@@ -12,8 +12,14 @@ hololive audio, never downloads):
    flags as junk).
 3. Silence returns math.nan for median_f0, never an invented Hz value
    (same no-bogus-confidence rule as vanalysis.features).
-4. stem_features(path) returns the same three keys as
-   vanalysis.measure.stem_features: median_f0, f0_iqr, voiced_fraction.
+4. stem_features(path) returns median_f0, f0_iqr, voiced_fraction,
+   brightness_hz, dynamism_semitones.
+5. dynamism_semitones = mean absolute semitone change between
+   consecutive VOICED frames. A steady tone is near 0 (no frame-to-
+   frame movement). Critically, a silence GAP between two differently-
+   pitched voiced blocks must NOT count as a jump — only frame pairs
+   that are BOTH voiced (and therefore adjacent in time, not just
+   adjacent after unvoiced frames are filtered out) contribute.
 """
 
 import array
@@ -68,6 +74,10 @@ def fixtures_dir() -> Path:
     _write_wav(FIXTURES_DIR / "praat_tone220.wav", _sine(220.0, 1.0))
     _write_wav(FIXTURES_DIR / "praat_tone330.wav", _sine(330.0, 1.0))
     _write_wav(FIXTURES_DIR / "praat_silence.wav", _noise(1.0, amp=4, rng=rng))
+    _write_wav(
+        FIXTURES_DIR / "praat_gap_220_330.wav",
+        _sine(220.0, 0.15) + [0] * int(0.15 * SR) + _sine(330.0, 0.15),
+    )
     return FIXTURES_DIR
 
 
@@ -97,6 +107,30 @@ def test_median_f0_silence_returns_nan(fixtures_dir: Path) -> None:
 
 def test_stem_features_shape(fixtures_dir: Path) -> None:
     features = praat_features.stem_features(fixtures_dir / "praat_tone220.wav")
-    assert set(features) == {"median_f0", "f0_iqr", "voiced_fraction"}
+    assert set(features) == {
+        "median_f0", "f0_iqr", "voiced_fraction", "brightness_hz",
+        "dynamism_semitones",
+    }
     assert math.isfinite(features["median_f0"])
     assert 0.0 <= features["voiced_fraction"] <= 1.0
+    assert math.isfinite(features["brightness_hz"])
+    assert math.isfinite(features["dynamism_semitones"])
+
+
+def test_dynamism_steady_tone_near_zero(fixtures_dir: Path) -> None:
+    dynamism = praat_features.dynamism_semitones(fixtures_dir / "praat_tone220.wav")
+    assert math.isfinite(dynamism)
+    assert dynamism < 0.3, f"steady-tone dynamism {dynamism} should be near zero"
+
+
+def test_dynamism_does_not_count_a_silence_gap_as_a_jump(fixtures_dir: Path) -> None:
+    """Rule 5: a 220 Hz block, a silence gap, then a 330 Hz block — the
+    ~7-semitone jump BETWEEN the blocks must never be counted (it
+    spans an unvoiced gap, not two adjacent voiced frames). Each block
+    is individually steady, so the correct result stays near zero."""
+    dynamism = praat_features.dynamism_semitones(fixtures_dir / "praat_gap_220_330.wav")
+    assert math.isfinite(dynamism)
+    assert dynamism < 0.3, (
+        f"dynamism {dynamism} suggests the cross-gap 220->330 Hz jump was "
+        "counted; only within-block frame pairs may contribute"
+    )
