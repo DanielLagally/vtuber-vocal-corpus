@@ -20,6 +20,7 @@ from vanalysis.retry import run_retry
 from vanalysis.roster import fetch_channels, filter_talents, write_roster
 from vanalysis.series import (
     new_run_dir,
+    write_feature_multi_talent_yearly_plot,
     write_feature_yearly_plot,
     write_multi_talent_plot,
     write_plots,
@@ -503,6 +504,21 @@ def main(argv: list[str] | None = None) -> None:
         }
         run_dir = new_run_dir(args.out_dir, args.label)
         write_multi_talent_plot(talents, run_dir)
+        present_keys = {
+            key
+            for entries in talents.values()
+            for entry in entries
+            for key in (entry.get("features") or {})
+        }
+        for feature_key, filename, subject, subtitle, unit_label, caveat in _EXTRA_FEATURE_PLOTS:
+            if feature_key in present_keys:
+                write_feature_multi_talent_yearly_plot(
+                    talents, run_dir,
+                    feature_key=feature_key,
+                    filename=filename.replace(".png", "_multi.png"),
+                    subject=f"{subject} — Talent Comparison",
+                    subtitle=subtitle, unit_label=unit_label, caveat=caveat,
+                )
         print(f"plots -> {run_dir}")
         return
     if args.cmd == "retry":

@@ -474,44 +474,77 @@ def write_multi_talent_plot(talents: dict[str, list[dict]], out_dir: Path) -> No
     fig.savefig(out_dir / "f0_quarterly_multi.png")
     plt.close(fig)
 
-    per_talent_y = {
-        name: {p["year"]: p["median"] for p in f0_yearly(talents[name], qc=True)}
+    write_feature_multi_talent_yearly_plot(
+        talents, out_dir,
+        feature_key="median_f0", filename="f0_yearly_multi.png",
+        subject="Median Pitch (F0) by Year — Talent Comparison",
+        subtitle=_WHAT_IS_F0, unit_label="Median F0 (Hz)",
+    )
+
+
+def write_feature_multi_talent_yearly_plot(
+    talents: dict[str, list[dict]],
+    out_dir: Path,
+    *,
+    feature_key: str,
+    filename: str,
+    subject: str,
+    subtitle: str,
+    unit_label: str,
+    caveat: str | None = None,
+) -> None:
+    """Cross-talent yearly comparison for any numeric feature (the
+    generalization of write_multi_talent_plot's yearly panel — used
+    for median_f0 there, and for brightness/dynamism/voice-quality/
+    loudness by the CLI when a corpus actually has those keys). QC-pass
+    only; a talent's missing year for this feature is a genuine gap
+    (NaN), never interpolated across."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    names = sorted(talents)
+    per_talent = {
+        name: {
+            p["year"]: p["median"]
+            for p in f0_yearly(talents[name], qc=True, feature_key=feature_key)
+        }
         for name in names
     }
-    all_years = sorted({y for d in per_talent_y.values() for y in d})
+    all_years = sorted({y for d in per_talent.values() for y in d})
     xs = list(range(len(all_years)))
     fig, ax = plt.subplots(
-        figsize=(max(7.5, 1.1 * len(all_years)), 5.5), constrained_layout=True
+        figsize=(max(7.5, 1.1 * max(1, len(all_years))), 5.5), constrained_layout=True
     )
     for name in names:
-        ys = [per_talent_y[name].get(y, math.nan) for y in all_years]
+        ys = [per_talent[name].get(y, math.nan) for y in all_years]
         ax.plot(xs, ys, marker="o", label=name, markersize=6)
         for x, y in zip(xs, ys):
             if not math.isnan(y):
                 ax.annotate(
-                    f"{y:.0f}", (x, y), xytext=(0, 8), textcoords="offset points",
+                    f"{y:.2f}", (x, y), xytext=(0, 8), textcoords="offset points",
                     ha="center", fontsize="x-small",
                 )
     ax.set_xticks(xs)
     ax.set_xticklabels(all_years, rotation=45, ha="right")
-    ax.set_ylabel("Median F0 (Hz)")
+    ax.set_ylabel(unit_label)
     ax.grid(axis="y", alpha=0.3, linewidth=0.6)
     ax.set_axisbelow(True)
-    fig.suptitle("Median Pitch (F0) by Year — Talent Comparison", fontweight="bold")
-    ax.set_title(_WHAT_IS_F0, fontsize="small", color="dimgray")
+    fig.suptitle(subject, fontweight="bold")
+    ax.set_title(subtitle, fontsize="small", color="dimgray")
     if all_years:
-        top = max(y for d in per_talent_y.values() for y in d.values())
-        bottom = min(y for d in per_talent_y.values() for y in d.values())
+        all_vals = [y for d in per_talent.values() for y in d.values()]
+        top, bottom = max(all_vals), min(all_vals)
         headroom = (top - bottom) * 0.15 or top * 0.05
         ax.set_ylim(bottom - headroom * 0.3, top + headroom)
         ax.legend()
-    _add_caption(
-        fig,
-        "QC-pass clips only (median of that year's clip medians), one line\n"
-        "per talent — a gap means that talent has no QC-pass data that year.",
-        _QC_FOOTER,
-    )
-    fig.savefig(out_dir / "f0_yearly_multi.png")
+    caption_lines = [
+        "QC-pass clips only (median of that year's clip values), one line\n"
+        "per talent — a gap means that talent has no QC-pass data that year."
+    ]
+    if caveat:
+        caption_lines.append(caveat)
+    caption_lines.append(_QC_FOOTER)
+    _add_caption(fig, *caption_lines)
+    fig.savefig(out_dir / filename)
     plt.close(fig)
 
 

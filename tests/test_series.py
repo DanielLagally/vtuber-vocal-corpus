@@ -550,3 +550,24 @@ def test_write_feature_yearly_plot_creates_one_png_for_any_feature_key(
         unit_label="Brightness (Hz)",
     )
     assert {p.name for p in tmp_path.glob("*.png")} == {"brightness_yearly.png"}
+
+
+def test_write_feature_multi_talent_yearly_plot_creates_one_png(
+    tmp_path: Path,
+) -> None:
+    """The multi-talent generalization of write_feature_yearly_plot:
+    one line per talent, any feature_key, non-overlapping years across
+    talents must not crash (a real gap, not an error)."""
+    talent_a = [_entry("2024-01", 300.0, 45.0, "a0000001")]
+    talent_b = [_entry("2025-01", 250.0, 45.0, "b0000001")]
+    for entries in (talent_a, talent_b):
+        for entry in entries:
+            entry["features"]["brightness_hz"] = 1900.0
+
+    series.write_feature_multi_talent_yearly_plot(
+        {"Talent A": talent_a, "Talent B": talent_b}, tmp_path,
+        feature_key="brightness_hz", filename="brightness_yearly_multi.png",
+        subject="Brightness by Year — Talent Comparison",
+        subtitle="Spectral centroid.", unit_label="Brightness (Hz)",
+    )
+    assert {p.name for p in tmp_path.glob("*.png")} == {"brightness_yearly_multi.png"}
