@@ -54,6 +54,30 @@ def _list_holodex(api_key: str, channel: str | None = None) -> list[dict]:
     return rows
 
 
+def _dash_ids_argv(argv: list[str] | None, ret: argparse.ArgumentParser) -> list[str]:
+    """Normalize "--ids -<id>" to "--ids=<id>" so dash-leading ids survive parsing."""
+    if argv is None:
+        argv = sys.argv[1:]
+    options = set(ret._option_string_actions)
+    out: list[str] = []
+    i = 0
+    while i < len(argv):
+        nxt = argv[i + 1] if i + 1 < len(argv) else None
+        if (
+            argv[i] == "--ids"
+            and nxt is not None
+            and nxt.startswith("-")
+            and not nxt.startswith("--")
+            and nxt not in options
+        ):
+            out.append("--ids=" + nxt)
+            i += 2
+        else:
+            out.append(argv[i])
+            i += 1
+    return out
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="vanalysis")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -158,12 +182,21 @@ def main(argv: list[str] | None = None) -> None:
         help="ids to retry (default: every record whose qc.pass is false)",
     )
     ret.add_argument(
+        "--ids-file",
+        type=Path,
+        default=None,
+        help=(
+            "file with one video id per line, appended after --ids "
+            "(accepts dash-leading ids like -DwvlhziHBI)"
+        ),
+    )
+    ret.add_argument(
         "--dry-run",
         action="store_true",
         help="compute everything possible but write nothing",
     )
 
-    args = parser.parse_args(argv)
+    args = parser.parse_args(_dash_ids_argv(argv, ret))
     if args.cmd == "roster":
         talents = filter_talents(
             fetch_channels(org=args.org, api_key=_holodex_key())
@@ -207,8 +240,17 @@ def main(argv: list[str] | None = None) -> None:
         print(f"plots -> {args.out_dir}")
         return
     if args.cmd == "retry":
+        ids = list(args.ids) if args.ids else []
+        if args.ids_file is not None:
+            ids.extend(
+                line.strip()
+                for line in args.ids_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+        if args.ids_file is not None and not ids:
+            parser.error("give at least one video id via --ids or --ids-file")
         summary = run_retry(
-            args.ids,
+            ids or None,
             args.data_dir,
             measurements_path=args.measurements,
             windows_path=args.windows,
