@@ -115,6 +115,52 @@ def _list_holodex(api_key: str, channel: str | None = None) -> list[dict]:
     return rows
 
 
+def _load_registry(path: Path) -> dict[str, str]:
+    """``{measurements_path_str: talent_display_name}``. Missing file ->
+    empty registry (the very first talent ever plotted starts one)."""
+    if not path.is_file():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _save_registry(path: Path, registry: dict[str, str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(registry, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _load_registered_talents(registry: dict[str, str]) -> dict[str, list[dict]]:
+    """Loads every registered talent's measurements file. A registered
+    path that no longer exists (moved/renamed) is skipped with a
+    warning, not a crash — the comparison still runs on whoever's left."""
+    talents: dict[str, list[dict]] = {}
+    for path_str, name in registry.items():
+        path = Path(path_str)
+        if not path.is_file():
+            print(f"warning: registered talent {name!r} missing {path}, skipping", file=sys.stderr)
+            continue
+        talents[name] = json.loads(path.read_text(encoding="utf-8"))
+    return talents
+
+
+def _write_all_comparison_plots(talents: dict[str, list[dict]], run_dir: Path) -> None:
+    write_multi_talent_plot(talents, run_dir)
+    present_keys = {
+        key
+        for entries in talents.values()
+        for entry in entries
+        for key in (entry.get("features") or {})
+    }
+    for feature_key, filename, subject, subtitle, unit_label, caveat in _EXTRA_FEATURE_PLOTS:
+        if feature_key in present_keys:
+            write_feature_multi_talent_yearly_plot(
+                talents, run_dir,
+                feature_key=feature_key,
+                filename=filename.replace(".png", "_multi.png"),
+                subject=f"{subject} — Talent Comparison",
+                subtitle=subtitle, unit_label=unit_label, caveat=caveat,
+            )
+
+
 def _dash_ids_argv(argv: list[str] | None, ret: argparse.ArgumentParser) -> list[str]:
     """Normalize "--ids -<id>" to "--ids=<id>" so dash-leading ids survive parsing."""
     if argv is None:
@@ -224,6 +270,22 @@ def main(argv: list[str] | None = None) -> None:
         "--talent",
         default=None,
         help='display name for plot titles (e.g. "Himemori Luna")',
+    )
+    plo.add_argument(
+        "--registry",
+        type=Path,
+        default=Path("data/measurements/talents.json"),
+        help=(
+            "measurements-path -> display-name registry; --talent auto-"
+            "registers this run into it, then the cross-talent comparison "
+            "plots are regenerated from every registered talent"
+        ),
+    )
+    plo.add_argument(
+        "--no-compare",
+        action="store_true",
+        help="skip auto-updating the registry and regenerating the "
+        "cross-talent comparison plots",
     )
 
     cmp = sub.add_parser(
@@ -495,6 +557,15 @@ def main(argv: list[str] | None = None) -> None:
                     subject=subject, subtitle=subtitle, unit_label=unit_label,
                     talent=args.talent, caveat=caveat,
                 )
+        if not args.no_compare:
+            registry = _load_registry(args.registry)
+            if args.talent:
+                registry[str(args.measurements)] = args.talent
+                _save_registry(args.registry, registry)
+            talents = _load_registered_talents(registry)
+            if len(talents) >= 2:
+                _write_all_comparison_plots(talents, run_dir)
+                print(f"comparison plots ({', '.join(sorted(talents))}) -> {run_dir}")
         print(f"plots -> {run_dir}")
         return
     if args.cmd == "plot-compare":
@@ -503,22 +574,7 @@ def main(argv: list[str] | None = None) -> None:
             for name, path in args.talents
         }
         run_dir = new_run_dir(args.out_dir, args.label)
-        write_multi_talent_plot(talents, run_dir)
-        present_keys = {
-            key
-            for entries in talents.values()
-            for entry in entries
-            for key in (entry.get("features") or {})
-        }
-        for feature_key, filename, subject, subtitle, unit_label, caveat in _EXTRA_FEATURE_PLOTS:
-            if feature_key in present_keys:
-                write_feature_multi_talent_yearly_plot(
-                    talents, run_dir,
-                    feature_key=feature_key,
-                    filename=filename.replace(".png", "_multi.png"),
-                    subject=f"{subject} — Talent Comparison",
-                    subtitle=subtitle, unit_label=unit_label, caveat=caveat,
-                )
+        _write_all_comparison_plots(talents, run_dir)
         print(f"plots -> {run_dir}")
         return
     if args.cmd == "retry":
