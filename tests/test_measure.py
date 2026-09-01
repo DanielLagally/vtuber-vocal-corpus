@@ -210,33 +210,86 @@ def test_measure_qc_fails_on_wide_iqr_stem(tmp_path: Path) -> None:
 def test_qc_verdict_reasons_and_precedence() -> None:
     """Rule 9 (the shared QC verdict, dict entries): fail iff f0_iqr >= 200
     OR median_f0 non-finite OR median_f0 >= 600 (the numpy ACF tracker cap
-    _FMAX — a junk indicator, not a pitch ceiling). Reasons distinguish the
-    cause with precedence missing -> iqr -> high; a pass has reason None."""
+    _FMAX — a junk indicator, not a pitch ceiling) OR voiced_fraction < 0.15
+    (too little voiced content for the median/IQR to be a trustworthy
+    statistic — a handful of voiced frames can post a deceptively tight
+    IQR purely from having almost no data). Reasons distinguish the cause
+    with precedence missing -> voiced_fraction -> iqr -> high; a pass has
+    reason None."""
     from vanalysis import qc  # noqa: local import so a red phase fails only here
 
-    assert qc.qc_verdict({"median_f0": 220.0, "f0_iqr": 30.0}) == (True, None)
-    assert qc.qc_verdict({"median_f0": 599.5, "f0_iqr": 30.0}) == (True, None)
+    assert qc.qc_verdict({"median_f0": 220.0, "f0_iqr": 30.0, "voiced_fraction": 0.5}) == (
+        True,
+        None,
+    )
+    assert qc.qc_verdict({"median_f0": 599.5, "f0_iqr": 30.0, "voiced_fraction": 0.5}) == (
+        True,
+        None,
+    )
+    assert qc.qc_verdict(
+        {"median_f0": 220.0, "f0_iqr": 30.0, "voiced_fraction": 0.15}
+    ) == (True, None), "voiced_fraction exactly at the floor passes"
     assert qc.qc_verdict({"median_f0": math.nan, "f0_iqr": math.nan}) == (
         False,
         "f0_missing",
     )
-    # precedence: a missing median wins over IQR junk
+    # precedence: a missing median wins over everything else
     assert qc.qc_verdict({"median_f0": math.nan, "f0_iqr": 500.0}) == (
         False,
         "f0_missing",
     )
-    assert qc.qc_verdict({"median_f0": 220.0, "f0_iqr": math.nan}) == (
+    assert qc.qc_verdict(
+        {"median_f0": math.nan, "f0_iqr": 30.0, "voiced_fraction": 0.05}
+    ) == (False, "f0_missing")
+    # too little voiced content: fails even with a deceptively tight IQR
+    assert qc.qc_verdict(
+        {"median_f0": 220.0, "f0_iqr": 5.0, "voiced_fraction": 0.05}
+    ) == (False, "voiced_fraction")
+    assert qc.qc_verdict({"median_f0": 220.0, "f0_iqr": 30.0}) == (
+        False,
+        "voiced_fraction",
+    ), "a features dict with no voiced_fraction at all cannot be trusted either"
+    # precedence: low voiced_fraction wins over IQR junk
+    assert qc.qc_verdict(
+        {"median_f0": 220.0, "f0_iqr": 250.0, "voiced_fraction": 0.05}
+    ) == (False, "voiced_fraction")
+    assert qc.qc_verdict({"median_f0": 220.0, "f0_iqr": math.nan, "voiced_fraction": 0.5}) == (
         False,
         "f0_iqr",
     )
-    assert qc.qc_verdict({"median_f0": 220.0, "f0_iqr": 200.0}) == (
+    assert qc.qc_verdict({"median_f0": 220.0, "f0_iqr": 200.0, "voiced_fraction": 0.5}) == (
         False,
         "f0_iqr",
     )
-    assert qc.qc_verdict({"median_f0": 615.0, "f0_iqr": 30.0}) == (
+    assert qc.qc_verdict({"median_f0": 615.0, "f0_iqr": 30.0, "voiced_fraction": 0.5}) == (
         False,
         "f0_high",
     )
+
+
+def test_qc_requalify_recomputes_from_stored_features_only() -> None:
+    """requalify(records): applies the CURRENT qc_verdict to each
+    record's already-stored features (no re-measurement); every other
+    key, including a stale/wrong qc block, is left as-is except qc
+    itself; a record without features is passed through unchanged."""
+    from vanalysis import qc
+
+    records = [
+        {
+            "id": "stalepass01",
+            "features": {"median_f0": 220.0, "f0_iqr": 30.0, "voiced_fraction": 0.05},
+            "qc": {"pass": True, "reason": None},  # stale: predates the floor
+        },
+        {
+            "id": "nofeatures01",
+            "qc": {"pass": False, "reason": "f0_missing"},
+        },
+    ]
+    out = qc.requalify(records)
+    assert out[0]["id"] == "stalepass01"
+    assert out[0]["qc"] == {"pass": False, "reason": "voiced_fraction"}
+    assert out[0]["features"] == records[0]["features"]
+    assert out[1] == records[1]
 
 
 def test_measure_qc_fails_silent_stem_with_missing_reason(tmp_path: Path) -> None:
