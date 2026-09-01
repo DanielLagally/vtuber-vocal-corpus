@@ -34,6 +34,7 @@ def isolate_vocals(
     out_dir: Path,
     *,
     model_filename: str | None = None,
+    model_file_dir: str | None = None,
     runner: Callable[[list[str]], object] | None = None,
 ) -> Path:
     src_path = Path(src)
@@ -50,6 +51,8 @@ def isolate_vocals(
         argv.extend(["--ensemble_preset", _DEFAULT_PRESET])
     else:
         argv.extend(["--model_filename", model_filename])
+    if model_file_dir is not None:
+        argv.extend(["--model_file_dir", str(model_file_dir)])
     argv.append(str(src_path))
     run(argv)
     return vocals_path(src_path, dest_dir, model_filename=model_filename)

@@ -4,16 +4,15 @@ User-visible rules (synthetic stems ONLY — generated tones; fake windows
 and picks; never Cover/hololive audio, never downloads):
 
 1. ``measure.run_monthly(picks, windows_path, stems_dir, out_path, *,
-   model_filename=None)`` measures each pick's window (windows.json:
-   ``{video_id: {"start_s": .., "end_s": ..}}``) on its stem and PERSISTS
-   one JSON entry per measured pick to ``out_path``, returning the same
+   model_filename=None)`` measures each pick's stem and PERSISTS one
+   JSON entry per measured pick to ``out_path``, returning the same
    list.
 2. The persisted entry has EXACTLY these fields: ``id``, ``month``
    ("YYYY-MM" from the pick's available_at), ``score``
-   (catalog.score_video of the pick), ``window`` {start_s, end_s} (the
-   windows.json values), ``features`` {median_f0, f0_iqr,
+   (catalog.score_video of the pick), ``window`` (the windows.json
+   entry, metadata ONLY), ``features`` {median_f0, f0_iqr,
    voiced_fraction} measured from the stem, ``qc`` {pass, reason} (the
-   only QC rule: IQR >= 200 fails), plus a non-empty ``model``
+   QC rule of rule 9), plus a non-empty ``model``
    provenance string naming the isolation model.
 3. The stem for a pick is found in stems_dir under the name isolate
    writes for that id: "<id>_(vocals)_bs_roformer_vocals_resurrection_unwa.wav"
@@ -23,6 +22,27 @@ and picks; never Cover/hololive audio, never downloads):
    succeeds and persists the rest.
 5. Re-running merges by id: no duplicate entries for the same id, newly
    measured ids are added.
+6. Stems are the fast 90 s slices: lookup order is
+   "<id>_raw90_(vocals)_<model>.wav" FIRST (the stem base is the 90 s
+   slice "<id>_raw90"), falling back to the full-file-era
+   "<id>_(vocals)_<model>.wav". Features are measured over the WHOLE
+   stem — the stem IS the window; the full-file window offsets must
+   never be applied as a slice onto the 90 s stem.
+7. record["window"] is the windows.json entry persisted as METADATA
+   ONLY (never clipped to the stem duration, never the slice features
+   came from). Legacy 2-element array entries [start_s, end_s] are
+   tolerated and normalized to the {"start_s": .., "end_s": ..} object
+   form.
+8. If BOTH the fast and the full-file stem exist, the fast stem is
+   measured and the ambiguity is warned about.
+9. QC (PLAN, one shared rule): a record fails QC iff ``f0_iqr >= 200``
+   OR ``median_f0`` is non-finite OR ``median_f0 >= 600`` (600 is the
+   numpy ACF tracker cap ``_FMAX`` — a junk indicator, not "she cannot
+   speak that high"). The reason distinguishes the cause:
+   "f0_missing" (non-finite median) / "f0_iqr" (IQR junk) /
+   "f0_high" (median at or above the tracker cap), with precedence
+   missing first, then IQR, then high. The record schema and merge
+   behavior are unchanged.
 """
 
 import array
@@ -184,6 +204,157 @@ def test_measure_qc_fails_on_wide_iqr_stem(tmp_path: Path) -> None:
     )
 
 
+# ------------------------------------------------------------- QC rule
+
+
+def test_qc_verdict_reasons_and_precedence() -> None:
+    """Rule 9 (the shared QC verdict, dict entries): fail iff f0_iqr >= 200
+    OR median_f0 non-finite OR median_f0 >= 600 (the numpy ACF tracker cap
+    _FMAX — a junk indicator, not a pitch ceiling). Reasons distinguish the
+    cause with precedence missing -> iqr -> high; a pass has reason None."""
+    from vanalysis import qc  # noqa: local import so a red phase fails only here
+
+    assert qc.qc_verdict({"median_f0": 220.0, "f0_iqr": 30.0}) == (True, None)
+    assert qc.qc_verdict({"median_f0": 599.5, "f0_iqr": 30.0}) == (True, None)
+    assert qc.qc_verdict({"median_f0": math.nan, "f0_iqr": math.nan}) == (
+        False,
+        "f0_missing",
+    )
+    # precedence: a missing median wins over IQR junk
+    assert qc.qc_verdict({"median_f0": math.nan, "f0_iqr": 500.0}) == (
+        False,
+        "f0_missing",
+    )
+    assert qc.qc_verdict({"median_f0": 220.0, "f0_iqr": math.nan}) == (
+        False,
+        "f0_iqr",
+    )
+    assert qc.qc_verdict({"median_f0": 220.0, "f0_iqr": 200.0}) == (
+        False,
+        "f0_iqr",
+    )
+    assert qc.qc_verdict({"median_f0": 615.0, "f0_iqr": 30.0}) == (
+        False,
+        "f0_high",
+    )
+
+
+def test_measure_qc_fails_silent_stem_with_missing_reason(tmp_path: Path) -> None:
+    """Rule 9 (measure): a stem with no voiced frames measures
+    median_f0 = NaN — the record fails QC with reason "f0_missing", NOT
+    "f0_iqr" (even though the IQR is NaN too: missing beats iqr)."""
+    vid = "silence0001"
+    stems_dir = tmp_path / "stems"
+    _write_wav(stems_dir / f"{vid}{FAST_STEM_SUFFIX}", [0] * SR)  # 1 s silence
+    windows_path = tmp_path / "windows.json"
+    windows_path.write_text(
+        json.dumps({vid: {"start_s": 0.0, "end_s": 1.0}}), encoding="utf-8"
+    )
+
+    entries = _run(
+        [_pick(id=vid)],
+        stems_dir,
+        windows_path,
+        tmp_path / "measurements.json",
+        model_filename=MODEL_CKPT,
+    )
+
+    assert len(entries) == 1, "the silent stem is still measured and persisted"
+    assert math.isnan(entries[0]["features"]["median_f0"]), (
+        "silence measures NaN median, never an invented Hz"
+    )
+    qc = entries[0]["qc"]
+    assert qc["pass"] is False
+    assert qc["reason"] == "f0_missing", (
+        f"a NaN median is missing, not IQR junk — got {qc['reason']!r}"
+    )
+
+
+def _patch_features(monkeypatch, median_f0: float, f0_iqr: float) -> None:
+    """Pin what the stem measures so the QC wiring of run_monthly is tested
+    deterministically. (The ACF tracker cannot literally report an
+    arbitrary >=600 Hz median from a synthetic tone — such medians arise
+    from octave errors on real stems — so the features are pinned, not the
+    audio.)"""
+    monkeypatch.setattr(
+        measure,
+        "_stem_features",
+        lambda stem: {
+            "median_f0": median_f0,
+            "f0_iqr": f0_iqr,
+            "voiced_fraction": 0.6,
+        },
+    )
+
+
+def test_measure_qc_fails_median_f0_at_or_above_600(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Rule 9 (measure): a measured median_f0 >= 600 (tracker cap, octave
+    junk) with a tight IQR fails QC with reason "f0_high". The entry is
+    still persisted."""
+    vid = "octavejunk1"
+    stems_dir, windows_path = _setup(tmp_path, {vid: [220.0, 220.0]})
+    _patch_features(monkeypatch, median_f0=615.0, f0_iqr=30.0)
+
+    entries = _run(
+        [_pick(id=vid)],
+        stems_dir,
+        windows_path,
+        tmp_path / "measurements.json",
+        model_filename=MODEL_CKPT,
+    )
+
+    assert len(entries) == 1, "QC-failing measurements are persisted, not dropped"
+    qc = entries[0]["qc"]
+    assert qc["pass"] is False
+    assert qc["reason"] == "f0_high", (
+        f"a median at/above the 600 tracker cap is 'high', got {qc['reason']!r}"
+    )
+
+
+def test_measure_qc_passes_median_f0_just_under_600(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Rule 9 (measure): median_f0 just under 600 with a tight IQR passes
+    QC — there is no ceiling below the tracker cap."""
+    vid = "neartop0001"
+    stems_dir, windows_path = _setup(tmp_path, {vid: [220.0, 220.0]})
+    _patch_features(monkeypatch, median_f0=599.5, f0_iqr=30.0)
+
+    entries = _run(
+        [_pick(id=vid)],
+        stems_dir,
+        windows_path,
+        tmp_path / "measurements.json",
+        model_filename=MODEL_CKPT,
+    )
+
+    qc = entries[0]["qc"]
+    assert qc["pass"] is True, "599.x Hz with a tight IQR must pass QC"
+    assert qc["reason"] is None
+
+
+def test_measure_qc_fails_iqr_exactly_200(tmp_path: Path, monkeypatch) -> None:
+    """Rule 9 (measure, boundary preserved): f0_iqr = 200.0 exactly fails
+    QC (fail is >=, not >) with reason "f0_iqr"."""
+    vid = "edgeiqr0001"
+    stems_dir, windows_path = _setup(tmp_path, {vid: [220.0, 220.0]})
+    _patch_features(monkeypatch, median_f0=220.0, f0_iqr=200.0)
+
+    entries = _run(
+        [_pick(id=vid)],
+        stems_dir,
+        windows_path,
+        tmp_path / "measurements.json",
+        model_filename=MODEL_CKPT,
+    )
+
+    qc = entries[0]["qc"]
+    assert qc["pass"] is False, "iqr = 200.0 exactly must fail (boundary is >=)"
+    assert qc["reason"] == "f0_iqr"
+
+
 def test_measure_missing_stem_skipped_with_warning(tmp_path: Path) -> None:
     """Rule 4: a pick without a stem is skipped with a warning; the run
     still succeeds and persists the remaining pick. Uses the legacy preset
@@ -228,4 +399,193 @@ def test_measure_rerun_merges_by_id_without_duplicates(tmp_path: Path) -> None:
     assert persisted == merged, "the merged file is what is persisted"
     assert first[0] == next(e for e in merged if e["id"] == "mergeaaaa1"), (
         "the existing entry must survive the merge unchanged"
+    )
+
+
+# ------------------------------------------------------- fast-stem contract
+
+
+def test_measure_finds_raw90_fast_stem(tmp_path: Path) -> None:
+    """Rule 6 (lookup): the stems actually produced for the fast pipeline
+    are named "<id>_raw90_(vocals)_<model>.wav" (the stem base is the 90 s
+    slice "<id>_raw90", not the full file "<id>"). Such a stem IS found
+    and measured — not skipped as missing."""
+    vid = "fast90abc01"
+    stems_dir = tmp_path / "stems"
+    _write_wav(stems_dir / f"{vid}_raw90{FAST_STEM_SUFFIX}", _sine(220.0, 0.5))
+    windows_path = tmp_path / "windows.json"
+    windows_path.write_text(
+        json.dumps({vid: {"start_s": 0.0, "end_s": 0.5}}), encoding="utf-8"
+    )
+
+    entries = _run(
+        [_pick(id=vid)],
+        stems_dir,
+        windows_path,
+        tmp_path / "measurements.json",
+        model_filename=MODEL_CKPT,
+    )
+
+    assert [e["id"] for e in entries] == [vid], (
+        "the <id>_raw90_(vocals)_... fast stem must be found and measured"
+    )
+    feats = entries[0]["features"]
+    assert abs(feats["median_f0"] - 220.0) < 5.0, (
+        f"measured from the fast stem, got {feats['median_f0']}"
+    )
+
+
+def test_measure_falls_back_to_full_file_stem_name(tmp_path: Path) -> None:
+    """Rule 6 (fallback): a stem named "<id>_(vocals)_<model>.wav" without
+    the _raw90 marker (the pre-fast naming) is still found and measured."""
+    vid = "fallbackb01"
+    stems_dir = tmp_path / "stems"
+    _write_wav(stems_dir / f"{vid}{FAST_STEM_SUFFIX}", _sine(220.0, 0.5))
+    windows_path = tmp_path / "windows.json"
+    windows_path.write_text(
+        json.dumps({vid: {"start_s": 0.0, "end_s": 0.5}}), encoding="utf-8"
+    )
+
+    entries = _run(
+        [_pick(id=vid)],
+        stems_dir,
+        windows_path,
+        tmp_path / "measurements.json",
+        model_filename=MODEL_CKPT,
+    )
+
+    assert [e["id"] for e in entries] == [vid], (
+        "the fallback <id>_(vocals)_... stem must still be found"
+    )
+    assert abs(entries[0]["features"]["median_f0"] - 220.0) < 5.0
+
+
+def _tone_then_silence_samples(
+    tone_hz: float, tone_s: float, total_s: float
+) -> list[int]:
+    return _sine(tone_hz, tone_s) + [0] * int(round((total_s - tone_s) * SR))
+
+
+def test_measure_uses_whole_stem_not_window_reslice(tmp_path: Path) -> None:
+    """Rule 6 (whole stem): features come from the WHOLE 90 s stem — the
+    stem IS the window. A windows.json entry holding full-15-min offsets
+    (60–150 s here) is metadata only; re-slicing the 90 s stem with it
+    would land in the silent tail (median_f0 nan) — that must not
+    happen."""
+    vid = "wholestem1"
+    stems_dir = tmp_path / "stems"
+    _write_wav(
+        stems_dir / f"{vid}{FAST_STEM_SUFFIX}",
+        _tone_then_silence_samples(220.0, tone_s=30.0, total_s=90.0),
+    )
+    windows_path = tmp_path / "windows.json"
+    windows_path.write_text(
+        json.dumps({vid: {"start_s": 60.0, "end_s": 150.0}}), encoding="utf-8"
+    )
+
+    entries = _run(
+        [_pick(id=vid)],
+        stems_dir,
+        windows_path,
+        tmp_path / "measurements.json",
+        model_filename=MODEL_CKPT,
+    )
+
+    assert len(entries) == 1, "the stem must be measured"
+    feats = entries[0]["features"]
+    assert math.isfinite(feats["median_f0"]), (
+        f"whole-stem measurement must see the 220 Hz first-30 s tone, got {feats}"
+    )
+    assert abs(feats["median_f0"] - 220.0) < 5.0, (
+        f"features must reflect the whole stem (tone at its head), got {feats}"
+    )
+
+
+def test_window_metadata_is_the_windows_json_entry(tmp_path: Path) -> None:
+    """Rule 7: record["window"] is the windows.json entry verbatim (object
+    form), persisted as metadata only — NOT clipped to the stem duration
+    and NOT the slice the features came from (features are whole-stem)."""
+    vid = "metaonly001"
+    stems_dir = tmp_path / "stems"
+    _write_wav(
+        stems_dir / f"{vid}{FAST_STEM_SUFFIX}",
+        _tone_then_silence_samples(220.0, tone_s=30.0, total_s=90.0),
+    )
+    windows_path = tmp_path / "windows.json"
+    windows_path.write_text(
+        json.dumps({vid: {"start_s": 60.0, "end_s": 150.0}}), encoding="utf-8"
+    )
+
+    entries = _run(
+        [_pick(id=vid)],
+        stems_dir,
+        windows_path,
+        tmp_path / "measurements.json",
+        model_filename=MODEL_CKPT,
+    )
+
+    assert len(entries) == 1
+    assert entries[0]["window"] == {"start_s": 60.0, "end_s": 150.0}, (
+        f"window metadata must be the windows.json entry, got {entries[0]['window']}"
+    )
+    assert abs(entries[0]["features"]["median_f0"] - 220.0) < 5.0, (
+        "while the features remain whole-stem"
+    )
+
+
+def test_legacy_array_window_entry_is_tolerated(tmp_path: Path) -> None:
+    """Rule 7 (legacy): the 24-clip era wrote windows.json values as
+    2-element arrays [start_s, end_s]. Reading them must not crash and the
+    record's window metadata is normalized to the object form."""
+    vid = "legacywin01"
+    stems_dir = tmp_path / "stems"
+    _write_wav(
+        stems_dir / f"{vid}{FAST_STEM_SUFFIX}",
+        _tone_then_silence_samples(220.0, tone_s=30.0, total_s=90.0),
+    )
+    windows_path = tmp_path / "windows.json"
+    windows_path.write_text(json.dumps({vid: [60.0, 150.0]}), encoding="utf-8")
+
+    entries = _run(
+        [_pick(id=vid)],
+        stems_dir,
+        windows_path,
+        tmp_path / "measurements.json",
+        model_filename=MODEL_CKPT,
+    )
+
+    assert len(entries) == 1, "a legacy array window entry must not crash the run"
+    assert entries[0]["window"] == {"start_s": 60.0, "end_s": 150.0}, (
+        f"array window must be normalized to the object form, "
+        f"got {entries[0]['window']}"
+    )
+    assert abs(entries[0]["features"]["median_f0"] - 220.0) < 5.0
+
+
+def test_measure_prefers_fast_stem_when_both_exist(tmp_path: Path) -> None:
+    """Rule 8: when both "<id>_raw90_(vocals)_..." and
+    "<id>_(vocals)_..." exist, the fast stem is measured and the
+    ambiguity is warned about (distinguishable: the fast stem carries the
+    220 Hz tone, the full-file-era stem 440 Hz)."""
+    vid = "bothstem001"
+    stems_dir = tmp_path / "stems"
+    _write_wav(stems_dir / f"{vid}_raw90{FAST_STEM_SUFFIX}", _sine(220.0, 1.0))
+    _write_wav(stems_dir / f"{vid}{FAST_STEM_SUFFIX}", _sine(440.0, 1.0))
+    windows_path = tmp_path / "windows.json"
+    windows_path.write_text(
+        json.dumps({vid: {"start_s": 0.0, "end_s": 1.0}}), encoding="utf-8"
+    )
+
+    with pytest.warns(UserWarning, match=vid):
+        entries = _run(
+            [_pick(id=vid)],
+            stems_dir,
+            windows_path,
+            tmp_path / "measurements.json",
+            model_filename=MODEL_CKPT,
+        )
+
+    assert len(entries) == 1
+    assert abs(entries[0]["features"]["median_f0"] - 220.0) < 5.0, (
+        f"the fast (<id>_raw90) stem must win, got {entries[0]['features']}"
     )

@@ -15,6 +15,13 @@ audio, never downloads):
    sample width are preserved.
 5. slice_wav clamps end_s beyond EOF to the end of file; a start_s at or
    after the duration raises ValueError.
+6. second_speech_window(path, first) hunts the 2nd-best window on the
+   same grid as best_speech_window that does NOT overlap the first
+   window: it picks a later tone island, never overlaps `first` (early,
+   mid-file, or late), raises ValueError when no non-overlapping window
+   fits, breaks score ties toward the earliest remaining candidate,
+   accepts Path | str, and validates `first` as a non-empty half-open
+   range inside the file.
 
 Fixtures are tiny wavs (16 kHz, mono, 16-bit) synthesized here with the
 stdlib `wave` module into <repo>/fixtures/ — deterministic (seeded RNG),
@@ -97,6 +104,23 @@ def fixtures_dir() -> Path:
     _write_wav(FIXTURES_DIR / "window_short.wav", _sine(220.0, 1.0))
     # 3 s tone for slice_wav: 48000 samples to cut ranges out of.
     _write_wav(FIXTURES_DIR / "slice_src.wav", _sine(220.0, 3.0))
+    # 8 s with two isolated islands: 220 Hz on [1,3), digital silence,
+    # then a 300 Hz + 500 Hz island on [5,7) (two-tone => high F0 IQR),
+    # silence around. Only s=1.0 and s=5.0 give fully-voiced 2 s windows;
+    # the pure tone's IQR is far below the two-tone's, so best = A and
+    # the best non-overlapping window = B, deterministically.
+    _write_wav(
+        FIXTURES_DIR / "window_two_islands.wav",
+        [0] * SR
+        + _sine(220.0, 2.0)
+        + [0] * (2 * SR)
+        + _sine(300.0, 1.0)
+        + _sine(500.0, 1.0)
+        + [0] * SR,
+    )
+    # 8 s of digital silence: every candidate window scores identically
+    # (voiced 0.0), so selection is a pure tie-break check.
+    _write_wav(FIXTURES_DIR / "window_silence_8s.wav", [0] * (8 * SR))
     return FIXTURES_DIR
 
 
@@ -137,6 +161,107 @@ def test_signature_accepts_path_and_str(fixtures_dir: Path) -> None:
     assert from_path == from_str
     start_s, end_s = from_str
     assert end_s - start_s == 2.0
+
+
+# ---------------------------------------------------- second_speech_window
+
+
+def test_second_window_picks_the_second_island(fixtures_dir: Path) -> None:
+    """Rule 6a: with an early island A and a late island B, best picks A
+    and second_speech_window picks B — the 2nd-best window, not a shift
+    of the first."""
+    path = fixtures_dir / "window_two_islands.wav"
+    first = windows.best_speech_window(path, window_s=2.0, hop_s=0.5)
+    assert first == (1.0, 3.0), f"best must be island A [1,3), got {first}"
+
+    second = windows.second_speech_window(path, first, window_s=2.0, hop_s=0.5)
+    assert second == (5.0, 7.0), f"second must be island B [5,7), got {second}"
+
+
+@pytest.mark.parametrize(
+    ("first", "case"), [((0.0, 2.0), "early"), ((3.0, 5.0), "mid"), ((6.0, 8.0), "late")]
+)
+def test_second_window_never_overlaps_first(
+    fixtures_dir: Path, first: tuple[float, float], case: str
+) -> None:
+    """Rule 6b: whatever the first window (early, mid-file, late), the
+    second window is a valid in-file window that does not intersect it."""
+    path = fixtures_dir / "window_two_islands.wav"
+    fs, fe = first
+    s2, e2 = windows.second_speech_window(path, first, window_s=2.0, hop_s=0.5)
+    assert e2 - s2 == 2.0, f"window must be exactly window_s long, got {e2 - s2}"
+    assert 0.0 <= s2 and e2 <= 8.0, f"{(s2, e2)} is not inside the 8 s file"
+    assert not (s2 < fe and fs < e2), (
+        f"{case}: second window {(s2, e2)} overlaps first window {first}"
+    )
+
+
+def test_second_window_raises_when_file_shorter_than_window(
+    fixtures_dir: Path,
+) -> None:
+    """Rule 6c: a 1 s file with the default 90 s window has no fitting
+    second window at all — ValueError, never an invented window."""
+    with pytest.raises(ValueError, match="no non-overlapping"):
+        windows.second_speech_window(
+            fixtures_dir / "window_short.wav", (0.0, 1.0), window_s=90.0
+        )
+
+
+def test_second_window_raises_when_no_room_after_first(fixtures_dir: Path) -> None:
+    """Rule 6c (cont.): first window [0,7) in an 8 s file leaves less than
+    window_s of tail — every grid candidate overlaps, so ValueError."""
+    with pytest.raises(ValueError, match="no non-overlapping"):
+        windows.second_speech_window(
+            fixtures_dir / "window_two_islands.wav",
+            (0.0, 7.0),
+            window_s=2.0,
+            hop_s=0.5,
+        )
+
+
+def test_second_window_tie_prefers_earliest_non_overlapping(
+    fixtures_dir: Path,
+) -> None:
+    """Rule 6d: when all remaining candidates score identically (silent
+    file -> voiced 0.0 everywhere), the earliest non-overlapping grid
+    start wins — same tie rule as best_speech_window. With first=[2,4)
+    the earliest non-overlapping candidate is the window immediately
+    BEFORE it: [0,2) is disjoint from [2,4) (half-open intervals)."""
+    s2, e2 = windows.second_speech_window(
+        fixtures_dir / "window_silence_8s.wav", (2.0, 4.0), window_s=2.0, hop_s=0.5
+    )
+    assert (s2, e2) == (0.0, 2.0), f"tie must go to the earliest candidate, got {(s2, e2)}"
+
+
+def test_second_window_accepts_path_and_str(fixtures_dir: Path) -> None:
+    """Rule 6e: second_speech_window accepts Path | str, same answer."""
+    p = fixtures_dir / "window_two_islands.wav"
+    first = windows.best_speech_window(p, window_s=2.0, hop_s=0.5)
+    from_path = windows.second_speech_window(p, first, window_s=2.0, hop_s=0.5)
+    from_str = windows.second_speech_window(str(p), first, window_s=2.0, hop_s=0.5)
+    assert from_path == from_str
+    assert from_str == (5.0, 7.0)
+
+
+@pytest.mark.parametrize(
+    ("first", "reason"),
+    [
+        ((-1.0, 2.0), "negative"),
+        ((3.0, 3.0), "empty"),
+        ((2.5, 2.0), "reversed"),
+        ((0.0, 8.5), "beyond"),
+    ],
+)
+def test_second_window_validates_first_window(
+    fixtures_dir: Path, first: tuple[float, float], reason: str
+) -> None:
+    """Rule 6f (chosen policy): `first` must be a non-empty half-open
+    range inside the file — start >= 0, end > start, end <= duration.
+    Anything else is a caller bug and raises ValueError."""
+    with pytest.raises(ValueError):
+        windows.second_speech_window(
+            fixtures_dir / "window_two_islands.wav", first, window_s=2.0, hop_s=0.5
+        )
 
 
 # ---------------------------------------------------------------- slice_wav

@@ -21,7 +21,8 @@ audio; everything lives in tmp_path):
    (isolate_vocals may create it itself, or leave it to the runner —
    either way the returned path must exist afterwards).
 4. Exact signatures: ``vocals_path(src, out_dir, *, model_filename=None)``;
-   ``isolate_vocals(src, out_dir, *, model_filename=None, runner=None)``.
+   ``isolate_vocals(src, out_dir, *, model_filename=None,
+   model_file_dir=None, runner=None)``.
    Both accept Path | str for src, and the stem derives from the source
    filename.
 5. Single-model path: ``model_filename="bs_roformer_vocals_resurrection_unwa.ckpt"``
@@ -31,6 +32,13 @@ audio; everything lives in tmp_path):
    stripped, lowercase "(vocals)" — exactly the data/stems_fast naming.
    The legacy ``model_filename=None`` path keeps rule 1/2b unchanged.
 6. Both paths still create ``out_dir`` and keep ``runner`` keyword-only.
+7. ``model_file_dir`` (audio-separator 0.47 ``--model_file_dir``): when
+   passed, the argv carries ``--model_file_dir <dir>`` so the model ckpt
+   cache lands in an in-tree dir instead of audio-separator's default
+   ``/tmp/audio-separator-models/``; when not passed (None) the argv has
+   NO ``--model_file_dir`` at all — default behavior unchanged. It
+   influences only the argv, never the output naming (``vocals_path`` is
+   unaffected).
 """
 
 import inspect
@@ -199,7 +207,8 @@ def test_isolate_vocals_runner_is_keyword_only(tmp_path: Path) -> None:
 def test_signatures_match_contract() -> None:
     """Rules 4+6: exact signatures —
     vocals_path(src, out_dir, *, model_filename=None);
-    isolate_vocals(src, out_dir, *, model_filename=None, runner=None)."""
+    isolate_vocals(src, out_dir, *, model_filename=None,
+    model_file_dir=None, runner=None)."""
     vp = inspect.signature(isolate.vocals_path)
     assert list(vp.parameters) == ["src", "out_dir", "model_filename"]
     assert all(
@@ -213,12 +222,14 @@ def test_signatures_match_contract() -> None:
     assert mf.default is None, "vocals_path model_filename must default to None"
 
     iv = inspect.signature(isolate.isolate_vocals)
-    assert list(iv.parameters) == ["src", "out_dir", "model_filename", "runner"]
+    assert list(iv.parameters) == [
+        "src", "out_dir", "model_filename", "model_file_dir", "runner",
+    ]
     assert all(
         iv.parameters[name].default is inspect.Parameter.empty
         for name in ("src", "out_dir")
     ), "src and out_dir must be required positional parameters"
-    for name in ("model_filename", "runner"):
+    for name in ("model_filename", "model_file_dir", "runner"):
         param = iv.parameters[name]
         assert param.kind is inspect.Parameter.KEYWORD_ONLY, (
             f"isolate_vocals {name} must be keyword-only"
@@ -293,3 +304,100 @@ def test_isolate_vocals_single_model_returns_fast_stem_and_creates_out_dir(
     assert result == expected, f"expected {expected}, got {result}"
     assert result == isolate.vocals_path(src, out_dir, model_filename=MODEL_CKPT)
     assert result.exists(), "the returned wav path must exist after isolate_vocals"
+
+
+# ------------------------------------------------------ model_file_dir option
+
+
+def test_isolate_vocals_model_file_dir_lands_in_argv_when_passed(
+    tmp_path: Path,
+) -> None:
+    """Rule 7: with model_file_dir set, the argv carries
+    --model_file_dir <dir> (audio-separator 0.47 flag) so the RoFormer
+    ckpt cache is pinned to an in-tree dir."""
+    src = _make_src(tmp_path)
+    out_dir = tmp_path / "stems_fast"
+    models_dir = str(tmp_path / "models")
+    calls: list[list[str]] = []
+    runner = _make_fake_runner(
+        calls, isolate.vocals_path(src, out_dir, model_filename=MODEL_CKPT)
+    )
+
+    isolate.isolate_vocals(
+        src, out_dir,
+        model_filename=MODEL_CKPT, model_file_dir=models_dir, runner=runner,
+    )
+
+    argv = calls[0]
+    assert _argv_option_value(argv, "--model_file_dir") == models_dir, (
+        f"--model_file_dir {models_dir!r} missing from argv {argv!r}"
+    )
+
+
+def test_isolate_vocals_model_file_dir_works_on_both_model_paths(
+    tmp_path: Path,
+) -> None:
+    """Rule 7: the legacy preset path (model_filename=None) takes
+    --model_file_dir too."""
+    src = _make_src(tmp_path)
+    out_dir = tmp_path / "stems"
+    models_dir = str(tmp_path / "models")
+    calls: list[list[str]] = []
+    runner = _make_fake_runner(calls, isolate.vocals_path(src, out_dir))
+
+    isolate.isolate_vocals(src, out_dir, model_file_dir=models_dir, runner=runner)
+
+    argv = calls[0]
+    assert _argv_option_value(argv, "--model_file_dir") == models_dir
+    assert any("vocal_balanced" in part for part in argv), (
+        "the preset path must keep --ensemble_preset when model_file_dir is set"
+    )
+
+
+def test_isolate_vocals_default_argv_has_no_model_file_dir(tmp_path: Path) -> None:
+    """Rule 7: default behavior unchanged — without model_file_dir the
+    argv carries NO --model_file_dir at all (audio-separator uses its own
+    default model dir), on both the single-model and the preset path."""
+    src = _make_src(tmp_path)
+    calls: list[list[str]] = []
+
+    runner = _make_fake_runner(
+        calls, isolate.vocals_path(src, tmp_path / "s1", model_filename=MODEL_CKPT)
+    )
+    isolate.isolate_vocals(
+        src, tmp_path / "s1", model_filename=MODEL_CKPT, runner=runner
+    )
+    assert not any("model_file_dir" in part for part in calls[0]), (
+        f"default single-model argv must not carry --model_file_dir: {calls[0]!r}"
+    )
+
+    runner2 = _make_fake_runner(
+        calls, isolate.vocals_path(src, tmp_path / "s2")
+    )
+    isolate.isolate_vocals(src, tmp_path / "s2", runner=runner2)
+    assert not any("model_file_dir" in part for part in calls[-1]), (
+        f"default preset argv must not carry --model_file_dir: {calls[-1]!r}"
+    )
+
+
+def test_isolate_vocals_model_file_dir_never_changes_output_name(
+    tmp_path: Path,
+) -> None:
+    """Rule 7: the model cache dir influences only the argv — the output
+    name is still vocals_path(...) with the same model stem."""
+    src = _make_src(tmp_path)
+    out_dir = tmp_path / "stems_fast"
+    calls: list[list[str]] = []
+    runner = _make_fake_runner(
+        calls, isolate.vocals_path(src, out_dir, model_filename=MODEL_CKPT)
+    )
+
+    result = isolate.isolate_vocals(
+        src, out_dir,
+        model_filename=MODEL_CKPT, model_file_dir=str(tmp_path / "models"),
+        runner=runner,
+    )
+
+    expected = out_dir / EXPECTED_FAST_NAME
+    assert result == expected, f"expected {expected}, got {result}"
+    assert result.exists()

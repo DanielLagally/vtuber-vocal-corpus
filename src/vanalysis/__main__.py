@@ -2,40 +2,23 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
 from vanalysis.catalog import filter_videos, pick_monthly
+from vanalysis.expand import run_plan
 from vanalysis.fetch import audio_path, fetch_audio_many
+from vanalysis.holodex import holodex_key as _holodex_key
+from vanalysis.holodex import load_dotenv as _load_dotenv  # noqa: F401 (compat alias)
 from vanalysis.isolate import DEFAULT_MODEL_FILENAME, isolate_vocals, vocals_path
 from vanalysis.measure import run_monthly
+from vanalysis.retry import run_retry
+from vanalysis.roster import fetch_channels, filter_talents, write_roster
 from vanalysis.series import write_plots
 from vanalysis.windows import best_speech_window, slice_wav
 
 _HOLODEX_VIDEOS = "https://holodex.net/api/v2/videos"
 _PAGE = 50
-
-
-def _load_dotenv() -> None:
-    env_path = Path(__file__).resolve().parents[2] / ".env"
-    if not env_path.is_file():
-        return
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        name, _, value = line.partition("=")
-        os.environ.setdefault(name.strip(), value.strip())
-
-
-def _holodex_key() -> str:
-    _load_dotenv()
-    key = os.environ.get("HOLODEX_API_KEY")
-    if not key:
-        print("HOLODEX_API_KEY is not set", file=sys.stderr)
-        sys.exit(2)
-    return key
 
 
 def _list_holodex(api_key: str, channel: str | None = None) -> list[dict]:
@@ -80,6 +63,35 @@ def main(argv: list[str] | None = None) -> None:
     cat.add_argument("--channel", default=None)
     cat.add_argument("--monthly", action="store_true")
 
+    ros = sub.add_parser(
+        "roster",
+        help="fetch the Holodex channel roster and write the active talent set",
+    )
+    ros.add_argument(
+        "-o",
+        "--out",
+        type=Path,
+        default=Path("data/catalog/roster.json"),
+    )
+    ros.add_argument("--org", default="Hololive")
+
+    plan = sub.add_parser(
+        "plan",
+        help="per-talent v1 sampling plan from cached Holodex listings (metadata only)",
+    )
+    plan.add_argument(
+        "--roster", type=Path, default=Path("data/catalog/roster.json")
+    )
+    plan.add_argument(
+        "--cache-dir", type=Path, default=Path("data/catalog/video_cache")
+    )
+    plan.add_argument(
+        "-o",
+        "--out",
+        type=Path,
+        default=Path("data/catalog/expansion_plan.json"),
+    )
+
     get = sub.add_parser("fetch", help="download video ids to data/audio/<id>.wav")
     get.add_argument("video_ids", nargs="*")
     get.add_argument("--data-dir", type=Path, default=Path("data"))
@@ -113,7 +125,67 @@ def main(argv: list[str] | None = None) -> None:
     plo.add_argument("--measurements", type=Path, required=True)
     plo.add_argument("--out-dir", type=Path, default=Path("data/plots"))
 
+    ret = sub.add_parser(
+        "retry",
+        help=(
+            "re-measure QC-failing months on a 2nd 90 s window "
+            "(<id>_raw90b) and replace passing ones"
+        ),
+    )
+    ret.add_argument(
+        "--measurements",
+        type=Path,
+        default=Path("data/measurements/luna_monthly.json"),
+    )
+    ret.add_argument(
+        "--windows", type=Path, default=Path("data/windows/windows.json")
+    )
+    ret.add_argument("--data-dir", type=Path, default=Path("data"))
+    ret.add_argument("--stems-dir", type=Path, default=Path("data/stems_fast"))
+    ret.add_argument("--model-filename", default=DEFAULT_MODEL_FILENAME)
+    ret.add_argument(
+        "--model-file-dir",
+        default=None,
+        help=(
+            "optional audio-separator --model_file_dir (model ckpt cache "
+            "dir, e.g. data/models); default: audio-separator's own"
+        ),
+    )
+    ret.add_argument(
+        "--ids",
+        nargs="*",
+        default=None,
+        help="ids to retry (default: every record whose qc.pass is false)",
+    )
+    ret.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="compute everything possible but write nothing",
+    )
+
     args = parser.parse_args(argv)
+    if args.cmd == "roster":
+        talents = filter_talents(
+            fetch_channels(org=args.org, api_key=_holodex_key())
+        )
+        write_roster(talents, args.out)
+        groups: dict[str, int] = {}
+        for row in talents:
+            groups[row["group"]] = groups.get(row["group"], 0) + 1
+        print(f"{len(talents)} talents -> {args.out}")
+        for group in sorted(groups):
+            print(f"  {group}: {groups[group]}")
+        return
+    if args.cmd == "plan":
+        payload = run_plan(args.roster, args.cache_dir, args.out, api_key=_holodex_key())
+        print(
+            f"{payload['talents_planned']}/{payload['roster_count']} talents, "
+            f"{payload['total_picks']} picks, ~{payload['est_disk_gb']} GB -> {args.out}"
+        )
+        for record in payload["talents"]:
+            if record["pick_count"] == 0:
+                print(f"  zero eligible picks: {record['name']} ({record['group']})")
+        return
     if args.cmd == "catalog":
         kept = filter_videos(_list_holodex(_holodex_key(), channel=args.channel))
         if args.monthly:
@@ -133,6 +205,19 @@ def main(argv: list[str] | None = None) -> None:
         entries = json.loads(args.measurements.read_text(encoding="utf-8"))
         write_plots(entries, args.out_dir)
         print(f"plots -> {args.out_dir}")
+        return
+    if args.cmd == "retry":
+        summary = run_retry(
+            args.ids,
+            args.data_dir,
+            measurements_path=args.measurements,
+            windows_path=args.windows,
+            stems_dir=args.stems_dir,
+            model_filename=args.model_filename,
+            model_file_dir=args.model_file_dir,
+            dry_run=args.dry_run,
+        )
+        print(json.dumps(summary, indent=2))
         return
     ids = list(args.video_ids)
     if args.ids_file is not None:
