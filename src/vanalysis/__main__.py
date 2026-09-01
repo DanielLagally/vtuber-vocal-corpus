@@ -20,10 +20,60 @@ from vanalysis.retry import run_retry
 from vanalysis.roster import fetch_channels, filter_talents, write_roster
 from vanalysis.series import (
     new_run_dir,
+    write_feature_yearly_plot,
     write_multi_talent_plot,
     write_plots,
     write_quarterly_plots,
     write_yearly_plot,
+)
+
+# (feature_key, filename, subject, subtitle, unit_label, caveat|None) - each
+# plotted only when at least one measurement record actually has the key
+# (older corpora / pre-backfill records won't).
+_EXTRA_FEATURE_PLOTS = (
+    (
+        "brightness_hz", "brightness_yearly.png", "Brightness by Year",
+        "Spectral centroid - a brighter/more forward vs. darker/warmer voice.\n"
+        "Mic/EQ and leftover BGM affect this too; trust the relative shape.",
+        "Brightness (Hz)", None,
+    ),
+    (
+        "dynamism_semitones", "dynamism_yearly.png", "Pitch Dynamism by Year",
+        "Mean semitone change between consecutive voiced frames - how much\n"
+        "the pitch actually moves, not just its static spread (F0 IQR).",
+        "Dynamism (semitones)", None,
+    ),
+    (
+        "loudness_dynamics_db", "loudness_dynamics_yearly.png",
+        "Loudness Dynamics by Year",
+        "Spread of frame loudness (RMS in dB) within a clip - animated\n"
+        "volume swings vs. a flat, even delivery.",
+        "Loudness spread (dB)", None,
+    ),
+    (
+        "jitter_local", "jitter_yearly.png", "Jitter by Year",
+        "Cycle-to-cycle pitch-period timing irregularity.",
+        "Jitter (local, fraction)",
+        "CAVEAT: calibrated for a sustained vowel, not conversational speech,\n"
+        "and sensitive to residual vocal-isolation artifact - trust the\n"
+        "relative shape within this pipeline, not the absolute number.",
+    ),
+    (
+        "shimmer_local", "shimmer_yearly.png", "Shimmer by Year",
+        "Cycle-to-cycle amplitude irregularity.",
+        "Shimmer (local, fraction)",
+        "CAVEAT: calibrated for a sustained vowel, not conversational speech,\n"
+        "and sensitive to residual vocal-isolation artifact - trust the\n"
+        "relative shape within this pipeline, not the absolute number.",
+    ),
+    (
+        "hnr_db", "hnr_yearly.png", "Harmonics-to-Noise Ratio by Year",
+        "Higher = clearer/more tonal voice; lower = breathier/noisier.",
+        "HNR (dB)",
+        "CAVEAT: calibrated for a sustained vowel, not conversational speech,\n"
+        "and sensitive to residual vocal-isolation artifact - trust the\n"
+        "relative shape within this pipeline, not the absolute number.",
+    ),
 )
 from vanalysis.windows import best_speech_window, slice_wav
 
@@ -431,6 +481,19 @@ def main(argv: list[str] | None = None) -> None:
         write_plots(entries, run_dir, talent=args.talent)
         write_quarterly_plots(entries, run_dir, talent=args.talent)
         write_yearly_plot(entries, run_dir, talent=args.talent)
+        present_keys = {
+            key
+            for entry in entries
+            for key in (entry.get("features") or {})
+        }
+        for feature_key, filename, subject, subtitle, unit_label, caveat in _EXTRA_FEATURE_PLOTS:
+            if feature_key in present_keys:
+                write_feature_yearly_plot(
+                    entries, run_dir,
+                    feature_key=feature_key, filename=filename,
+                    subject=subject, subtitle=subtitle, unit_label=unit_label,
+                    talent=args.talent, caveat=caveat,
+                )
         print(f"plots -> {run_dir}")
         return
     if args.cmd == "plot-compare":

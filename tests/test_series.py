@@ -527,3 +527,26 @@ def test_write_multi_talent_plot_creates_two_pngs_no_crash_on_gap(
         "f0_quarterly_multi.png",
         "f0_yearly_multi.png",
     }
+
+
+def test_write_feature_yearly_plot_creates_one_png_for_any_feature_key(
+    tmp_path: Path,
+) -> None:
+    """write_feature_yearly_plot generalizes the yearly plot to any
+    numeric feature (brightness, dynamism, jitter, ...) via
+    feature_key; QC-pass still gates on the shared F0/IQR rule, not on
+    the plotted feature itself. Existence only, no image comparison —
+    matches this repo's plot-testing convention."""
+    entries = []
+    for month, brightness in (("2024-03", 1900.0), ("2024-07", 2100.0), ("2025-02", 2000.0)):
+        entry = _entry(month, 300.0, 45.0, f"id{month.replace('-', '')}")
+        entry["features"]["brightness_hz"] = brightness
+        entries.append(entry)
+
+    series.write_feature_yearly_plot(
+        entries, tmp_path,
+        feature_key="brightness_hz", filename="brightness_yearly.png",
+        subject="Brightness by Year", subtitle="Spectral centroid.",
+        unit_label="Brightness (Hz)",
+    )
+    assert {p.name for p in tmp_path.glob("*.png")} == {"brightness_yearly.png"}

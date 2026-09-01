@@ -175,18 +175,24 @@ def _year(month: object) -> str | None:
     return year
 
 
-def f0_yearly(entries: list[dict], qc: bool = False) -> list[dict]:
+def f0_yearly(
+    entries: list[dict], qc: bool = False, *, feature_key: str = "median_f0"
+) -> list[dict]:
     """Per calendar year (PLAN L36 year rule): the MEDIAN of that year's
-    clip ``median_f0`` values (clip-level — not month-means first, the
-    clip is the sample), plus min and max of the same values (the
-    between-clip spread), and n, sorted by year.
+    clip ``feature_key`` values (clip-level — not month-means first, the
+    clip is the sample; default ``median_f0``, but any numeric feature
+    key works the same way — brightness_hz, dynamism_semitones, etc.),
+    plus min and max of the same values (the between-clip spread), and
+    n, sorted by year.
 
-    A clip with a non-finite median is excluded ENTIRELY from its year
+    A clip with a non-finite value is excluded ENTIRELY from its year
     point (it cannot plot — it contributes to nothing, not even n); a
     year left without plottable clips is simply absent (a gap). With
     ``qc=True`` the shared QC rule filters the entries BEFORE
-    aggregating, so nan-median, IQR >= 200, and median >= 600 clips all
-    drop first. A n=1 year carries min == max == the single value.
+    aggregating (the QC rule itself is always about median_f0/f0_iqr/
+    voiced_fraction, regardless of which feature is being aggregated —
+    it's a signal-trustworthiness gate, not specific to F0). A n=1 year
+    carries min == max == the single value.
 
     The median is the lower median for an even clip count (median_low):
     an even-count year reports an actually-observed clip median, not an
@@ -199,7 +205,7 @@ def f0_yearly(entries: list[dict], qc: bool = False) -> list[dict]:
             qc_pass, _ = qc_verdict(features)
             if not qc_pass:
                 continue
-        median = features.get("median_f0")
+        median = features.get(feature_key)
         if not _finite(median):
             continue
         year = _year(entry.get("month"))
@@ -506,4 +512,88 @@ def write_multi_talent_plot(talents: dict[str, list[dict]], out_dir: Path) -> No
         _QC_FOOTER,
     )
     fig.savefig(out_dir / "f0_yearly_multi.png")
+    plt.close(fig)
+
+
+def write_feature_yearly_plot(
+    entries: list[dict],
+    out_dir: Path,
+    *,
+    feature_key: str,
+    filename: str,
+    subject: str,
+    subtitle: str,
+    unit_label: str,
+    talent: str | None = None,
+    caveat: str | None = None,
+) -> None:
+    """A yearly plot for any numeric feature (brightness, dynamism,
+    jitter/shimmer/HNR, loudness dynamics, ...) — same shape as
+    write_yearly_plot's top panel (median + between-clip min–max) plus
+    a QC-pass sample-size bar, generalized via feature_key. QC-pass
+    still gates on the shared median_f0/f0_iqr/voiced_fraction rule
+    (a trustworthiness filter, not specific to F0) so a feature computed
+    from a QC-failing clip never appears here."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    points = f0_yearly(entries, qc=True, feature_key=feature_key)
+    years = [p["year"] for p in points]
+    xs = list(range(len(points)))
+    fig, (ax, axn) = plt.subplots(
+        2, 1, sharex=True, figsize=(max(7.5, 1.1 * max(1, len(points))), 7.2),
+        constrained_layout=True, height_ratios=(3, 1),
+    )
+    fig.suptitle(_title(talent, subject), fontweight="bold")
+    ax.set_title(subtitle, fontsize="small", color="dimgray")
+    medians = [p["median"] for p in points]
+    ax.plot(xs, medians, marker="o", label=_QC_LABEL_PASS)
+    spread_x = [x for x, p in zip(xs, points) if p["n"] >= 2]
+    if spread_x:
+        ax.vlines(
+            spread_x,
+            [points[x]["min"] for x in spread_x],
+            [points[x]["max"] for x in spread_x],
+            alpha=0.6, linewidth=2,
+        )
+    for x, p in zip(xs, points):
+        text = (
+            f"{p['median']:.2f}\n[{p['min']:.2f}–{p['max']:.2f}]"
+            if p["n"] >= 2 else f"{p['median']:.2f}"
+        )
+        ax.annotate(
+            text, (x, p["max"] if p["n"] >= 2 else p["median"]),
+            xytext=(0, 8), textcoords="offset points",
+            ha="center", va="bottom", fontsize="x-small",
+        )
+    ax.set_ylabel(unit_label)
+    ax.grid(axis="y", alpha=0.3, linewidth=0.6)
+    ax.set_axisbelow(True)
+    if points:
+        top = max(p["max"] for p in points)
+        bottom = min(p["min"] for p in points)
+        headroom = (top - bottom) * 0.15 or top * 0.05
+        ax.set_ylim(bottom - headroom * 0.3, top + headroom)
+        ax.legend()
+    ns = [p["n"] for p in points]
+    axn.bar(xs, ns, color="tab:blue")
+    if points:
+        head = max(ns) * 1.4 + 1
+        axn.set_ylim(0, head)
+        for x, n in zip(xs, ns):
+            axn.annotate(
+                f"n={n}", (x, n), xytext=(0, 2), textcoords="offset points",
+                ha="center", va="bottom", fontsize="x-small",
+            )
+    axn.set_ylabel("QC-pass clips (n)")
+    axn.set_xticks(xs)
+    axn.set_xticklabels(years, rotation=45, ha="right")
+    caption_lines = [
+        f"Point = median of that year's QC-pass clip {feature_key} values; bar =\n"
+        "between-clip min–max (2+ clips only). Bottom: QC-pass sample size per year."
+    ]
+    if caveat:
+        caption_lines.append(caveat)
+    caption_lines.append(_QC_FOOTER)
+    _add_caption(fig, *caption_lines)
+    fig.savefig(out_dir / filename)
     plt.close(fig)
