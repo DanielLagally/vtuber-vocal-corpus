@@ -6,15 +6,22 @@ import sys
 from pathlib import Path
 
 from vanalysis.catalog import filter_videos, pick_monthly
+from vanalysis.diagnose import run_diagnose
 from vanalysis.expand import run_plan
 from vanalysis.fetch import audio_path, fetch_audio_many
 from vanalysis.holodex import holodex_key as _holodex_key
 from vanalysis.holodex import load_dotenv as _load_dotenv  # noqa: F401 (compat alias)
 from vanalysis.isolate import DEFAULT_MODEL_FILENAME, isolate_vocals, vocals_path
 from vanalysis.measure import run_monthly
+from vanalysis.rescue import run_rescue
 from vanalysis.retry import run_retry
 from vanalysis.roster import fetch_channels, filter_talents, write_roster
-from vanalysis.series import write_plots
+from vanalysis.series import (
+    new_run_dir,
+    write_plots,
+    write_quarterly_plots,
+    write_yearly_plot,
+)
 from vanalysis.windows import best_speech_window, slice_wav
 
 _HOLODEX_VIDEOS = "https://holodex.net/api/v2/videos"
@@ -145,9 +152,20 @@ def main(argv: list[str] | None = None) -> None:
     mea.add_argument("--legacy", action="store_true")
     mea.add_argument("-o", "--out", type=Path, default=Path("data/measurements.json"))
 
-    plo = sub.add_parser("plot", help="write monthly F0/IQR plots")
+    plo = sub.add_parser(
+        "plot",
+        help=(
+            "write monthly/quarterly/yearly F0/IQR plots into a fresh "
+            "data/plots/runs/<run>/ directory (never overwrites a prior run)"
+        ),
+    )
     plo.add_argument("--measurements", type=Path, required=True)
     plo.add_argument("--out-dir", type=Path, default=Path("data/plots"))
+    plo.add_argument(
+        "--label",
+        default=None,
+        help="optional suffix for the run directory name (e.g. luna-monthly)",
+    )
 
     ret = sub.add_parser(
         "retry",
@@ -196,6 +214,90 @@ def main(argv: list[str] | None = None) -> None:
         help="compute everything possible but write nothing",
     )
 
+    resc = sub.add_parser(
+        "rescue",
+        help=(
+            "stem-hunt rescue: isolate the FULL wav, hunt the 90 s window "
+            "on the stem (<id>_stem90) and replace passing months"
+        ),
+    )
+    resc.add_argument(
+        "--measurements",
+        type=Path,
+        default=Path("data/measurements/luna_monthly.json"),
+    )
+    resc.add_argument(
+        "--windows", type=Path, default=Path("data/windows/windows.json")
+    )
+    resc.add_argument("--data-dir", type=Path, default=Path("data"))
+    resc.add_argument("--stems-dir", type=Path, default=Path("data/stems_fast"))
+    resc.add_argument("--model-filename", default=DEFAULT_MODEL_FILENAME)
+    resc.add_argument(
+        "--model-file-dir",
+        default="data/models",
+        help=(
+            "audio-separator --model_file_dir (model ckpt cache dir); "
+            "default: data/models"
+        ),
+    )
+    resc.add_argument(
+        "--ids",
+        nargs="*",
+        default=None,
+        help="ids to rescue (default: every record whose qc.pass is false)",
+    )
+    resc.add_argument(
+        "--ids-file",
+        type=Path,
+        default=None,
+        help=(
+            "file with one video id per line, appended after --ids "
+            "(accepts dash-leading ids like -DwvlhziHBI)"
+        ),
+    )
+    resc.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="compute everything possible but write nothing",
+    )
+
+    diag = sub.add_parser(
+        "diagnose-tracker",
+        help=(
+            "read-only: compare numpy-ACF vs Praat on audio already on "
+            "disk (raw90/raw90b/stem90); never touches --measurements"
+        ),
+    )
+    diag.add_argument(
+        "--measurements",
+        type=Path,
+        default=Path("data/measurements/luna_monthly.json"),
+    )
+    diag.add_argument("--data-dir", type=Path, default=Path("data"))
+    diag.add_argument("--stems-dir", type=Path, default=Path("data/stems_fast"))
+    diag.add_argument("--model-filename", default=DEFAULT_MODEL_FILENAME)
+    diag.add_argument(
+        "--ids",
+        nargs="*",
+        default=None,
+        help="ids to compare (default: every record whose qc.pass is false)",
+    )
+    diag.add_argument(
+        "--ids-file",
+        type=Path,
+        default=None,
+        help=(
+            "file with one video id per line, appended after --ids "
+            "(accepts dash-leading ids like -DwvlhziHBI)"
+        ),
+    )
+    diag.add_argument(
+        "-o",
+        "--out",
+        type=Path,
+        default=Path("data/measurements/luna_tracker_diagnostic.json"),
+    )
+
     args = parser.parse_args(_dash_ids_argv(argv, ret))
     if args.cmd == "roster":
         talents = filter_talents(
@@ -236,8 +338,11 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.cmd == "plot":
         entries = json.loads(args.measurements.read_text(encoding="utf-8"))
-        write_plots(entries, args.out_dir)
-        print(f"plots -> {args.out_dir}")
+        run_dir = new_run_dir(args.out_dir, args.label)
+        write_plots(entries, run_dir)
+        write_quarterly_plots(entries, run_dir)
+        write_yearly_plot(entries, run_dir)
+        print(f"plots -> {run_dir}")
         return
     if args.cmd == "retry":
         ids = list(args.ids) if args.ids else []
@@ -260,6 +365,48 @@ def main(argv: list[str] | None = None) -> None:
             dry_run=args.dry_run,
         )
         print(json.dumps(summary, indent=2))
+        return
+    if args.cmd == "rescue":
+        ids = list(args.ids) if args.ids else []
+        if args.ids_file is not None:
+            ids.extend(
+                line.strip()
+                for line in args.ids_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+        if args.ids_file is not None and not ids:
+            parser.error("give at least one video id via --ids or --ids-file")
+        summary = run_rescue(
+            ids or None,
+            args.data_dir,
+            measurements_path=args.measurements,
+            windows_path=args.windows,
+            stems_dir=args.stems_dir,
+            model_filename=args.model_filename,
+            model_file_dir=args.model_file_dir,
+            dry_run=args.dry_run,
+        )
+        print(json.dumps(summary, indent=2))
+        return
+    if args.cmd == "diagnose-tracker":
+        ids = list(args.ids) if args.ids else []
+        if args.ids_file is not None:
+            ids.extend(
+                line.strip()
+                for line in args.ids_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+        if args.ids_file is not None and not ids:
+            parser.error("give at least one video id via --ids or --ids-file")
+        results = run_diagnose(
+            ids or None,
+            args.data_dir,
+            measurements_path=args.measurements,
+            stems_dir=args.stems_dir,
+            model_filename=args.model_filename,
+            out_path=args.out,
+        )
+        print(f"{len(results)} comparison records -> {args.out}")
         return
     ids = list(args.video_ids)
     if args.ids_file is not None:

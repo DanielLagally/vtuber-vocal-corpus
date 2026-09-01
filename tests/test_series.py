@@ -36,6 +36,15 @@ never Cover/hololive audio, never downloads):
    f0_quarterly_all.png and f0_quarterly_qc.png. The min–max band is
    drawn only where n >= 2 (n=1 renders a bare point — anecdotal,
    PLAN L36); existence only here — no image comparison.
+9. Multi-clip months (STATE R3): when several records share a month,
+   the monthly series collapses to ONE point per month — the plain
+   float mean (NO rounding) of that month's values for the series at
+   hand. f0_series: the mean of finite median_f0 values; with
+   qc=True the shared QC rule filters FIRST, then the survivors are
+   averaged — a month with no surviving value is a gap in that
+   series (but can still be present in the all-clip series).
+   iqr_series: the mean of finite f0_iqr values. A single-record
+   month is unchanged: mean of one is the value itself.
 
 Entry shape is the measurement record persisted by vanalysis.measure:
 id / month / score / window / features{median_f0, f0_iqr,
@@ -285,3 +294,212 @@ def test_write_quarterly_plots_creates_exactly_two_pngs(tmp_path: Path) -> None:
         "f0_quarterly_all.png",
         "f0_quarterly_qc.png",
     }
+
+
+# ---------------------------------------------------- multi-clip months
+
+
+def test_f0_series_multi_clip_month_mean_all_and_qc() -> None:
+    """Rule 9: two records share 2025-07 — one QC-pass (median 300) and
+    one QC-fail (iqr 250, median 500, still finite). The all-series
+    month point is the mean of the finite medians (400.0); the QC
+    series filters FIRST and averages only the survivor (300.0). One
+    point per month, not one per record."""
+    entries = [
+        _entry("2025-07", 300.0, 40.0, "julpass001"),
+        _entry("2025-07", 500.0, 250.0, "julfail001"),
+    ]
+    assert _pairs(series.f0_series(entries)) == [("2025-07", 400.0)]
+    assert _pairs(series.f0_series(entries, qc=True)) == [("2025-07", 300.0)]
+
+
+def test_f0_series_multi_clip_month_two_qc_pass_mean() -> None:
+    """Rule 9: two same-month QC-pass records (medians 300 and 340) —
+    both the all-series and the QC series collapse to the single month
+    point 320.0."""
+    entries = [
+        _entry("2025-07", 300.0, 40.0, "julpass003"),
+        _entry("2025-07", 340.0, 45.0, "julpass004"),
+    ]
+    assert _pairs(series.f0_series(entries, qc=True)) == [("2025-07", 320.0)]
+    assert _pairs(series.f0_series(entries)) == [("2025-07", 320.0)]
+
+
+def test_f0_series_all_fail_month_gap_in_qc_present_in_all() -> None:
+    """Rule 9: a month whose records all fail QC is a gap in the QC
+    series but still present in the all-clip series (mean of its finite
+    medians) — gaps are per-series, never zero-filled."""
+    entries = [
+        _entry("2025-07", 300.0, 260.0, "juliqr002"),
+        _entry("2025-07", 320.0, 280.0, "juliqr004"),
+        _entry("2025-08", 320.0, 300.0, "augiqr002"),
+    ]
+    assert _pairs(series.f0_series(entries, qc=True)) == []
+    assert _pairs(series.f0_series(entries)) == [
+        ("2025-07", 310.0),
+        ("2025-08", 320.0),
+    ]
+
+
+def test_f0_series_single_record_month_unchanged_mean_of_one() -> None:
+    """Rule 9: single-record months behave exactly as before, next to a
+    multi-clip month — mean of one is the value itself, month order
+    ascending."""
+    entries = [
+        _entry("2025-02", 300.0, 40.0, "febclip001"),
+        _entry("2025-01", 220.0, 35.0, "jansolo002"),
+        _entry("2025-02", 340.0, 45.0, "febclip002"),
+    ]
+    assert _pairs(series.f0_series(entries)) == [
+        ("2025-01", 220.0),
+        ("2025-02", 320.0),
+    ]
+    assert _pairs(series.f0_series(entries, qc=True)) == [
+        ("2025-01", 220.0),
+        ("2025-02", 320.0),
+    ]
+
+
+def test_f0_series_month_mean_is_plain_float_no_rounding() -> None:
+    """Rule 9 (rounding pin): the month point is the plain float mean —
+    (300 + 341) / 2 = 320.5 must survive exactly, not be rounded."""
+    entries = [
+        _entry("2025-07", 300.0, 40.0, "julpass005"),
+        _entry("2025-07", 341.0, 45.0, "julpass006"),
+    ]
+    assert _pairs(series.f0_series(entries, qc=True)) == [
+        ("2025-07", (300.0 + 341.0) / 2)
+    ]
+
+
+def test_iqr_series_multi_clip_month_mean_of_finite_iqrs() -> None:
+    """Rule 9: iqr_series collapses same-month records to the mean of
+    their finite f0_iqr values (270 and 230 -> 250.0); a non-finite IQR
+    record contributes nothing (mean of the remaining finite one); a
+    NaN-median record with a finite IQR still counts (per-series gaps —
+    existing rule 2, now per-month); single-record months are the bare
+    value."""
+    entries = [
+        _entry("2025-07", 300.0, 250.0, "juliqr003"),
+        _entry("2025-07", 300.0, math.nan, "julnan002"),
+        _entry("2025-08", 300.0, 270.0, "augiqr003"),
+        _entry("2025-08", 300.0, 230.0, "augiqr004"),
+        _entry("2025-09", math.nan, 25.0, "sepnan003"),
+    ]
+    assert _pairs(series.iqr_series(entries)) == [
+        ("2025-07", 250.0),
+        ("2025-08", 250.0),
+        ("2025-09", 25.0),
+    ]
+
+
+# ---------------------------------------------------------------- yearly
+
+
+def test_f0_yearly_median_of_clip_medians_min_max_n_sorted() -> None:
+    """Rule 10 (PLAN L36 year rule): per calendar year the MEDIAN of that
+    year's clip medians (not the mean — clips 300/340/520 give 340, a mean
+    would give ~386.7), plus between-clip min/max and n, sorted by year.
+    The nan-median clip is excluded ENTIRELY (it cannot plot)."""
+    entries = [
+        _entry("2024-03", 300.0, 45.0, "mar0000001"),
+        _entry("2024-07", 340.0, 50.0, "jul0000001"),
+        _entry("2024-11", 520.0, 90.0, "nov0000001"),
+        _entry("2023-05", 280.0, 40.0, "may0000001"),
+        _entry("2024-09", math.nan, 30.0, "sepnan0001"),
+    ]
+    assert series.f0_yearly(entries) == [
+        {"year": "2023", "median": 280.0, "min": 280.0, "max": 280.0, "n": 1},
+        {
+            "year": "2024",
+            "median": 340.0,
+            "min": 300.0,
+            "max": 520.0,
+            "n": 3,
+        },
+    ]
+
+
+def test_f0_yearly_is_clip_level_not_month_mean_first() -> None:
+    """Rule 10: the year aggregates CLIP medians directly — two passing
+    clips in one month (300, 340) plus another month (400) give a year
+    median of 340; aggregating month-means first would give 360. The clip
+    is the sample (PLAN), not the month."""
+    entries = [
+        _entry("2024-01", 300.0, 40.0, "janclip0001"),
+        _entry("2024-01", 340.0, 45.0, "janclip0002"),
+        _entry("2024-02", 400.0, 45.0, "febclip0001"),
+    ]
+    assert series.f0_yearly(entries, qc=True) == [
+        {"year": "2024", "median": 340.0, "min": 300.0, "max": 400.0, "n": 3}
+    ]
+
+
+def test_f0_yearly_qc_filters_first_all_fail_year_is_gap() -> None:
+    """Rule 10 + rule 7 semantics: qc=True applies the shared QC rule
+    BEFORE aggregating — a year whose clips all fail (iqr >= 200 / >=600 /
+    nan) is absent from the QC series (a gap, never an invented point) and
+    present in the all-clip series (finite medians only)."""
+    entries = [
+        _entry("2024-01", 300.0, 260.0, "janiqr0001"),
+        _entry("2024-06", 615.0, 140.0, "juncap0001"),
+        _entry("2024-10", math.nan, 30.0, "octnan0001"),
+        _entry("2025-02", 320.0, 45.0, "febpass0001"),
+    ]
+    assert series.f0_yearly(entries, qc=True) == [
+        {"year": "2025", "median": 320.0, "min": 320.0, "max": 320.0, "n": 1}
+    ]
+    assert series.f0_yearly(entries) == [
+        {"year": "2024", "median": 300.0, "min": 300.0, "max": 615.0, "n": 2},
+        {"year": "2025", "median": 320.0, "min": 320.0, "max": 320.0, "n": 1},
+    ]
+
+
+def test_f0_yearly_single_clip_and_unplaceable_entries() -> None:
+    """Rule 10: a n=1 year carries min == max == the single value; an
+    entry with no month at all cannot be placed on a timeline and is
+    excluded from every yearly point."""
+    entries = [
+        _entry("2025-05", 310.0, 45.0, "may0000002"),
+        _entry(None, 400.0, 45.0, "nomonth0001"),
+    ]
+    assert series.f0_yearly(entries, qc=True) == [
+        {"year": "2025", "median": 310.0, "min": 310.0, "max": 310.0, "n": 1}
+    ]
+
+
+def test_write_yearly_plot_creates_exactly_one_png(tmp_path: Path) -> None:
+    """Rule 10 (plot): write_yearly_plot writes exactly f0_yearly.png —
+    the QC view with per-year sample size (n bars) and between-clip
+    min–max spread; years, gaps and n=1 years must not crash plotting
+    (existence only, no image comparison)."""
+    entries = [
+        _entry("2024-03", 300.0, 45.0, "mar0000001"),
+        _entry("2024-07", 340.0, 50.0, "jul0000001"),
+        _entry("2025-02", 320.0, 45.0, "feb0000001"),
+        _entry("2025-04", 300.0, 260.0, "apriqr0001"),
+        _entry("2026-01", math.nan, 30.0, "jannan0001"),
+    ]
+    series.write_yearly_plot(entries, tmp_path)
+    assert {p.name for p in tmp_path.glob("*.png")} == {"f0_yearly.png"}
+
+
+def test_new_run_dir_never_reuses_a_directory(tmp_path: Path) -> None:
+    """CLAUDE.md: plots are a permanent record. Two calls in the same
+    process (same base, same label) must return two distinct, already-
+    created directories — the second call must not silently reuse or
+    overwrite the first."""
+    first = series.new_run_dir(tmp_path, label="luna")
+    second = series.new_run_dir(tmp_path, label="luna")
+    assert first != second
+    assert first.is_dir()
+    assert second.is_dir()
+    assert first.parent == tmp_path / "runs"
+    assert second.parent == tmp_path / "runs"
+
+
+def test_new_run_dir_no_label_uses_bare_timestamp(tmp_path: Path) -> None:
+    run_dir = series.new_run_dir(tmp_path)
+    assert run_dir.parent == tmp_path / "runs"
+    assert run_dir.is_dir()
+    assert "-" not in run_dir.name  # %Y%m%dT%H%M%S has no dashes
