@@ -75,7 +75,7 @@ def fetch_audio(
         "wav",
         "--force-keyframes-at-cuts",
         "--extractor-args",
-        "youtube:player_client=web",
+        "youtube:player_client=mweb",
         "--download-sections",
         "*15:00-30:00",
         "-o",
