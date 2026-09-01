@@ -10,7 +10,7 @@ from vanalysis.densify import run_densify
 from vanalysis.diagnose import run_diagnose
 from vanalysis.remeasure import run_remeasure
 from vanalysis.expand import run_plan
-from vanalysis.fetch import audio_path, fetch_audio_many
+from vanalysis.fetch import BotCheckDetected, audio_path, fetch_audio_many
 from vanalysis.holodex import holodex_key as _holodex_key
 from vanalysis.holodex import load_dotenv as _load_dotenv  # noqa: F401 (compat alias)
 from vanalysis.isolate import DEFAULT_MODEL_FILENAME, isolate_vocals, vocals_path
@@ -567,11 +567,21 @@ def main(argv: list[str] | None = None) -> None:
             print(f"skip {dest}")
             continue
         todo.append(video_id)
-    for video_id, dest in fetch_audio_many(
-        todo, args.data_dir, cookies=cookies
-    ).items():
-        if dest is not None:
-            print(dest)
+    try:
+        for video_id, dest in fetch_audio_many(
+            todo, args.data_dir, cookies=cookies
+        ).items():
+            if dest is not None:
+                print(dest)
+    except BotCheckDetected as exc:
+        print(
+            f"stopped: YouTube bot-check triggered on {exc.video_id} — "
+            "this is a session/IP-level signal, not a per-video problem; "
+            "further fetches in this batch were not attempted. Refresh "
+            "cookies (see CLAUDE.md) before retrying.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

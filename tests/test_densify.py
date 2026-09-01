@@ -34,6 +34,7 @@ from pathlib import Path
 import pytest
 
 from vanalysis import densify
+from vanalysis import fetch as densify_fetch
 from vanalysis.fetch import audio_path
 from vanalysis.isolate import DEFAULT_MODEL_FILENAME, vocals_path
 
@@ -126,17 +127,28 @@ def source_wav() -> Path:
 
 class _FakeFetch:
     """Stand-in for yt-dlp: writes a copy of source_wav to the -o
-    destination, recording every call. One id can be configured to
-    fail (simulating a yt-dlp non-zero exit)."""
+    destination, recording every call. One id can be configured to fail
+    ordinarily (simulating a yt-dlp non-zero exit), and/or a different
+    id to trigger the bot-check signal."""
 
-    def __init__(self, source: Path, fail_for: str | None = None) -> None:
+    def __init__(
+        self,
+        source: Path,
+        fail_for: str | None = None,
+        bot_check_for: str | None = None,
+    ) -> None:
         self.source = source
         self.fail_for = fail_for
+        self.bot_check_for = bot_check_for
         self.calls: list[list[str]] = []
 
     def __call__(self, argv: list[str]) -> None:
         self.calls.append(list(argv))
         video_id = argv[-1].rsplit("=", 1)[-1]
+        if self.bot_check_for is not None and video_id == self.bot_check_for:
+            raise densify_fetch.BotCheckDetected(
+                video_id, "Sign in to confirm you’re not a bot."
+            )
         if self.fail_for is not None and video_id == self.fail_for:
             import subprocess
 
@@ -276,3 +288,42 @@ def test_run_densify_fetch_failure_is_skipped_batch_continues(
     assert summary["ids"]["failid00001"] == "skipped_fetch_failed"
     assert summary["ids"]["okid0000001"] == "added"
     assert summary["counts"]["added"] == 1
+
+
+def test_run_densify_stops_immediately_on_bot_check(
+    tmp_path: Path, source_wav: Path
+) -> None:
+    """A YouTube bot-check is a session/IP-level signal, not a per-video
+    gap (PLAN "how we can improve further" / the Lamy 2026-09 incident):
+    unlike an ordinary fetch failure, densify must NOT continue to the
+    next candidate after one — continuing only sends more suspicious
+    traffic. The id that triggered it gets a distinct outcome and
+    ``stopped_early`` names it; no later candidate is ever attempted."""
+    records: list[dict] = []
+    cached = [
+        _video("okidbefore1", "2024-10"),
+        _video("botcheckid1", "2024-11"),
+        _video("nevertried1", "2024-12"),
+    ]
+    tree = _tree(tmp_path, records, cached)
+    fetch_runner = _FakeFetch(source_wav, bot_check_for="botcheckid1")
+
+    summary = densify.run_densify(
+        tree["data_dir"],
+        measurements_path=tree["measurements_path"],
+        video_cache_path=tree["video_cache_path"],
+        windows_path=tree["windows_path"],
+        stems_dir=tree["stems_dir"],
+        model_filename=MODEL_CKPT,
+        fetch_runner=fetch_runner,
+        isolate_runner=_FakeIsolate(),
+    )
+
+    assert summary["ids"]["okidbefore1"] == "added"
+    assert summary["ids"]["botcheckid1"] == "skipped_bot_check"
+    assert "nevertried1" not in summary["ids"], (
+        "no candidate after the bot-check may ever be attempted"
+    )
+    assert summary["stopped_early"] == "botcheckid1"
+    attempted_ids = {c[-1].rsplit("=", 1)[-1] for c in fetch_runner.calls}
+    assert "nevertried1" not in attempted_ids

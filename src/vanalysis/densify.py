@@ -14,9 +14,19 @@ Reuses the full production pipeline per new id: fetch (15:00-30:00),
 raw90 window hunt, fast RoFormer isolation, Praat measurement — same
 processing as every other Luna record, so a new record is directly
 comparable to the existing ones. Skip-existing at every step
-(crash-resumable); a per-id fetch/isolate failure is a warning + skip,
-never an aborted batch. Only APPENDS new records — existing records are
-never touched or replaced. Snapshot before the first write.
+(crash-resumable); an ORDINARY per-id fetch/isolate failure (private
+video, deleted, region-locked) is a warning + skip, never an aborted
+batch. Only APPENDS new records — existing records are never touched or
+replaced. Snapshot before the first write.
+
+A YouTube bot-check (``fetch.BotCheckDetected``) is different and NOT
+treated as an ordinary per-id failure: it's a session/IP-level signal,
+not a per-video gap (the 2026-09 Lamy run hit this — 191/198 fetches
+rejected with "Sign in to confirm you're not a bot" after a lot of
+same-day sequential requests). Continuing to fetch more ids after that
+signal only raises more suspicion, so the batch STOPS immediately —
+the triggering id is recorded as ``skipped_bot_check`` and
+``stopped_early`` in the summary, and no later candidate is attempted.
 """
 
 from __future__ import annotations
@@ -29,7 +39,7 @@ from pathlib import Path
 
 from . import praat_features
 from .catalog import _available_dt, filter_videos, pick_monthly_n, score_video
-from .fetch import audio_path, fetch_audio_many
+from .fetch import BotCheckDetected, audio_path, fetch_audio_many
 from .isolate import DEFAULT_MODEL_FILENAME, isolate_vocals, vocals_path
 from .qc import qc_verdict
 from .retry import _window_pair
@@ -40,6 +50,7 @@ _STEM_MIN_BYTES = 1_000_000
 RAW90_SUFFIX = "_raw90"
 
 _OUTCOME_ADDED = "added"
+_OUTCOME_BOT_CHECK = "skipped_bot_check"
 
 
 def candidate_ids(
@@ -127,6 +138,7 @@ def run_densify(
 
     outcomes: dict[str, str] = {}
     snapshot_taken = False
+    stopped_early: str | None = None
 
     def _emit(video_id: str, outcome: str, detail: str = "") -> None:
         outcomes[video_id] = outcome
@@ -214,7 +226,15 @@ def run_densify(
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
             _emit(video_id, _OUTCOME_ADDED)
-        except Exception as exc:  # noqa: BLE001 — the batch never aborts
+        except BotCheckDetected as exc:
+            # Session/IP-level signal, not a per-video gap: stop the
+            # WHOLE batch here rather than skip-and-continue — every
+            # further fetch would likely hit the same wall and only
+            # raise more suspicion (PLAN "how we can improve further").
+            _emit(video_id, _OUTCOME_BOT_CHECK, str(exc))
+            stopped_early = video_id
+            break
+        except Exception as exc:  # noqa: BLE001 — ordinary failures never abort
             _emit(video_id, "error", f"{type(exc).__name__}: {exc}")
 
     counts = {
@@ -230,5 +250,6 @@ def run_densify(
         "snapshot": (
             str(_snapshot_path(measurements_path)) if snapshot_taken else None
         ),
+        "stopped_early": stopped_early,
         "dry_run": dry_run,
     }

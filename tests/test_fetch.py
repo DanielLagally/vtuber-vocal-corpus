@@ -27,9 +27,21 @@ User-visible rules (local, explicit ids only — never the network in tests):
 6. ``fetch_audio_many(video_ids, data_dir, *, runner=None, cookies=None)``
    fetches the ids in order, one yt-dlp run per id (the CLI ``fetch``
    loop over several ids is a batch of these). If one id's run fails
-   (yt-dlp exits non-zero → the runner raises), that id is skipped and
-   the failure is logged, and the batch CONTINUES with the remaining
-   ids: a failed month is a gap in data/audio, never an aborted run.
+   with an ORDINARY yt-dlp error (private/deleted/region-locked — the
+   runner raises plain ``subprocess.CalledProcessError``), that id is
+   skipped and the failure is logged, and the batch CONTINUES with the
+   remaining ids: a failed month is a gap in data/audio, never an
+   aborted run.
+7. ``looks_like_bot_check(text)`` recognizes yt-dlp's "Sign in to
+   confirm you're not a bot" output regardless of the exact apostrophe
+   glyph (matches "Sign in to confirm you" AND "not a bot" as two
+   separate substrings). This is a session/IP-level signal, not a
+   per-video problem — when the runner raises ``BotCheckDetected``,
+   ``fetch_audio_many`` does NOT skip-and-continue: it cleans up any
+   partial dest for that id and re-raises immediately, WITHOUT
+   attempting any remaining ids. Continuing to hammer YouTube after
+   this signal only raises more suspicion; the caller must stop the
+   whole batch, not just this id.
 """
 
 import subprocess
@@ -255,3 +267,59 @@ def test_fetch_batch_skips_failed_id_and_continues(
     assert "month2fail" in logged, (
         "the failed id must be logged (stdout, stderr, or logging)"
     )
+
+
+def test_looks_like_bot_check_matches_real_message() -> None:
+    """Rule 7: recognizes yt-dlp's real output regardless of apostrophe
+    glyph (curly vs straight), and does not false-positive on an
+    ordinary private-video error."""
+    curly = (
+        "ERROR: [youtube] abc123: Sign in to confirm you’re not a bot. "
+        "Use --cookies-from-browser or --cookies for the authentication."
+    )
+    straight = "ERROR: [youtube] abc123: Sign in to confirm you're not a bot."
+    private = "ERROR: [youtube] abc123: Private video. If the owner of this video..."
+    assert fetch.looks_like_bot_check(curly) is True
+    assert fetch.looks_like_bot_check(straight) is True
+    assert fetch.looks_like_bot_check(private) is False
+    assert fetch.looks_like_bot_check("") is False
+
+
+def test_fetch_batch_stops_immediately_on_bot_check(tmp_path: Path) -> None:
+    """Rule 7: a BotCheckDetected on one id must propagate out of
+    fetch_audio_many immediately — no later id may be attempted, and
+    the failing id's partial dest (if any) is cleaned up. An earlier
+    successful id's wav is untouched."""
+    ids = ["month1clip", "month2bot", "month3never"]
+    calls: list[list[str]] = []
+
+    def runner(argv: list[str]) -> None:
+        calls.append(list(argv))
+        joined = " ".join(argv)
+        if "month2bot" in joined:
+            fetch.audio_path("month2bot", tmp_path).parent.mkdir(
+                parents=True, exist_ok=True
+            )
+            fetch.audio_path("month2bot", tmp_path).write_bytes(b"partial")
+            raise fetch.BotCheckDetected(
+                "month2bot", "Sign in to confirm you’re not a bot."
+            )
+        video_id = next(vid for vid in ids if vid in joined)
+        fetch.audio_path(video_id, tmp_path).write_bytes(b"")
+
+    try:
+        fetch.fetch_audio_many(ids, tmp_path, runner=runner)
+        raised = False
+    except fetch.BotCheckDetected:
+        raised = True
+
+    assert raised, "fetch_audio_many must propagate BotCheckDetected, not swallow it"
+    attempted = [next(vid for vid in ids if vid in " ".join(argv)) for argv in calls]
+    assert attempted == ["month1clip", "month2bot"], (
+        f"month3never must never be attempted after the bot-check, got {attempted}"
+    )
+    assert fetch.audio_path("month1clip", tmp_path).exists()
+    assert not fetch.audio_path("month2bot", tmp_path).exists(), (
+        "the partial dest for the bot-checked id must be cleaned up"
+    )
+    assert not fetch.audio_path("month3never", tmp_path).exists()
