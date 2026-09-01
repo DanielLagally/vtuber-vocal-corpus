@@ -7,6 +7,7 @@ from pathlib import Path
 
 from vanalysis.catalog import filter_videos, pick_monthly
 from vanalysis.diagnose import run_diagnose
+from vanalysis.remeasure import run_remeasure
 from vanalysis.expand import run_plan
 from vanalysis.fetch import audio_path, fetch_audio_many
 from vanalysis.holodex import holodex_key as _holodex_key
@@ -261,6 +262,26 @@ def main(argv: list[str] | None = None) -> None:
         help="compute everything possible but write nothing",
     )
 
+    prm = sub.add_parser(
+        "remeasure-praat",
+        help=(
+            "re-measure EVERY record with Praat instead of numpy ACF, on "
+            "the same audio each record already used; snapshots first"
+        ),
+    )
+    prm.add_argument(
+        "--measurements",
+        type=Path,
+        default=Path("data/measurements/luna_monthly.json"),
+    )
+    prm.add_argument(
+        "--windows", type=Path, default=Path("data/windows/windows.json")
+    )
+    prm.add_argument("--data-dir", type=Path, default=Path("data"))
+    prm.add_argument("--stems-dir", type=Path, default=Path("data/stems_fast"))
+    prm.add_argument("--model-filename", default=DEFAULT_MODEL_FILENAME)
+    prm.add_argument("-o", "--out", type=Path, default=None)
+
     diag = sub.add_parser(
         "diagnose-tracker",
         help=(
@@ -385,6 +406,17 @@ def main(argv: list[str] | None = None) -> None:
             model_filename=args.model_filename,
             model_file_dir=args.model_file_dir,
             dry_run=args.dry_run,
+        )
+        print(json.dumps(summary, indent=2))
+        return
+    if args.cmd == "remeasure-praat":
+        summary = run_remeasure(
+            args.data_dir,
+            measurements_path=args.measurements,
+            windows_path=args.windows,
+            stems_dir=args.stems_dir,
+            model_filename=args.model_filename,
+            out_path=args.out,
         )
         print(json.dumps(summary, indent=2))
         return

@@ -73,11 +73,11 @@ Sequential only. Extra parallel yt-dlp processes hit the image-only gate. Per-vi
 2. Sequential fetch 15:00–30:00 → `data/audio/<id>.wav` (skip existing >1 MB).
 3. Hunt 90 s on **raw** → `data/windows/<id>_raw90.wav` + `windows.json` times as offsets **into the 15 min file**.
 4. Isolate **that 90 s** with the single RoFormer → `data/stems_fast/<id>_raw90_(vocals)_bs_roformer_….wav` (the whole file **is** the window).
-5. Measure **the whole 90 s stem** (do not re-apply `windows.json` offsets onto the stem — those times are for the 15 min wav). Persist `window` as metadata.
+5. Measure **the whole 90 s stem** (do not re-apply `windows.json` offsets onto the stem — those times are for the 15 min wav). Persist `window` as metadata. **Tracker: Praat autocorrelation** (`praat_features.py`, via `remeasure-praat`) — numpy ACF was the original tracker but is superseded for Luna (see "Why the Luna series disappointed").
 6. Plots from measurements JSON — `vanalysis plot` writes into a fresh
    `data/plots/runs/<run>/`, never a fixed path (see `CLAUDE.md`).
 
-**Intended next on the same audio (approved, not implemented):** if the stem fails QC, hunt a **2nd-best** 90 s on the same raw 15 min that **does not overlap** the first window, isolate as `_raw90b` with the **same** RoFormer. QC plot: **keep 2nd only if it passes**; else gap. All-clips may still show the fail. No new YouTube.
+**On the same audio, when a stem fails QC (all shipped and run):** 2nd-window retry (`_raw90b`, non-overlapping, `retry` CLI), stem-hunt rescue (`_stem90`, `rescue` CLI), 2nd-stream fetch (`pick_monthly_n`) — replace-if-pass, gap otherwise, no new YouTube beyond the 2nd stream. See "Why the Luna series disappointed" for what each lever actually moved.
 
 Do not isolate 15 min `vocal_balanced` for new talents unless a new comparison says we must.
 
@@ -87,6 +87,7 @@ Do not isolate 15 min `vocal_balanced` for new talents unless a new comparison s
 
 ### Code (beyond the 24-clip era)
 - Catalog: `pick_monthly` (delegates to `pick_monthly_n(n=1)`), `pick_monthly_n` for multi-clip months, `catalog --channel` + `--monthly` (Holodex `channel_id`, `include=mentions`).
+- `praat_features.py`: Praat-autocorrelation tracker, same public shape as `features.py` (median_f0/f0_iqr/voiced_fraction), same 75–600 Hz bounds. `diagnose.py`: read-only numpy-vs-Praat comparison on audio already on disk. `remeasure.py`: whole-corpus re-measurement with Praat on each record's already-resolved source audio (`remeasure-praat` CLI), snapshot before overwrite. All three shipped and run.
 - Fetch: `player_client=android`, `fetch_audio_many` skip-and-continue, skip existing wavs.
 - Isolate: `model_filename` single-model path; `--windowed` reads `data/windows/<id>_raw90.wav`.
 - Window CLI: `best_speech_window` + `slice_wav`.
@@ -104,16 +105,23 @@ Do not isolate 15 min `vocal_balanced` for new talents unless a new comparison s
 - Catalog: `data/catalog/luna_monthly.json` — **75 months**, 2020-06 through 2026-08, contiguous, 1 pick each. All 8 first-batch Luna ids are in this set (remeasured on RoFormer 90 s, not the old 15 min balanced numbers).
 - 75 × 15 min wavs in `data/audio/` (91 wavs total including Lamy/Sora).
 - 75 × `_raw90.wav` + 75 × RoFormer 90 s vocals in `data/stems_fast/`.
-- Measurements: `data/measurements/luna_monthly.json` (stems), `luna_monthly_raw.json` (unisolated 90 s).
-- Plots: `data/plots/luna_monthly/` (monthly F0 + IQR), `luna_monthly_raw/`, `luna_quarterly/` (`f0_quarterly_all.png`, `f0_quarterly_qc.png`) — quarterly is the readable view.
+- Measurements: `data/measurements/luna_monthly.json` (stems, **now Praat-tracked**, see below), `luna_monthly_raw.json` (unisolated 90 s, still numpy). Pre-Praat snapshots: `luna_monthly_pre_retry_snapshot.json`, `luna_monthly_pre_rescue.json`, `luna_monthly_pre_2nd_stream.json`, `luna_monthly_pre_praat_remeasure.json` (numpy-tracked, kept for history — do not delete).
+- Plots: `data/plots/runs/<run>/` — every `vanalysis plot` run gets its own directory now (see `CLAUDE.md`); the current Praat-based set is `20260901T154218-luna-monthly-praat/`.
 
-### Luna monthly numbers (stem 90 s, first window only)
+### Luna monthly numbers (stem 90 s, first window only — numpy, historical)
 - 75 clips; **34 fail** IQR ≥ 200 or nan F0; **41 pass**.
 - QC-pass F0: mean **~345 Hz**, sd **~36 Hz**, range ~250–440. Year means after 2020 sit in **~330–360 Hz**. 2020 is higher (~393) but n=3. 2024 QC-pass n=2.
 - 6 stems sit on the **~615 Hz** tracker cap (all already IQR-fail).
 - |stem − raw| median F0: **~24 Hz**; 38/74 differ by >20 Hz. Isolation moves some clips hundreds of Hz (octave / leftover BGM), so stem is the series to trust **when it passes QC**.
 - Quarterly QC: 26 quarters (2020-Q2–2026-Q3); **11 quarters n=1**; **3 empty** (2024-Q3, 2024-Q4, 2025-Q3). All-clips bands inflated by 615 Hz junk.
 - **Reading:** not a clear pitch-over-career slope. Consistent with a stable ~350 Hz character voice plus tracker/window noise. Monthly plots were too noisy; quarterly mean + min–max is the graph that is worth looking at.
+
+### Luna monthly numbers (Praat tracker, current — this is the live series)
+- 101 records (75 months, some multi-clip from the 2nd-stream fetch); **100 pass, 1 fails** (`dPktttXyxZo`, 2023-04, IQR 223 — passed under numpy at IQR 136, a genuine tracker disagreement, not a bug).
+- **74/75 months (98.7%) have a QC-pass clip**, up from 76% under numpy + all three source/window levers.
+- QC-pass F0: n=100, mean **333.9 Hz**, sd **34.8 Hz**, range 249–455 Hz. Yearly medians (2020–2026) sit in a narrow **~311–360 Hz** band — no career slope, same reading as the numpy series, now on a dataset that is actually complete instead of half-empty.
+- Why Praat fixed it: cross-checked on the 17 numpy-hard-fail months' audio, Praat's medians agreed closely across the raw90/raw90b/stem90 variants of the same clip where numpy's disagreed by hundreds of Hz — octave-jump noise, not real pitch variation. Praat's frame-to-frame path-finding penalizes octave jumps; the numpy tracker's per-frame peak-pick has no such continuity constraint. See `diagnose.py` / `data/measurements/luna_tracker_diagnostic.json` for the full comparison.
+- **Praat is now the production tracker for Luna.** Other talents should inherit it when expansion resumes (locking the tracker before branching out avoids re-measuring 68 talents later).
 
 ### 24-clip comparison / plots (still on disk)
 Old QC on those PNGs marked IQR ≥ 200 **or** F0 ≥ 500. Illustrative 2025−2024 balanced 90 s: Luna −24 / −59 after QC (almost no 2024 left); Lamy −25 / −34; Sora +5 / +27. **QC flips Sora’s sign** — n=4 with this much junk is not a voice-change claim.
@@ -124,22 +132,36 @@ Old QC on those PNGs marked IQR ≥ 200 **or** F0 ≥ 500. Illustrative 2025−2
 
 Window hunt on **raw** (high voiced + low IQR) can lock onto periodic BGM; RoFormer then leaves melody (cap) or jumps octave. Numpy ACF is a **failure detector**, not a career-F0 meter.
 
-**Levers 1–3 have all run** (2nd-window retry, stem-hunt rescue, 2nd-stream
-fetch — see "goal shift" below): month-coverage moved 54.7% → 62.7% →
-64.0% → **76%** (57/75 months with ≥1 QC-pass clip). **18 months still
-have zero passing clip; for 17 of those, both the 1st-stream and
-2nd-stream attempt failed.** All 34 failing records in that residual set
-fail on `f0_iqr` alone (204–390 Hz), none on non-finite F0, and
-`voiced_fraction` is normal-to-high throughout — not silence, not an
-obviously-wrong window. The same months fail regardless of whether the
-audio came from raw-hunted, stem-hunted, or a second stream, which points
-at the **tracker** (numpy ACF making octave/instability errors on this
-voice) rather than window or source selection. Lever 4 (Praat/pyin as an
-alternate tracker) is the open decision — see `src/vanalysis/
-praat_features.py` + `diagnose.py` (tracker diagnostic, read-only,
-compares against the audio already on disk for the 17 hard-fail months)
-before deciding whether to adopt it as the production tracker or accept
-the residual gap and stop.
+**Levers 1–4 have all run.** 2nd-window retry, stem-hunt rescue, and
+2nd-stream fetch (levers 1–3) moved month-coverage 54.7% → 62.7% → 64.0%
+→ 76%, but left 18 months empty — 17 of those failing on *both* attempted
+streams, all on `f0_iqr` alone (204–390 Hz) with normal-to-high
+`voiced_fraction`, regardless of whether the audio was raw-hunted,
+stem-hunted, or from a 2nd stream. That pattern (same months fail no
+matter which source/window lever produced the audio) pointed at the
+**tracker**, not window/source selection.
+
+**Lever 4 (tracker) — done, and it was the fix.** `diagnose.py` compared
+numpy-ACF against Praat autocorrelation (`praat_features.py`) on the
+audio already on disk for the 17 hard-fail months: all 115 (id ×
+window-variant) comparisons that failed under numpy passed under Praat,
+with median F0 clustering at 249–436 Hz (matching Luna's known range)
+and — tellingly — Praat's medians agreeing closely *across* the
+raw90/raw90b/stem90 variants of the same clip where numpy's disagreed by
+hundreds of Hz. That's octave-jump noise, not real pitch variation; Praat's
+path-finding (which explicitly penalizes octave jumps between frames,
+unlike the numpy tracker's uncorrelated per-frame peak-pick) resolves it.
+**Praat is now the production tracker for Luna** — `remeasure.py`
+re-measured every record in `luna_monthly.json` on the exact audio each
+one already used (same processing, only the tracker changed; snapshot at
+`luna_monthly_pre_praat_remeasure.json`). Result: **74/75 months (98.7%)
+now have a QC-pass clip**, up from 76%. QC-pass F0 across the corpus:
+n=100, mean 333.9 Hz, sd 34.8 Hz, range 249–455 Hz — a stable character
+voice, consistent with the pre-Praat reading, now on a dataset that is
+actually complete. One record (`dPktttXyxZo`, 2023-04) that passed under
+numpy (IQR 135.6) now fails under Praat (IQR 223.4) — Praat is not a
+strict superset of numpy passes, it is a different, more consistent
+tracker; that one month is the sole remaining gap.
 
 ---
 
@@ -175,32 +197,37 @@ Luna dataset achievable.
    QC-pass clip**, up from 54.7% pre-lever. 18 months remain empty (17 of
    them failed on *both* streams) — see "Why the Luna series disappointed"
    for the residual-failure analysis.
-3. **Re-evaluate — in progress.** The residual 18-month gap is
-   IQR-driven and tracker-shaped, not window/source-shaped (all three
-   levers converge on the same failing months). Before trying a 3rd
-   stream/month, run the tracker diagnostic (`diagnose.py`) against the
-   17 hard-fail months on audio already on disk — if an alternate tracker
-   (Praat) clears them, that's the fix; if not, a 3rd stream is unlikely
-   to help either and lever 4 (accept the gap) is the honest call —
-   owner decides.
+3. **Re-evaluate — done: tracker was the fix.** The residual 18-month gap
+   was IQR-driven and tracker-shaped, not window/source-shaped. The
+   tracker diagnostic (`diagnose.py`) confirmed Praat clears the residual
+   failures; `remeasure.py` re-measured the whole corpus with Praat.
+   **Result: 74/75 months (98.7%) QC-pass**, only 2023-04 remains a gap. A
+   3rd stream/month is not needed.
 
-Other talents resume only after the Luna series is as good as achievable.
-Sora v1 data (33 records, 87.9% QC-pass) stays on disk, parked.
+Luna is now at a genuinely acceptable standard (98.7% month-coverage,
+n=100 QC-pass clips, stable ~334 Hz mean). **Praat is the tracker other
+talents should inherit** when expansion resumes (round-1 analysis: lock
+the tracker before branching out, not after). Other talents resume only
+when the owner decides to. Sora v1 data (33 records, 87.9% QC-pass,
+numpy tracker) stays on disk, parked — would need the same Praat
+re-measurement before joining a cross-talent comparison.
 
 ---
 
 ## Next steps (in order)
 
-1. **Tracker diagnostic — in progress.** `diagnose.py` compares the
-   existing numpy-ACF tracker against Praat (`praat_features.py`) on the
-   audio already on disk (`_raw90`/`_raw90b`/`_stem90`) for the 17
-   months that still fail QC after retry + rescue + 2nd-stream. Read-only
-   — writes a separate `luna_tracker_diagnostic.json`, never touches
-   `luna_monthly.json`. Decides: adopt Praat as the production tracker
-   (re-measure the whole series for consistency) vs. accept the 76%
-   month-coverage ceiling and stop chasing (lever 4).
+1. **Tracker diagnostic + full re-measurement — done.** `diagnose.py`
+   compared numpy-ACF against Praat (`praat_features.py`) on the 17
+   hard-fail months' audio; Praat cleared all of them. `remeasure.py`
+   then re-measured every record in `luna_monthly.json` with Praat on
+   the same audio each record already used (snapshot at
+   `luna_monthly_pre_praat_remeasure.json`). **74/75 months (98.7%)
+   QC-pass**, up from 76%. New plots: `data/plots/runs/
+   20260901T154218-luna-monthly-praat/`.
 2. **Aggregate helper in-repo** so plots are not throwaway scripts; then **static site** (F0-over-years, profile, F0×brightness + “correlates not vibes”). Generated from aggregates only.
-3. **Other talents only after Luna data is actually good.** Fast path (90 s RoFormer), one person at a time, until every in-scope member is high-quality and complete.
+3. **Other talents only after owner decides to resume.** Luna is now at
+   a genuinely acceptable standard. Fast path (90 s RoFormer) + Praat
+   tracker (now the standard, not numpy ACF), one person at a time.
 
 Do not: kill/replace the 24 `balanced` 15 min stems; mix presets inside one talent; commit `data/`; download Cover audio into git.
 
