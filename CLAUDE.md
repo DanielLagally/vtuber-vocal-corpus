@@ -19,6 +19,15 @@ direnv exec . python -m pytest -q
 - `fixtures/` — generated at test time, not committed
 - `data/` — local audio, Holodex key, raw features; gitignored
 
+## Plots are a permanent record
+
+`data/plots/` is a permanent record, not a scratch dir. Every `vanalysis
+plot` invocation writes into a fresh timestamped subdirectory under
+`data/plots/runs/` — it never overwrites a previous run's PNGs. Do not add
+code that writes plot files to a fixed path outside `runs/<run>/`. Do not
+delete old run directories; if `data/plots/` needs tidying, move things
+into `runs/`, never `rm`.
+
 ## Public vs private
 
 Tracked files are public. Never commit Cover/hololive audio, clips, transcripts, `.env`, or `data/`. Aggregates and plots derived from those measurements may be tracked. `HOLODEX_API_KEY` lives in gitignored `.env`.

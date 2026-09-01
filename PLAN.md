@@ -74,7 +74,8 @@ Sequential only. Extra parallel yt-dlp processes hit the image-only gate. Per-vi
 3. Hunt 90 s on **raw** → `data/windows/<id>_raw90.wav` + `windows.json` times as offsets **into the 15 min file**.
 4. Isolate **that 90 s** with the single RoFormer → `data/stems_fast/<id>_raw90_(vocals)_bs_roformer_….wav` (the whole file **is** the window).
 5. Measure **the whole 90 s stem** (do not re-apply `windows.json` offsets onto the stem — those times are for the 15 min wav). Persist `window` as metadata.
-6. Plots from measurements JSON.
+6. Plots from measurements JSON — `vanalysis plot` writes into a fresh
+   `data/plots/runs/<run>/`, never a fixed path (see `CLAUDE.md`).
 
 **Intended next on the same audio (approved, not implemented):** if the stem fails QC, hunt a **2nd-best** 90 s on the same raw 15 min that **does not overlap** the first window, isolate as `_raw90b` with the **same** RoFormer. QC plot: **keep 2nd only if it passes**; else gap. All-clips may still show the fail. No new YouTube.
 
@@ -85,12 +86,15 @@ Do not isolate 15 min `vocal_balanced` for new talents unless a new comparison s
 ## What is already done
 
 ### Code (beyond the 24-clip era)
-- Catalog: `pick_monthly`, `catalog --channel` + `--monthly` (Holodex `channel_id`, `include=mentions`).
+- Catalog: `pick_monthly` (delegates to `pick_monthly_n(n=1)`), `pick_monthly_n` for multi-clip months, `catalog --channel` + `--monthly` (Holodex `channel_id`, `include=mentions`).
 - Fetch: `player_client=android`, `fetch_audio_many` skip-and-continue, skip existing wavs.
 - Isolate: `model_filename` single-model path; `--windowed` reads `data/windows/<id>_raw90.wav`.
 - Window CLI: `best_speech_window` + `slice_wav`.
-- Measure/plot CLI exist; **measure still looks up `<id>_(vocals)_…` and used to re-slice the stem with 15 min offsets** — that crashed on the 90 s files. Luna stem plots were produced by a one-off that measured `*_raw90_(vocals)_*` as whole files. **Fix measure lookup + no second slice** as part of the 2nd-window work. `second_speech_window` / `retry` CLI: not implemented yet.
-- Product tests: catalog monthly pick, isolate single-model, slice_wav, series/QC, measure shape, fetch android + skip-continue.
+- Measure: fixed — `stem_features`/`_stem_path` find `*_raw90_(vocals)_*` (and the legacy `<id>_(vocals)_*`), measure the whole stem, never re-slice with 15 min offsets; `window` in the record is metadata only.
+- `retry` CLI (`retry.py`): 2nd non-overlapping raw window (`_raw90b`), replace-if-pass, snapshot before replace. Shipped and run.
+- `rescue` CLI (`rescue.py`): stem-hunt — isolate the full wav, hunt the 90 s window on the stem (`_stem90`), replace-if-pass. Shipped and run.
+- `series.py`: `f0_series`/`iqr_series` average multiple QC-passing clips per month (multi-clip months from the 2nd-stream fetch); `f0_yearly`/`write_yearly_plot` added.
+- Product tests: catalog monthly + multi-pick, isolate single-model, slice_wav, series/QC/yearly, measure shape, fetch android + skip-continue, rescue (14 tests), retry.
 
 ### Data — 24-clip batch (unchanged)
 - 24 wavs, 24 full `vocal_balanced` stems, 90 s slices, fast 90 s stems, first plot set in `data/plots/`.
@@ -118,13 +122,24 @@ Old QC on those PNGs marked IQR ≥ 200 **or** F0 ≥ 500. Illustrative 2025−2
 
 ## Why the Luna series disappointed (and what we are not doing yet)
 
-Window hunt on **raw** (high voiced + low IQR) can lock onto periodic BGM; RoFormer then leaves melody (cap) or jumps octave. 45% fail IQR, so 1 stream/month cannot fill quarterly QC. Numpy ACF is a **failure detector**, not a career-F0 meter. Praat later; it will not fix a window on a jingle.
+Window hunt on **raw** (high voiced + low IQR) can lock onto periodic BGM; RoFormer then leaves melody (cap) or jumps octave. Numpy ACF is a **failure detector**, not a career-F0 meter.
 
-**Levers discussed; only the first is approved next:**
-1. **Cap + 2nd non-overlapping raw window on existing 15 min wavs** (no new downloads). ← next
-2. More streams per month (new fetches) — later if 2024 stays empty.
-3. Hunt 90 s on the stem (more GPU) — only if retries still pick music.
-4. Stop chasing a slope (~350 Hz + no trend is the result) — product call after (1).
+**Levers 1–3 have all run** (2nd-window retry, stem-hunt rescue, 2nd-stream
+fetch — see "goal shift" below): month-coverage moved 54.7% → 62.7% →
+64.0% → **76%** (57/75 months with ≥1 QC-pass clip). **18 months still
+have zero passing clip; for 17 of those, both the 1st-stream and
+2nd-stream attempt failed.** All 34 failing records in that residual set
+fail on `f0_iqr` alone (204–390 Hz), none on non-finite F0, and
+`voiced_fraction` is normal-to-high throughout — not silence, not an
+obviously-wrong window. The same months fail regardless of whether the
+audio came from raw-hunted, stem-hunted, or a second stream, which points
+at the **tracker** (numpy ACF making octave/instability errors on this
+voice) rather than window or source selection. Lever 4 (Praat/pyin as an
+alternate tracker) is the open decision — see `src/vanalysis/
+praat_features.py` + `diagnose.py` (tracker diagnostic, read-only,
+compares against the audio already on disk for the 17 hard-fail months)
+before deciding whether to adopt it as the production tracker or accept
+the residual gap and stop.
 
 ---
 
@@ -139,13 +154,53 @@ Window hunt on **raw** (high voiced + low IQR) can lock onto periodic BGM; RoFor
 
 ---
 
+## 2026-09-01: goal shift — Luna max before branching (owner decision)
+
+Branching out to other talents is **paused**. The goal is the absolute best
+Luna dataset achievable.
+
+1. **Stem hunt (lever 3) — done.** For every QC-failing Luna month: isolate
+   the **full 15 min** with the same fast RoFormer preset, hunt the 90 s
+   window **on the stem**, slice the stem, measure, replace the month only
+   if it passes QC (snapshot first, `rescue.py`). Moved month-pass 41→48
+   of 75 (raw-window-hunt fails were largely re-locking onto the same
+   music, not fixed by isolating first).
+2. **More streams per month (lever 2) — done.** For months still failing
+   after (1), fetched the **2nd-highest scored eligible stream** of that
+   month (`pick_monthly_n`) and ran the full pipeline on it including the
+   stem-hunt fallback. Multiple clips of a month coexist in measurements;
+   the monthly QC value is the **mean of that month's QC-pass clip
+   medians** (`f0_series`/`iqr_series` in `series.py`); quarterly
+   aggregation unchanged. Result: **76% of months (57/75) now have ≥1
+   QC-pass clip**, up from 54.7% pre-lever. 18 months remain empty (17 of
+   them failed on *both* streams) — see "Why the Luna series disappointed"
+   for the residual-failure analysis.
+3. **Re-evaluate — in progress.** The residual 18-month gap is
+   IQR-driven and tracker-shaped, not window/source-shaped (all three
+   levers converge on the same failing months). Before trying a 3rd
+   stream/month, run the tracker diagnostic (`diagnose.py`) against the
+   17 hard-fail months on audio already on disk — if an alternate tracker
+   (Praat) clears them, that's the fix; if not, a 3rd stream is unlikely
+   to help either and lever 4 (accept the gap) is the honest call —
+   owner decides.
+
+Other talents resume only after the Luna series is as good as achievable.
+Sora v1 data (33 records, 87.9% QC-pass) stays on disk, parked.
+
+---
+
 ## Next steps (in order)
 
-1. **2nd-window retry (approved, not built):** `second_speech_window` (same 90 s / 15 s grid, no overlap with first). Slice `_raw90b`, isolate same RoFormer. Retry ids where IQR ≥ 200 or F0 nan or F0 ≥ 600 (~34). QC plot: replace month only if 2nd **passes**; else gap. All-clips may show the fail. Fix measure: find `*_raw90_(vocals)_*` (and test name `<id>_(vocals)_*`), measure whole stem, persist `windows.json` as metadata only. Snapshot `luna_monthly.json` before replace. Replot quarterly mean + min–max.
-2. Look at post-retry quarterly QC. If 2024 still empty / still no trend → decide lever 2 (more streams/month), 3 (hunt on stem), or 4 (stop).
-3. **Aggregate helper in-repo** so plots are not throwaway scripts; then **static site** (F0-over-years, profile, F0×brightness + “correlates not vibes”). Generated from aggregates only.
-4. **Other talents only after Luna data is actually good.** Fast path (90 s RoFormer), one person at a time, until every in-scope member is high-quality and complete.
-5. **Optional later:** Praat F0 (or whatever tracker best serves the data); audio-only yt-dlp when a real `m4a`/`webm` exists.
+1. **Tracker diagnostic — in progress.** `diagnose.py` compares the
+   existing numpy-ACF tracker against Praat (`praat_features.py`) on the
+   audio already on disk (`_raw90`/`_raw90b`/`_stem90`) for the 17
+   months that still fail QC after retry + rescue + 2nd-stream. Read-only
+   — writes a separate `luna_tracker_diagnostic.json`, never touches
+   `luna_monthly.json`. Decides: adopt Praat as the production tracker
+   (re-measure the whole series for consistency) vs. accept the 76%
+   month-coverage ceiling and stop chasing (lever 4).
+2. **Aggregate helper in-repo** so plots are not throwaway scripts; then **static site** (F0-over-years, profile, F0×brightness + “correlates not vibes”). Generated from aggregates only.
+3. **Other talents only after Luna data is actually good.** Fast path (90 s RoFormer), one person at a time, until every in-scope member is high-quality and complete.
 
 Do not: kill/replace the 24 `balanced` 15 min stems; mix presets inside one talent; commit `data/`; download Cover audio into git.
 
