@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from vanalysis.catalog import filter_videos, pick_monthly
+from vanalysis.densify import run_densify
 from vanalysis.diagnose import run_diagnose
 from vanalysis.remeasure import run_remeasure
 from vanalysis.expand import run_plan
@@ -282,6 +283,44 @@ def main(argv: list[str] | None = None) -> None:
     prm.add_argument("--model-filename", default=DEFAULT_MODEL_FILENAME)
     prm.add_argument("-o", "--out", type=Path, default=None)
 
+    dsf = sub.add_parser(
+        "densify",
+        help=(
+            "bring every month below --target-n records up to target-n "
+            "using the cached raw catalog (fetch+window+isolate+Praat "
+            "measure); only appends, never touches existing records"
+        ),
+    )
+    dsf.add_argument(
+        "--measurements",
+        type=Path,
+        default=Path("data/measurements/luna_monthly.json"),
+    )
+    dsf.add_argument(
+        "--video-cache",
+        type=Path,
+        default=Path("data/catalog/video_cache/UCa9Y57gfeY0Zro_noHRVrnw.json"),
+        help="cached raw Holodex listing for the channel (no new API calls)",
+    )
+    dsf.add_argument(
+        "--windows", type=Path, default=Path("data/windows/windows.json")
+    )
+    dsf.add_argument("--data-dir", type=Path, default=Path("data"))
+    dsf.add_argument("--stems-dir", type=Path, default=Path("data/stems_fast"))
+    dsf.add_argument("--target-n", type=int, default=2)
+    dsf.add_argument("--model-filename", default=DEFAULT_MODEL_FILENAME)
+    dsf.add_argument(
+        "--model-file-dir",
+        default=None,
+        help="optional audio-separator --model_file_dir (model ckpt cache dir)",
+    )
+    dsf.add_argument("--cookies", type=Path, default=None)
+    dsf.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="compute everything possible but write nothing",
+    )
+
     diag = sub.add_parser(
         "diagnose-tracker",
         help=(
@@ -406,6 +445,27 @@ def main(argv: list[str] | None = None) -> None:
             model_filename=args.model_filename,
             model_file_dir=args.model_file_dir,
             dry_run=args.dry_run,
+        )
+        print(json.dumps(summary, indent=2))
+        return
+    if args.cmd == "densify":
+        cookies = args.cookies
+        if cookies is None:
+            fallback = args.data_dir / "youtube.cookies.txt"
+            if fallback.is_file():
+                cookies = fallback
+        summary = run_densify(
+            args.data_dir,
+            measurements_path=args.measurements,
+            video_cache_path=args.video_cache,
+            windows_path=args.windows,
+            stems_dir=args.stems_dir,
+            target_n=args.target_n,
+            model_filename=args.model_filename,
+            model_file_dir=args.model_file_dir,
+            cookies=cookies,
+            dry_run=args.dry_run,
+            log=print,
         )
         print(json.dumps(summary, indent=2))
         return
