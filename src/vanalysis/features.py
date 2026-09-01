@@ -128,3 +128,28 @@ def spectral_centroid_hz(path: Path | str) -> float:
     if not cents:
         return math.nan
     return float(np.mean(cents))
+
+
+def loudness_dynamics_db(path: Path | str) -> float:
+    """Standard deviation of frame RMS-in-dB across the clip — how much
+    the VOLUME moves (loud/excited vs quiet moments) versus a flat,
+    even delivery. Tracker-independent (no pitch tracking), unlike
+    jitter/shimmer/HNR not designed for a sustained vowel, so it
+    doesn't inherit their measurement-mismatch caveat on conversational
+    speech. Frames below a near-silence RMS floor are excluded (a
+    silent frame's dB is not a loudness data point, just absence of
+    signal)."""
+    y, sr = _load_mono(path)
+    frame = max(1, int(0.05 * sr))
+    hop = max(1, int(0.025 * sr))
+    if y.size < frame:
+        return math.nan
+    dbs: list[float] = []
+    for start in range(0, y.size - frame + 1, hop):
+        seg = y[start : start + frame]
+        rms = float(np.sqrt(np.mean(seg * seg)))
+        if rms > 1e-6:
+            dbs.append(20.0 * math.log10(rms))
+    if len(dbs) < 2:
+        return math.nan
+    return float(np.std(dbs))

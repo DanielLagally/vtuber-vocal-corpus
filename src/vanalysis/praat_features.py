@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import parselmouth
 
-from .features import spectral_centroid_hz
+from .features import loudness_dynamics_db, spectral_centroid_hz
 
 _FMIN = 75.0
 _FMAX = 600.0
@@ -71,17 +71,73 @@ def dynamism_semitones(path: Path | str) -> float:
     return float(np.mean(semitone_deltas))
 
 
+def _point_process(sound: parselmouth.Sound, pitch: parselmouth.Pitch):
+    return parselmouth.praat.call([sound, pitch], "To PointProcess (cc)")
+
+
+def jitter_local(path: Path | str) -> float:
+    """Cycle-to-cycle variation in the TIMING between successive pitch
+    periods (fraction, e.g. 0.01 = 1%). PLAN caveat: Praat's local-
+    jitter algorithm is calibrated for a sustained vowel, not
+    conversational speech, and is sensitive to residual vocal-isolation
+    artifact — trust the relative comparison within this pipeline
+    (same isolation model throughout), not the absolute number against
+    a clinical reference."""
+    sound = parselmouth.Sound(str(path))
+    pitch = sound.to_pitch_ac(time_step=_HOP_S, pitch_floor=_FMIN, pitch_ceiling=_FMAX)
+    try:
+        point_process = _point_process(sound, pitch)
+        value = parselmouth.praat.call(
+            point_process, "Get jitter (local)", 0, 0, 0.0001, 0.02, 1.3
+        )
+    except Exception:
+        return math.nan
+    return float(value) if value == value else math.nan
+
+
+def shimmer_local(path: Path | str) -> float:
+    """Cycle-to-cycle variation in AMPLITUDE between successive pitch
+    periods (fraction). Same sustained-vowel-calibration /
+    isolation-artifact caveat as jitter_local."""
+    sound = parselmouth.Sound(str(path))
+    pitch = sound.to_pitch_ac(time_step=_HOP_S, pitch_floor=_FMIN, pitch_ceiling=_FMAX)
+    try:
+        point_process = _point_process(sound, pitch)
+        value = parselmouth.praat.call(
+            [sound, point_process], "Get shimmer (local)", 0, 0, 0.0001, 0.02, 1.3, 1.6
+        )
+    except Exception:
+        return math.nan
+    return float(value) if value == value else math.nan
+
+
+def hnr_db(path: Path | str) -> float:
+    """Harmonics-to-noise ratio in dB — high = clear/tonal, low =
+    breathy/noisy. Same sustained-vowel-calibration / isolation-
+    artifact caveat as jitter_local/shimmer_local."""
+    sound = parselmouth.Sound(str(path))
+    harmonicity = sound.to_harmonicity_cc(time_step=0.01, minimum_pitch=_FMIN)
+    value = parselmouth.praat.call(harmonicity, "Get mean", 0, 0)
+    return float(value) if value == value else math.nan
+
+
 def stem_features(path: Path | str) -> dict:
     """Same shape as measure.stem_features / features.{median_f0,f0_iqr,
     voiced_fraction}, backed by Praat autocorrelation instead of numpy
     ACF, same 75-600 Hz bounds — for tracker-vs-tracker comparison on the
-    same audio (see diagnose.py). Plus two tracker-independent extras:
-    brightness_hz (features.spectral_centroid_hz, pure FFT, reused as-is)
-    and dynamism_semitones (this module)."""
+    same audio (see diagnose.py). Plus tracker-independent extras:
+    brightness_hz and loudness_dynamics_db (features.py, pure FFT/RMS,
+    reused as-is), dynamism_semitones, and the voice-quality trio
+    jitter_local/shimmer_local/hnr_db (this module — see their
+    docstrings for the sustained-vowel/isolation-artifact caveat)."""
     return {
         "median_f0": median_f0(path),
         "f0_iqr": f0_iqr(path),
         "voiced_fraction": voiced_fraction(path),
         "brightness_hz": spectral_centroid_hz(path),
         "dynamism_semitones": dynamism_semitones(path),
+        "jitter_local": jitter_local(path),
+        "shimmer_local": shimmer_local(path),
+        "hnr_db": hnr_db(path),
+        "loudness_dynamics_db": loudness_dynamics_db(path),
     }

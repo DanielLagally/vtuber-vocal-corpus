@@ -13,13 +13,22 @@ hololive audio, never downloads):
 3. Silence returns math.nan for median_f0, never an invented Hz value
    (same no-bogus-confidence rule as vanalysis.features).
 4. stem_features(path) returns median_f0, f0_iqr, voiced_fraction,
-   brightness_hz, dynamism_semitones.
+   brightness_hz, dynamism_semitones, jitter_local, shimmer_local,
+   hnr_db, loudness_dynamics_db.
 5. dynamism_semitones = mean absolute semitone change between
    consecutive VOICED frames. A steady tone is near 0 (no frame-to-
    frame movement). Critically, a silence GAP between two differently-
    pitched voiced blocks must NOT count as a jump — only frame pairs
    that are BOTH voiced (and therefore adjacent in time, not just
    adjacent after unvoiced frames are filtered out) contribute.
+6. jitter_local / shimmer_local / hnr_db (voice quality; PLAN caveat:
+   calibrated for a sustained vowel, not conversational speech, and
+   sensitive to residual vocal-isolation artifact — trust the relative
+   comparison within this pipeline, not the absolute number against a
+   clinical reference). A clean steady tone (a synthetic sine has
+   essentially zero real cycle-to-cycle irregularity) has very low
+   jitter/shimmer and very high HNR — this is a sanity floor, not a
+   claim the numbers are clinically meaningful on real speech.
 """
 
 import array
@@ -109,12 +118,17 @@ def test_stem_features_shape(fixtures_dir: Path) -> None:
     features = praat_features.stem_features(fixtures_dir / "praat_tone220.wav")
     assert set(features) == {
         "median_f0", "f0_iqr", "voiced_fraction", "brightness_hz",
-        "dynamism_semitones",
+        "dynamism_semitones", "jitter_local", "shimmer_local", "hnr_db",
+        "loudness_dynamics_db",
     }
     assert math.isfinite(features["median_f0"])
     assert 0.0 <= features["voiced_fraction"] <= 1.0
     assert math.isfinite(features["brightness_hz"])
     assert math.isfinite(features["dynamism_semitones"])
+    assert math.isfinite(features["jitter_local"])
+    assert math.isfinite(features["shimmer_local"])
+    assert math.isfinite(features["hnr_db"])
+    assert math.isfinite(features["loudness_dynamics_db"])
 
 
 def test_dynamism_steady_tone_near_zero(fixtures_dir: Path) -> None:
@@ -134,3 +148,15 @@ def test_dynamism_does_not_count_a_silence_gap_as_a_jump(fixtures_dir: Path) -> 
         f"dynamism {dynamism} suggests the cross-gap 220->330 Hz jump was "
         "counted; only within-block frame pairs may contribute"
     )
+
+
+def test_voice_quality_clean_tone_low_jitter_shimmer_high_hnr(fixtures_dir: Path) -> None:
+    """Rule 6: a synthetic sine has essentially zero real cycle-to-cycle
+    irregularity — low jitter/shimmer, high HNR is a sanity floor
+    (does not claim these are clinically meaningful on real speech)."""
+    jitter = praat_features.jitter_local(fixtures_dir / "praat_tone220.wav")
+    shimmer = praat_features.shimmer_local(fixtures_dir / "praat_tone220.wav")
+    hnr = praat_features.hnr_db(fixtures_dir / "praat_tone220.wav")
+    assert math.isfinite(jitter) and jitter < 0.01, f"jitter {jitter} too high for a clean tone"
+    assert math.isfinite(shimmer) and shimmer < 0.01, f"shimmer {shimmer} too high for a clean tone"
+    assert math.isfinite(hnr) and hnr > 40.0, f"HNR {hnr} too low for a clean tone"

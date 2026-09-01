@@ -11,6 +11,9 @@ never Cover/hololive audio, never downloads):
    spectral centroid than a highpassed (bright) noise file.
 4. No bogus confidence: median_f0 on silence must NOT invent an F0 —
    it returns math.nan when there are no voiced frames.
+5. Loudness dynamics: a clip with a big loud/quiet swing has a
+   strictly higher RMS-in-dB spread than a constant-amplitude clip of
+   the same tone.
 
 Fixtures are tiny wavs (16 kHz, mono, 16-bit, ~1 s) synthesized here with
 the stdlib `wave` module into <repo>/fixtures/ — deterministic (seeded RNG),
@@ -87,6 +90,14 @@ def _clip16(samples: list[int], peak: int = 32000) -> list[int]:
     return [max(-32768, min(32767, int(round(s * scale)))) for s in samples]
 
 
+def _amplitude_swing(freq_hz: float, seconds: float, sr: int = SR) -> list[int]:
+    """A 220 Hz-family tone at loud amplitude for the first half, quiet
+    for the second half — the 'dynamic loudness' fixture."""
+    loud = _sine(freq_hz, seconds / 2, sr=sr, amp=0.9)
+    quiet = _sine(freq_hz, seconds / 2, sr=sr, amp=0.05)
+    return loud + quiet
+
+
 @pytest.fixture(scope="session")
 def fixtures_dir() -> Path:
     """Synthesize the tiny fixture wavs into <repo>/fixtures/ (deterministic)."""
@@ -96,6 +107,8 @@ def fixtures_dir() -> Path:
     _write_wav(FIXTURES_DIR / "noise_white.wav", _noise(1.0, amp=3000, rng=rng))
     _write_wav(FIXTURES_DIR / "noise_dark.wav", _clip16(_lowpassed(_noise(1.0, amp=30000, rng=rng), 400.0)))
     _write_wav(FIXTURES_DIR / "noise_bright.wav", _clip16(_highpassed(_noise(1.0, amp=3000, rng=rng))))
+    _write_wav(FIXTURES_DIR / "tone220_steady.wav", _sine(220.0, 1.0, amp=0.5))
+    _write_wav(FIXTURES_DIR / "tone220_swing.wav", _amplitude_swing(220.0, 1.0))
     return FIXTURES_DIR
 
 
@@ -157,4 +170,16 @@ def test_spectral_centroid_brighter_file_is_higher(fixtures_dir: Path) -> None:
     assert bright > dark, f"bright ({bright}) must exceed dark ({dark})"
     assert bright - dark > 500.0, (
         f"fixtures are strongly separated; got dark={dark} bright={bright}"
+    )
+
+
+def test_loudness_dynamics_swing_higher_than_steady(fixtures_dir: Path) -> None:
+    """Rule 5: a loud-then-quiet clip has a strictly higher RMS-in-dB
+    spread than a constant-amplitude clip of the same tone."""
+    steady = features.loudness_dynamics_db(fixtures_dir / "tone220_steady.wav")
+    swing = features.loudness_dynamics_db(fixtures_dir / "tone220_swing.wav")
+    assert math.isfinite(steady) and math.isfinite(swing)
+    assert steady < 1.0, f"constant-amplitude clip should be near-flat, got {steady}"
+    assert swing > steady + 3.0, (
+        f"loud/quiet swing ({swing}) must clearly exceed steady ({steady})"
     )

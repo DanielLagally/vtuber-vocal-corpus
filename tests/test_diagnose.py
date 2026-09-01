@@ -89,7 +89,10 @@ def test_compare_tracker_record_shape(tmp_path: Path) -> None:
 
     [record] = diagnose.compare_tracker([video_id], data_dir, stems_dir)
     numpy_keys = {"median_f0", "f0_iqr", "voiced_fraction", "qc"}
-    praat_keys = numpy_keys | {"brightness_hz", "dynamism_semitones"}
+    praat_keys = numpy_keys | {
+        "brightness_hz", "dynamism_semitones", "jitter_local",
+        "shimmer_local", "hnr_db", "loudness_dynamics_db",
+    }
     for tracker, expected_keys in (("numpy", numpy_keys), ("praat", praat_keys)):
         features = record[tracker]
         assert set(features) == expected_keys
