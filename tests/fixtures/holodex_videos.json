@@ -1,0 +1,48 @@
+[
+  {
+    "id": "goodchat01",
+    "title": "Free chat — talking about games",
+    "type": "stream",
+    "channel_id": "UCgoodchan0001",
+    "published_at": "2026-08-01T12:00:00.000Z",
+    "available_at": "2026-08-01T12:00:00.000Z",
+    "duration": 5400,
+    "topic_id": "chatting",
+    "mentions": []
+  },
+  {
+    "id": "cliprow002",
+    "title": "Clip of someone chatting",
+    "type": "clip",
+    "channel_id": "UCgoodchan0001",
+    "published_at": "2026-08-02T09:00:00.000Z",
+    "available_at": "2026-08-02T09:00:00.000Z",
+    "duration": 60,
+    "topic_id": "chatting",
+    "mentions": []
+  },
+  {
+    "id": "singrow003",
+    "title": "Singing stream",
+    "type": "stream",
+    "channel_id": "UCgoodchan0001",
+    "published_at": "2026-08-03T20:00:00.000Z",
+    "available_at": "2026-08-03T20:00:00.000Z",
+    "duration": 4800,
+    "topic_id": "singing",
+    "mentions": []
+  },
+  {
+    "id": "collab0004",
+    "title": "Chatting with a guest",
+    "type": "stream",
+    "channel_id": "UCgoodchan0001",
+    "published_at": "2026-08-04T13:00:00.000Z",
+    "available_at": "2026-08-04T13:00:00.000Z",
+    "duration": 7200,
+    "topic_id": "chatting",
+    "mentions": [
+      {"id": "UCotherchan09", "name": "Other Channel"}
+    ]
+  }
+]

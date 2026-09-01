@@ -1,0 +1,9 @@
+.venv/
+.direnv/
+data/
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+fixtures/*.wav
