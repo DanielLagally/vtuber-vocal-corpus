@@ -18,6 +18,30 @@ def _finite(value: object) -> bool:
     return isinstance(value, (int, float)) and math.isfinite(float(value))
 
 
+# Plain-language plot text (CLAUDE.md: plots are a permanent record — they
+# should stand on their own for a reader who has never seen this repo).
+_WHAT_IS_F0 = (
+    "Median F0 = typical pitch of voiced speech in a ~90 s clip of a public\n"
+    "chatting stream. Higher = higher-pitched voice."
+)
+_QC_LABEL_ALL = "all clips"
+_QC_LABEL_PASS = "QC-pass only"
+_QC_FOOTER = (
+    "QC excludes clips with too little voice, unstable pitch (BGM/tracker\n"
+    "error), or an implausible reading. Gaps are missing/failed data, never 0 Hz."
+)
+
+
+def _title(talent: str | None, subject: str) -> str:
+    return f"{talent} — {subject}" if talent else subject
+
+
+def _add_caption(fig: plt.Figure, *lines: str) -> None:
+    # supxlabel (not fig.text) so constrained_layout reserves space for it —
+    # a raw fig.text at a fixed y overlaps rotated x-tick labels instead.
+    fig.supxlabel("\n".join(lines), fontsize="x-small", color="dimgray", ha="center")
+
+
 def new_run_dir(base: Path | str, label: str | None = None) -> Path:
     """A fresh, never-reused directory under ``base/runs/`` (CLAUDE.md:
     plots are a permanent record — every plot run gets its own directory,
@@ -197,17 +221,27 @@ def f0_yearly(entries: list[dict], qc: bool = False) -> list[dict]:
 def _plot_points(ax: plt.Axes, points: list[tuple[str, float]], label: str) -> None:
     months = [month for month, _ in points]
     values = [value for _, value in points]
-    ax.plot(months, values, marker="o", label=label)
+    ax.plot(months, values, marker="o", label=label, markersize=4)
+    ax.grid(axis="y", alpha=0.3, linewidth=0.6)
+    ax.set_axisbelow(True)
 
 
 def _plot_quarterly(ax: plt.Axes, points: list[dict], label: str) -> None:
     """Quarter points as means, with a min–max band ONLY where n >= 2 —
     a n=1 quarter is anecdotal (PLAN L36) and renders as a bare point.
     Empty quarters are absent from the series and so leave a natural
-    gap on the x axis."""
+    gap on the x axis. Each point is direct-labeled with its exact Hz
+    value; horizontal gridlines make reading values off the axis
+    easier without a label on every single line."""
     quarters = [p["quarter"] for p in points]
     xs = list(range(len(points)))
-    ax.plot(xs, [p["mean"] for p in points], marker="o", label=label)
+    means = [p["mean"] for p in points]
+    ax.plot(xs, means, marker="o", label=label, markersize=4)
+    for x, mean in zip(xs, means):
+        ax.annotate(
+            f"{mean:.0f}", (x, mean), xytext=(0, 6), textcoords="offset points",
+            ha="center", fontsize="xx-small", alpha=0.85,
+        )
     band_x = [x for x, p in zip(xs, points) if p["n"] >= 2]
     if band_x:
         ax.fill_between(
@@ -219,32 +253,54 @@ def _plot_quarterly(ax: plt.Axes, points: list[dict], label: str) -> None:
         )
     ax.set_xticks(xs)
     ax.set_xticklabels(quarters, rotation=45, ha="right")
+    ax.grid(axis="y", alpha=0.3, linewidth=0.6)
+    ax.set_axisbelow(True)
 
 
-def write_plots(entries: list[dict], out_dir: Path) -> None:
+def write_plots(entries: list[dict], out_dir: Path, *, talent: str | None = None) -> None:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     all_points = f0_series(entries)
     qc_points = f0_series(entries, qc=True)
-    fig, ax = plt.subplots()
-    _plot_points(ax, all_points, "all")
-    _plot_points(ax, qc_points, "qc (finite f0, f0 < 600, iqr < 200)")
-    ax.set_ylabel("median F0 (Hz)")
+    fig, ax = plt.subplots(figsize=(9, 5.5), constrained_layout=True)
+    _plot_points(ax, all_points, _QC_LABEL_ALL)
+    _plot_points(ax, qc_points, _QC_LABEL_PASS)
+    fig.suptitle(_title(talent, "Median Pitch (F0) by Month"), fontweight="bold")
+    ax.set_title(_WHAT_IS_F0, fontsize="small", color="dimgray")
+    ax.set_ylabel("Median F0 (Hz)")
+    ax.tick_params(axis="x", rotation=45)
     if all_points or qc_points:
         ax.legend()
+    _add_caption(fig, _QC_FOOTER)
     fig.savefig(out_dir / "f0_monthly.png")
     plt.close(fig)
+
     iqr_points = iqr_series(entries)
-    fig, ax = plt.subplots()
-    _plot_points(ax, iqr_points, "all")
-    ax.set_ylabel("F0 IQR (Hz)")
+    fig, ax = plt.subplots(figsize=(9, 5.5), constrained_layout=True)
+    _plot_points(ax, iqr_points, _QC_LABEL_ALL)
+    fig.suptitle(_title(talent, "Pitch Variability (F0 IQR) by Month"), fontweight="bold")
+    ax.set_title(
+        "Spread of pitch within one clip — tight = one steady voice,\n"
+        "wide = background music, mixed audio, or tracker error.",
+        fontsize="small",
+        color="dimgray",
+    )
+    ax.set_ylabel("F0 IQR (Hz) — lower is more consistent")
+    ax.tick_params(axis="x", rotation=45)
     if iqr_points:
         ax.legend()
+    _add_caption(
+        fig,
+        "IQR >= 200 Hz fails QC (see the F0 plot). Shown here for every clip,\n"
+        "pass or fail, so cleaning is visible.",
+    )
     fig.savefig(out_dir / "f0_iqr_monthly.png")
     plt.close(fig)
 
 
-def write_quarterly_plots(entries: list[dict], out_dir: Path) -> None:
+def write_quarterly_plots(
+    entries: list[dict], out_dir: Path, *, talent: str | None = None
+) -> None:
     """The two quarterly PNGs (PLAN L36 quarter point): mean of clip
     medians + min–max band where n >= 2 (n=1 anecdotal, bare point),
     empty quarters as gaps. ``*_all`` shows QC-failing clips (cleaning
@@ -252,24 +308,24 @@ def write_quarterly_plots(entries: list[dict], out_dir: Path) -> None:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     variants = (
-        (
-            "f0_quarterly_all.png",
-            f0_quarterly(entries),
-            "all (mean of clip medians; min-max band where n >= 2; n=1 anecdotal)",
-        ),
-        (
-            "f0_quarterly_qc.png",
-            f0_quarterly(entries, qc=True),
-            "qc (finite f0, f0 < 600, iqr < 200; min-max band where n >= 2;"
-            " n=1 anecdotal)",
-        ),
+        ("f0_quarterly_all.png", f0_quarterly(entries), _QC_LABEL_ALL),
+        ("f0_quarterly_qc.png", f0_quarterly(entries, qc=True), _QC_LABEL_PASS),
     )
     for name, points, label in variants:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(9, 5.5), constrained_layout=True)
         _plot_quarterly(ax, points, label)
-        ax.set_ylabel("median F0 (Hz)")
+        fig.suptitle(_title(talent, "Median Pitch (F0) by Quarter"), fontweight="bold")
+        ax.set_title(_WHAT_IS_F0, fontsize="small", color="dimgray")
+        ax.set_ylabel("Median F0 (Hz)")
         if points:
             ax.legend()
+        _add_caption(
+            fig,
+            "Line = mean of that quarter's clip medians. Shaded band ="
+            " between-clip min–max\nwhere a quarter has 2+ clips (1 clip ="
+            " a bare point, anecdotal).",
+            _QC_FOOTER,
+        )
         fig.savefig(out_dir / name)
         plt.close(fig)
 
@@ -291,7 +347,9 @@ def _year_month_sets(entries: list[dict]) -> tuple[dict[str, set], dict[str, set
     return with_records, with_pass
 
 
-def write_yearly_plot(entries: list[dict], out_dir: Path) -> None:
+def write_yearly_plot(
+    entries: list[dict], out_dir: Path, *, talent: str | None = None
+) -> None:
     """The single yearly PNG (PLAN L36 year rule), the QC view: a
     two-panel figure over the QC-pass years. TOP = per-year median of
     clip medians with the between-clip min–max spread as vlines (a n=1
@@ -305,15 +363,13 @@ def write_yearly_plot(entries: list[dict], out_dir: Path) -> None:
     years = [p["year"] for p in points]
     xs = list(range(len(points)))
     fig, (ax, axn) = plt.subplots(
-        2, 1, sharex=True, figsize=(max(6.4, 1.1 * max(1, len(points))), 6.4),
+        2, 1, sharex=True, figsize=(max(7.5, 1.1 * max(1, len(points))), 7.2),
         constrained_layout=True,
     )
-    ax.plot(
-        xs,
-        [p["median"] for p in points],
-        marker="o",
-        label="qc (finite f0, f0 < 600, iqr < 200)",
-    )
+    fig.suptitle(_title(talent, "Median Pitch (F0) by Year"), fontweight="bold")
+    ax.set_title(_WHAT_IS_F0, fontsize="small", color="dimgray")
+    medians = [p["median"] for p in points]
+    ax.plot(xs, medians, marker="o", label=_QC_LABEL_PASS)
     spread_x = [x for x, p in zip(xs, points) if p["n"] >= 2]
     if spread_x:
         ax.vlines(
@@ -323,11 +379,25 @@ def write_yearly_plot(entries: list[dict], out_dir: Path) -> None:
             alpha=0.6,
             linewidth=2,
         )
-    ax.set_ylabel("median F0 (Hz)")
+    for x, p in zip(xs, points):
+        text = (
+            f"{p['median']:.0f} Hz\n[{p['min']:.0f}–{p['max']:.0f}]"
+            if p["n"] >= 2
+            else f"{p['median']:.0f} Hz"
+        )
+        ax.annotate(
+            text, (x, p["max"] if p["n"] >= 2 else p["median"]),
+            xytext=(0, 8), textcoords="offset points",
+            ha="center", va="bottom", fontsize="x-small",
+        )
+    ax.set_ylabel("Median F0 (Hz)")
+    ax.grid(axis="y", alpha=0.3, linewidth=0.6)
+    ax.set_axisbelow(True)
     if points:
+        ax.set_ylim(top=(max(p["max"] for p in points)) * 1.12)
         ax.legend()
     ns = [p["n"] for p in points]
-    axn.bar(xs, ns)
+    axn.bar(xs, ns, color="tab:blue")
     if points:
         head = max(ns) * 1.5 + 1
         axn.set_ylim(0, head)
@@ -340,16 +410,100 @@ def write_yearly_plot(entries: list[dict], out_dir: Path) -> None:
             n_rec = len(with_records.get(year, ()))
             n_pass = len(with_pass.get(year, ()))
             axn.annotate(
-                f"{n_pass}/{n_rec} mo", (x, head * 0.97), ha="center",
+                f"{n_pass}/{n_rec} mo covered", (x, head * 0.97), ha="center",
                 va="top", fontsize="x-small", alpha=0.8,
             )
-    axn.set_ylabel("QC-pass clips")
+    axn.set_ylabel("QC-pass clips (n)")
     axn.set_xticks(xs)
     axn.set_xticklabels(years, rotation=45, ha="right")
-    fig.supxlabel(
-        "median of QC-pass clip medians per year; bar = between-clip"
-        " min\u2013max; current year partial",
-        fontsize="small",
+    _add_caption(
+        fig,
+        "Point = median of that year's QC-pass clip medians; bar = between-clip\n"
+        'spread (2+ clips only). Bottom: QC-pass clip count and months covered\n'
+        "per year \u2014 the most recent year is usually partial.",
+        _QC_FOOTER,
     )
     fig.savefig(out_dir / "f0_yearly.png")
+    plt.close(fig)
+
+
+def write_multi_talent_plot(talents: dict[str, list[dict]], out_dir: Path) -> None:
+    """Cross-talent comparison, QC-pass only: one line per talent on a
+    shared quarterly and yearly x-axis (the union of every talent's
+    quarters/years). A talent's missing quarter/year is a genuine gap
+    (NaN) — the line breaks there rather than connecting across it.
+    Talent order is alphabetical, so color assignment is stable across
+    runs regardless of dict insertion order."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    names = sorted(talents)
+
+    per_talent_q = {
+        name: {p["quarter"]: p["mean"] for p in f0_quarterly(talents[name], qc=True)}
+        for name in names
+    }
+    all_quarters = sorted({q for d in per_talent_q.values() for q in d})
+    xs = list(range(len(all_quarters)))
+    fig, ax = plt.subplots(
+        figsize=(max(9.0, 0.32 * len(all_quarters)), 5.5), constrained_layout=True
+    )
+    for name in names:
+        ys = [per_talent_q[name].get(q, math.nan) for q in all_quarters]
+        ax.plot(xs, ys, marker="o", label=name, markersize=4)
+    ax.set_xticks(xs)
+    ax.set_xticklabels(all_quarters, rotation=45, ha="right")
+    ax.set_ylabel("Median F0 (Hz)")
+    ax.grid(axis="y", alpha=0.3, linewidth=0.6)
+    ax.set_axisbelow(True)
+    fig.suptitle("Median Pitch (F0) by Quarter — Talent Comparison", fontweight="bold")
+    ax.set_title(_WHAT_IS_F0, fontsize="small", color="dimgray")
+    if all_quarters:
+        ax.legend()
+    _add_caption(
+        fig,
+        "QC-pass clips only, one line per talent — a line breaks where that\n"
+        "talent has no QC-pass data that quarter (never interpolated).",
+        _QC_FOOTER,
+    )
+    fig.savefig(out_dir / "f0_quarterly_multi.png")
+    plt.close(fig)
+
+    per_talent_y = {
+        name: {p["year"]: p["median"] for p in f0_yearly(talents[name], qc=True)}
+        for name in names
+    }
+    all_years = sorted({y for d in per_talent_y.values() for y in d})
+    xs = list(range(len(all_years)))
+    fig, ax = plt.subplots(
+        figsize=(max(7.5, 1.1 * len(all_years)), 5.5), constrained_layout=True
+    )
+    for name in names:
+        ys = [per_talent_y[name].get(y, math.nan) for y in all_years]
+        ax.plot(xs, ys, marker="o", label=name, markersize=6)
+        for x, y in zip(xs, ys):
+            if not math.isnan(y):
+                ax.annotate(
+                    f"{y:.0f}", (x, y), xytext=(0, 8), textcoords="offset points",
+                    ha="center", fontsize="x-small",
+                )
+    ax.set_xticks(xs)
+    ax.set_xticklabels(all_years, rotation=45, ha="right")
+    ax.set_ylabel("Median F0 (Hz)")
+    ax.grid(axis="y", alpha=0.3, linewidth=0.6)
+    ax.set_axisbelow(True)
+    fig.suptitle("Median Pitch (F0) by Year — Talent Comparison", fontweight="bold")
+    ax.set_title(_WHAT_IS_F0, fontsize="small", color="dimgray")
+    if all_years:
+        top = max(y for d in per_talent_y.values() for y in d.values())
+        bottom = min(y for d in per_talent_y.values() for y in d.values())
+        headroom = (top - bottom) * 0.15 or top * 0.05
+        ax.set_ylim(bottom - headroom * 0.3, top + headroom)
+        ax.legend()
+    _add_caption(
+        fig,
+        "QC-pass clips only (median of that year's clip medians), one line\n"
+        "per talent — a gap means that talent has no QC-pass data that year.",
+        _QC_FOOTER,
+    )
+    fig.savefig(out_dir / "f0_yearly_multi.png")
     plt.close(fig)

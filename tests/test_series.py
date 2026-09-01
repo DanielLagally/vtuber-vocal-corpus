@@ -503,3 +503,27 @@ def test_new_run_dir_no_label_uses_bare_timestamp(tmp_path: Path) -> None:
     assert run_dir.parent == tmp_path / "runs"
     assert run_dir.is_dir()
     assert "-" not in run_dir.name  # %Y%m%dT%H%M%S has no dashes
+
+
+def test_write_multi_talent_plot_creates_two_pngs_no_crash_on_gap(
+    tmp_path: Path,
+) -> None:
+    """write_multi_talent_plot(talents, out_dir) writes exactly
+    f0_quarterly_multi.png and f0_yearly_multi.png. Talents with
+    non-overlapping quarters/years (one has no QC-pass data at all in
+    a year/quarter the other does) must not crash — that's a real gap,
+    not an error."""
+    talent_a = [
+        _entry("2024-01", 300.0, 45.0, "a0000001"),
+        _entry("2025-01", 310.0, 45.0, "a0000002"),
+    ]
+    talent_b = [
+        _entry("2025-01", 250.0, 45.0, "b0000001"),
+    ]
+    series.write_multi_talent_plot(
+        {"Talent A": talent_a, "Talent B": talent_b}, tmp_path
+    )
+    assert {p.name for p in tmp_path.glob("*.png")} == {
+        "f0_quarterly_multi.png",
+        "f0_yearly_multi.png",
+    }

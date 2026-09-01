@@ -20,6 +20,7 @@ from vanalysis.retry import run_retry
 from vanalysis.roster import fetch_channels, filter_talents, write_roster
 from vanalysis.series import (
     new_run_dir,
+    write_multi_talent_plot,
     write_plots,
     write_quarterly_plots,
     write_yearly_plot,
@@ -167,6 +168,34 @@ def main(argv: list[str] | None = None) -> None:
         "--label",
         default=None,
         help="optional suffix for the run directory name (e.g. luna-monthly)",
+    )
+    plo.add_argument(
+        "--talent",
+        default=None,
+        help='display name for plot titles (e.g. "Himemori Luna")',
+    )
+
+    cmp = sub.add_parser(
+        "plot-compare",
+        help=(
+            "cross-talent quarterly/yearly F0 comparison (QC-pass only) "
+            "into a fresh data/plots/runs/<run>/ directory"
+        ),
+    )
+    cmp.add_argument(
+        "--talent",
+        nargs=2,
+        action="append",
+        metavar=("NAME", "MEASUREMENTS"),
+        required=True,
+        dest="talents",
+        help='repeatable: --talent "Display Name" path/to/measurements.json',
+    )
+    cmp.add_argument("--out-dir", type=Path, default=Path("data/plots"))
+    cmp.add_argument(
+        "--label",
+        default=None,
+        help="optional suffix for the run directory name",
     )
 
     ret = sub.add_parser(
@@ -399,9 +428,18 @@ def main(argv: list[str] | None = None) -> None:
     if args.cmd == "plot":
         entries = json.loads(args.measurements.read_text(encoding="utf-8"))
         run_dir = new_run_dir(args.out_dir, args.label)
-        write_plots(entries, run_dir)
-        write_quarterly_plots(entries, run_dir)
-        write_yearly_plot(entries, run_dir)
+        write_plots(entries, run_dir, talent=args.talent)
+        write_quarterly_plots(entries, run_dir, talent=args.talent)
+        write_yearly_plot(entries, run_dir, talent=args.talent)
+        print(f"plots -> {run_dir}")
+        return
+    if args.cmd == "plot-compare":
+        talents = {
+            name: json.loads(Path(path).read_text(encoding="utf-8"))
+            for name, path in args.talents
+        }
+        run_dir = new_run_dir(args.out_dir, args.label)
+        write_multi_talent_plot(talents, run_dir)
         print(f"plots -> {run_dir}")
         return
     if args.cmd == "retry":

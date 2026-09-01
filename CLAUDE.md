@@ -28,6 +28,24 @@ code that writes plot files to a fixed path outside `runs/<run>/`. Do not
 delete old run directories; if `data/plots/` needs tidying, move things
 into `runs/`, never `rm`.
 
+Every plot must stand on its own for a reader who has never seen this repo
+(2026-09): pass `--talent "<Display Name>"` to `vanalysis plot` so titles
+name who the data is about, and don't strip the built-in subtitle/caption
+(`series.py`'s `_WHAT_IS_F0` / `_QC_FOOTER`) that explains what's measured
+and what QC drops — that text is the whole point, not decoration. When
+adding a new plot function, give it the same three layers: bold title
+(talent + metric), one-line plain-language subtitle under it, and a short
+methodology caption via `fig.supxlabel` (NOT raw `fig.text` — only
+`supxlabel`/`suptitle` get their space reserved by `constrained_layout`;
+a raw `fig.text` caption silently overlaps rotated x-tick labels). Quarterly
+and yearly plots direct-label every point with its exact Hz value (yearly
+also shows the min–max range) and draw horizontal gridlines — there's
+enough space at those granularities; monthly does not get value labels
+(too dense). `vanalysis plot-compare --talent NAME path --talent NAME path
+...` overlays multiple talents' QC-pass series on shared quarterly/yearly
+axes (`write_multi_talent_plot`) — a talent's missing quarter/year is a
+real gap (NaN), the line never interpolates across it.
+
 ## Public vs private
 
 Tracked files are public. Never commit Cover/hololive audio, clips, transcripts, `.env`, or `data/`. Aggregates and plots derived from those measurements may be tracked. `HOLODEX_API_KEY` lives in gitignored `.env`.
