@@ -76,7 +76,7 @@ _EXTRA_FEATURE_PLOTS = (
         "relative shape within this pipeline, not the absolute number.",
     ),
 )
-from vanalysis.windows import best_speech_window, slice_wav
+from vanalysis.windows import best_speech_window, raw90_path, slice_wav
 
 _HOLODEX_VIDEOS = "https://holodex.net/api/v2/videos"
 _PAGE = 50
@@ -692,6 +692,10 @@ def main(argv: list[str] | None = None) -> None:
             else {}
         )
         for video_id in ids:
+            dest = raw90_path(video_id, args.data_dir)
+            if dest.is_file():
+                print(f"skip {dest} (already windowed)")
+                continue
             src = audio_path(video_id, args.data_dir)
             if not src.is_file():
                 print(f"missing {src}", file=sys.stderr)
@@ -699,7 +703,6 @@ def main(argv: list[str] | None = None) -> None:
             start_s, end_s = best_speech_window(
                 src, window_s=args.window_s, hop_s=args.hop_s
             )
-            dest = windows_dir / f"{video_id}_raw90.wav"
             slice_wav(src, dest, start_s, end_s)
             index[video_id] = {"start_s": start_s, "end_s": end_s}
             print(f"{video_id} {start_s:.1f}-{end_s:.1f} -> {dest}")
@@ -738,6 +741,9 @@ def main(argv: list[str] | None = None) -> None:
         dest = audio_path(video_id, args.data_dir)
         if dest.is_file() and dest.stat().st_size > 1_000_000:
             print(f"skip {dest}")
+            continue
+        if raw90_path(video_id, args.data_dir).is_file():
+            print(f"skip {dest} (already windowed, raw wav not needed)")
             continue
         todo.append(video_id)
     try:

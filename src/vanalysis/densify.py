@@ -43,7 +43,7 @@ from .fetch import BotCheckDetected, audio_path, fetch_audio_many
 from .isolate import DEFAULT_MODEL_FILENAME, isolate_vocals, vocals_path
 from .qc import qc_verdict
 from .retry import _window_pair
-from .windows import best_speech_window, slice_wav
+from .windows import best_speech_window, raw90_path, slice_wav
 
 TRACKER_PRAAT = "praat_ac"
 _STEM_MIN_BYTES = 1_000_000
@@ -155,8 +155,17 @@ def run_densify(
     for month, video in todo:
         video_id = video["id"]
         try:
+            key = f"{video_id}{RAW90_SUFFIX}"
+            slice_path = raw90_path(video_id, data_dir)
+            # The raw wav is only needed to PRODUCE the window/slice; once
+            # both already exist (crash-resume, or the raw wav was
+            # deliberately deleted after processing), it's never read
+            # again — so only fetch it when actually missing something.
             raw_wav = audio_path(video_id, data_dir)
-            if not (raw_wav.is_file() and raw_wav.stat().st_size > _STEM_MIN_BYTES):
+            needs_raw_wav = not (key in windows and slice_path.is_file())
+            if needs_raw_wav and not (
+                raw_wav.is_file() and raw_wav.stat().st_size > _STEM_MIN_BYTES
+            ):
                 if dry_run:
                     _emit(video_id, "skipped_dry_run", "audio absent, fetch not run")
                     continue
@@ -167,7 +176,6 @@ def run_densify(
                     _emit(video_id, "skipped_fetch_failed", "yt-dlp failed")
                     continue
 
-            key = f"{video_id}{RAW90_SUFFIX}"
             if key in windows:
                 start_s, end_s = _window_pair(windows[key])
             else:
@@ -176,7 +184,6 @@ def run_densify(
                     windows[key] = {"start_s": start_s, "end_s": end_s}
                     _write_windows()
 
-            slice_path = data_dir / "windows" / f"{video_id}{RAW90_SUFFIX}.wav"
             if not slice_path.is_file():
                 if dry_run:
                     _emit(video_id, "skipped_dry_run", "raw90 slice absent")

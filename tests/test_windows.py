@@ -22,6 +22,11 @@ audio, never downloads):
    fits, breaks score ties toward the earliest remaining candidate,
    accepts Path | str, and validates `first` as a non-empty half-open
    range inside the file.
+7. raw90_path(video_id, data_dir) is data_dir/"windows"/f"{video_id}
+   _raw90.wav" — the canonical "have we already extracted what we need
+   from this id's raw audio" check, so downstream tools (fetch, window)
+   can correctly recognize a video is already done even after its large
+   raw 15-minute wav has been deleted.
 
 Fixtures are tiny wavs (16 kHz, mono, 16-bit) synthesized here with the
 stdlib `wave` module into <repo>/fixtures/ — deterministic (seeded RNG),
@@ -310,3 +315,10 @@ def test_slice_wav_start_at_or_after_duration_raises(
     ValueError — never a silent empty wav."""
     with pytest.raises(ValueError):
         windows.slice_wav(fixtures_dir / "slice_src.wav", tmp_path / "never.wav", start_s, end_s)
+
+
+def test_raw90_path_layout(tmp_path: Path) -> None:
+    """Rule 7: data_dir/windows/<video_id>_raw90.wav, Path | str data_dir."""
+    expected = tmp_path / "windows" / "abc123_raw90.wav"
+    assert windows.raw90_path("abc123", tmp_path) == expected
+    assert windows.raw90_path("abc123", str(tmp_path)) == expected

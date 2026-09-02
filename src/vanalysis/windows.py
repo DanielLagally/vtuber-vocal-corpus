@@ -9,6 +9,15 @@ import numpy as np
 from .features import _FRAME_S, _HOP_S, _frame_f0, _load_mono
 
 
+def raw90_path(video_id: str, data_dir: Path | str) -> Path:
+    """The 90 s window slice extracted from a video's raw audio — the
+    canonical "have we already gotten what we need from this id's raw
+    15-minute wav" signal. Once this exists, the raw wav is never read
+    again by fetch/window (only retry/rescue still need the raw wav
+    itself, to hunt a DIFFERENT window when the first one failed QC)."""
+    return Path(data_dir) / "windows" / f"{video_id}_raw90.wav"
+
+
 def _slice_f0_track(seg: np.ndarray, sr: int) -> np.ndarray:
     frame = max(1, int(_FRAME_S * sr))
     hop = max(1, int(_HOP_S * sr))

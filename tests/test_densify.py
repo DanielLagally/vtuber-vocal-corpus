@@ -327,3 +327,42 @@ def test_run_densify_stops_immediately_on_bot_check(
     assert summary["stopped_early"] == "botcheckid1"
     attempted_ids = {c[-1].rsplit("=", 1)[-1] for c in fetch_runner.calls}
     assert "nevertried1" not in attempted_ids
+
+
+def test_run_densify_does_not_refetch_when_already_windowed_and_sliced(
+    tmp_path: Path, source_wav: Path
+) -> None:
+    """The raw wav is only needed to PRODUCE the window/slice — once a
+    recorded window key AND the raw90 slice already exist (e.g. the raw
+    wav was deliberately deleted after processing, or a crash-resume),
+    densify must NOT re-fetch it. Isolation still proceeds from the
+    existing slice."""
+    records: list[dict] = []
+    cached = [_video("nofetchid1", "2024-10")]
+    tree = _tree(tmp_path, records, cached)
+
+    # Pre-seed the window key + slice, but there is NO raw audio file at all.
+    tree["windows_path"].parent.mkdir(parents=True, exist_ok=True)
+    tree["windows_path"].write_text(
+        json.dumps({"nofetchid1_raw90": {"start_s": 0.0, "end_s": 1.0}}),
+        encoding="utf-8",
+    )
+    slice_path = tree["data_dir"] / "windows" / "nofetchid1_raw90.wav"
+    shutil.copyfile(source_wav, slice_path)
+    assert not (tree["data_dir"] / "audio" / "nofetchid1.wav").exists()
+
+    fetch_runner = _FakeFetch(source_wav)  # would materialize the raw wav if called
+    summary = densify.run_densify(
+        tree["data_dir"],
+        measurements_path=tree["measurements_path"],
+        video_cache_path=tree["video_cache_path"],
+        windows_path=tree["windows_path"],
+        stems_dir=tree["stems_dir"],
+        model_filename=MODEL_CKPT,
+        fetch_runner=fetch_runner,
+        isolate_runner=_FakeIsolate(),
+    )
+
+    assert fetch_runner.calls == [], "raw wav must never be fetched when not needed"
+    assert summary["ids"]["nofetchid1"] == "added"
+    assert not (tree["data_dir"] / "audio" / "nofetchid1.wav").exists()
