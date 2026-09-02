@@ -24,23 +24,46 @@ treated as an ordinary per-id failure: it's a session/IP-level signal,
 not a per-video gap (the 2026-09 Lamy run hit this — 191/198 fetches
 rejected with "Sign in to confirm you're not a bot" after a lot of
 same-day sequential requests). Continuing to fetch more ids after that
-signal only raises more suspicion, so the batch STOPS immediately —
-the triggering id is recorded as ``skipped_bot_check`` and
-``stopped_early`` in the summary, and no later candidate is attempted.
+signal only raises more suspicion, so no NEW fetch is ever issued after
+one fires — the triggering id is recorded as ``skipped_bot_check`` and
+``stopped_early`` in the summary. Under pipelining (``cpu_workers>1``,
+see below), a clip that was already fetched before the bot-check fired
+is still allowed to finish processing and be recorded, since that
+involves no further network activity.
+
+``cpu_workers`` (default 1, identical outcomes to the fully sequential
+path) overlaps stage execution across clips: fetch always stays
+strictly sequential and ordered (the risky, rate-limited resource), but
+while one clip's GPU isolate runs, another clip's CPU window-hunt or
+Praat measurement can run concurrently. A single fetch producer feeds a
+small bounded queue (caps how much raw audio sits on disk ahead of
+processing); ``cpu_workers`` driver threads consume it and run each
+clip's window→isolate→measure chain, funneling isolate calls through a
+dedicated single-worker executor so GPU work is always serialized.
+
+``offload_remote`` (default None, disabled — today's callers see zero
+behavior change) opts into uploading a QC-passing id's raw wav to
+Google Drive via rclone and deleting the local copy once it's written
+(see offload.py). A QC-failing id's raw wav is never offloaded here —
+it stays local for retry/rescue, which this function does not run.
 """
 
 from __future__ import annotations
 
 import json
+import queue
 import shutil
+import threading
 import warnings
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from . import praat_features
 from .catalog import _available_dt, filter_videos, pick_monthly_n, score_video
 from .fetch import BotCheckDetected, audio_path, fetch_audio_many
 from .isolate import DEFAULT_MODEL_FILENAME, isolate_vocals, vocals_path
+from .offload import offload_raw_audio
 from .qc import qc_verdict
 from .retry import _window_pair
 from .windows import best_speech_window, raw90_path, slice_wav
@@ -48,6 +71,7 @@ from .windows import best_speech_window, raw90_path, slice_wav
 TRACKER_PRAAT = "praat_ac"
 _STEM_MIN_BYTES = 1_000_000
 RAW90_SUFFIX = "_raw90"
+_FETCH_AHEAD = 3
 
 _OUTCOME_ADDED = "added"
 _OUTCOME_BOT_CHECK = "skipped_bot_check"
@@ -108,18 +132,26 @@ def run_densify(
     out_path: Path | str | None = None,
     dry_run: bool = False,
     log: Callable[[str], None] | None = None,
+    cpu_workers: int = 1,
+    offload_remote: str | None = None,
+    offload_runner: Callable[[list[str]], object] | None = None,
 ) -> dict:
     """Fetch, window, isolate, and Praat-measure the videos
     ``candidate_ids`` selects, appending one new record per success.
     Existing records are never modified. Returns ``{"ids": {id:
     outcome}, "counts": {added, skipped, error, total}, "months_targeted":
     [months], "snapshot": path|None, "dry_run": bool}``.
+
+    ``cpu_workers`` (default 1) controls how many clips' window-hunt/
+    isolate/measure stages may run concurrently — see module docstring.
+    Fetch itself always stays sequential regardless of this value.
     """
     data_dir = Path(data_dir)
     measurements_path = Path(measurements_path)
     windows_path = Path(windows_path)
     stems_dir = Path(stems_dir)
     target = Path(out_path) if out_path is not None else measurements_path
+    n_workers = max(1, cpu_workers)
 
     records: list[dict] = json.loads(measurements_path.read_text(encoding="utf-8"))
     cached_videos: list[dict] = json.loads(
@@ -137,11 +169,15 @@ def run_densify(
     ]
 
     outcomes: dict[str, str] = {}
-    snapshot_taken = False
     stopped_early: str | None = None
 
+    outcomes_lock = threading.Lock()
+    windows_lock = threading.Lock()
+    records_lock = threading.Lock()
+
     def _emit(video_id: str, outcome: str, detail: str = "") -> None:
-        outcomes[video_id] = outcome
+        with outcomes_lock:
+            outcomes[video_id] = outcome
         line = f"densify {video_id}: {outcome}" + (f" ({detail})" if detail else "")
         if outcome != _OUTCOME_ADDED:
             warnings.warn(line, stacklevel=3)
@@ -149,100 +185,177 @@ def run_densify(
             log(line)
 
     def _write_windows() -> None:
+        # Caller holds windows_lock.
         windows_path.parent.mkdir(parents=True, exist_ok=True)
         windows_path.write_text(json.dumps(windows, indent=2) + "\n", encoding="utf-8")
 
-    for month, video in todo:
-        video_id = video["id"]
-        try:
-            key = f"{video_id}{RAW90_SUFFIX}"
-            slice_path = raw90_path(video_id, data_dir)
-            # The raw wav is only needed to PRODUCE the window/slice; once
-            # both already exist (crash-resume, or the raw wav was
-            # deliberately deleted after processing), it's never read
-            # again — so only fetch it when actually missing something.
-            raw_wav = audio_path(video_id, data_dir)
-            needs_raw_wav = not (key in windows and slice_path.is_file())
-            if needs_raw_wav and not (
-                raw_wav.is_file() and raw_wav.stat().st_size > _STEM_MIN_BYTES
-            ):
-                if dry_run:
-                    _emit(video_id, "skipped_dry_run", "audio absent, fetch not run")
-                    continue
-                fetched = fetch_audio_many(
-                    [video_id], data_dir, runner=fetch_runner, cookies=cookies
-                )
-                if fetched.get(video_id) is None:
-                    _emit(video_id, "skipped_fetch_failed", "yt-dlp failed")
-                    continue
+    # Eager, unconditional snapshot (rather than lazily on first success)
+    # so it's trivially race-free under concurrent drivers.
+    snapshot_written = bool(todo) and not dry_run
+    if snapshot_written:
+        snapshot = _snapshot_path(measurements_path)
+        if not snapshot.exists():
+            shutil.copyfile(measurements_path, snapshot)
 
-            if key in windows:
-                start_s, end_s = _window_pair(windows[key])
-            else:
-                start_s, end_s = best_speech_window(raw_wav)
-                if not dry_run:
+    def _fetch_stage(video_id: str) -> Path | None:
+        """Ensure raw audio exists locally if it's still needed. Returns
+        the raw wav path on success (which may not itself exist, if it
+        genuinely isn't needed), or None if this id should be skipped —
+        in which case the skip has already been emitted. May raise
+        BotCheckDetected."""
+        key = f"{video_id}{RAW90_SUFFIX}"
+        slice_path = raw90_path(video_id, data_dir)
+        raw_wav = audio_path(video_id, data_dir)
+        with windows_lock:
+            already_windowed = key in windows
+        needs_raw_wav = not (already_windowed and slice_path.is_file())
+        if needs_raw_wav and not (
+            raw_wav.is_file() and raw_wav.stat().st_size > _STEM_MIN_BYTES
+        ):
+            if dry_run:
+                _emit(video_id, "skipped_dry_run", "audio absent, fetch not run")
+                return None
+            fetched = fetch_audio_many(
+                [video_id], data_dir, runner=fetch_runner, cookies=cookies
+            )
+            if fetched.get(video_id) is None:
+                _emit(video_id, "skipped_fetch_failed", "yt-dlp failed")
+                return None
+        return raw_wav
+
+    def _process_one(
+        month: str,
+        video: dict,
+        raw_wav: Path,
+        gpu_pool: ThreadPoolExecutor,
+        offload_pool: ThreadPoolExecutor,
+    ) -> None:
+        video_id = video["id"]
+        key = f"{video_id}{RAW90_SUFFIX}"
+        slice_path = raw90_path(video_id, data_dir)
+
+        with windows_lock:
+            cached_window = windows.get(key)
+        if cached_window is not None:
+            start_s, end_s = _window_pair(cached_window)
+        else:
+            start_s, end_s = best_speech_window(raw_wav)
+            if not dry_run:
+                with windows_lock:
                     windows[key] = {"start_s": start_s, "end_s": end_s}
                     _write_windows()
 
-            if not slice_path.is_file():
-                if dry_run:
-                    _emit(video_id, "skipped_dry_run", "raw90 slice absent")
-                    continue
-                slice_wav(raw_wav, slice_path, start_s, end_s)
-
-            stem = vocals_path(
-                f"{video_id}{RAW90_SUFFIX}.wav", stems_dir, model_filename=model_filename
-            )
-            if not (stem.is_file() and stem.stat().st_size > _STEM_MIN_BYTES):
-                if dry_run:
-                    _emit(video_id, "skipped_dry_run", "stem absent, isolation not run")
-                    continue
-                isolate_kwargs: dict = {
-                    "model_filename": model_filename,
-                    "runner": isolate_runner,
-                }
-                if model_file_dir is not None:
-                    isolate_kwargs["model_file_dir"] = model_file_dir
-                isolate_vocals(slice_path, stems_dir, **isolate_kwargs)
-
+        if not slice_path.is_file():
             if dry_run:
-                _emit(video_id, _OUTCOME_ADDED, "dry-run forecast")
-                continue
+                _emit(video_id, "skipped_dry_run", "raw90 slice absent")
+                return
+            slice_wav(raw_wav, slice_path, start_s, end_s)
 
-            features = praat_features.stem_features(stem)
-            qc_pass, qc_reason = qc_verdict(features)
+        stem = vocals_path(
+            f"{video_id}{RAW90_SUFFIX}.wav", stems_dir, model_filename=model_filename
+        )
+        if not (stem.is_file() and stem.stat().st_size > _STEM_MIN_BYTES):
+            if dry_run:
+                _emit(video_id, "skipped_dry_run", "stem absent, isolation not run")
+                return
+            isolate_kwargs: dict = {
+                "model_filename": model_filename,
+                "runner": isolate_runner,
+            }
+            if model_file_dir is not None:
+                isolate_kwargs["model_file_dir"] = model_file_dir
+            # Isolate always runs through the single-worker GPU pool, so
+            # it's serialized even while other clips run this same
+            # function concurrently in other driver threads.
+            gpu_pool.submit(isolate_vocals, slice_path, stems_dir, **isolate_kwargs).result()
 
-            if not snapshot_taken:
-                snapshot = _snapshot_path(measurements_path)
-                if not snapshot.exists():
-                    shutil.copyfile(measurements_path, snapshot)
-                snapshot_taken = True
+        if dry_run:
+            _emit(video_id, _OUTCOME_ADDED, "dry-run forecast")
+            return
 
-            records.append(
-                {
-                    "id": video_id,
-                    "month": month,
-                    "score": score_video(video),
-                    "window": {"start_s": start_s, "end_s": end_s},
-                    "features": features,
-                    "qc": {"pass": qc_pass, "reason": qc_reason},
-                    "model": model_filename,
-                    "tracker": TRACKER_PRAAT,
-                }
-            )
+        features = praat_features.stem_features(stem)
+        qc_pass, qc_reason = qc_verdict(features)
+
+        record = {
+            "id": video_id,
+            "month": month,
+            "score": score_video(video),
+            "window": {"start_s": start_s, "end_s": end_s},
+            "features": features,
+            "qc": {"pass": qc_pass, "reason": qc_reason},
+            "model": model_filename,
+            "tracker": TRACKER_PRAAT,
+        }
+        with records_lock:
+            records.append(record)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
-            _emit(video_id, _OUTCOME_ADDED)
-        except BotCheckDetected as exc:
-            # Session/IP-level signal, not a per-video gap: stop the
-            # WHOLE batch here rather than skip-and-continue — every
-            # further fetch would likely hit the same wall and only
-            # raise more suspicion (PLAN "how we can improve further").
-            _emit(video_id, _OUTCOME_BOT_CHECK, str(exc))
-            stopped_early = video_id
-            break
-        except Exception as exc:  # noqa: BLE001 — ordinary failures never abort
-            _emit(video_id, "error", f"{type(exc).__name__}: {exc}")
+        _emit(video_id, _OUTCOME_ADDED)
+
+        # Raw audio is only offloaded once it's genuinely done being
+        # useful: QC-pass, and a remote was explicitly opted into. A
+        # QC-fail record's raw wav stays local for retry/rescue.
+        if offload_remote is not None and qc_pass:
+            _ = offload_pool.submit(
+                offload_raw_audio,
+                video_id,
+                data_dir,
+                remote=offload_remote,
+                runner=offload_runner,
+            )
+
+    work_queue: queue.Queue[tuple[str, dict, Path] | None] = queue.Queue(
+        maxsize=_FETCH_AHEAD
+    )
+
+    def _consume(gpu_pool: ThreadPoolExecutor, offload_pool: ThreadPoolExecutor) -> None:
+        while True:
+            item = work_queue.get()
+            if item is None:
+                return
+            month, video, raw_wav = item
+            try:
+                _process_one(month, video, raw_wav, gpu_pool, offload_pool)
+            except Exception as exc:  # noqa: BLE001 — ordinary failures never abort
+                _emit(video["id"], "error", f"{type(exc).__name__}: {exc}")
+
+    with (
+        ThreadPoolExecutor(max_workers=n_workers) as driver_pool,
+        ThreadPoolExecutor(max_workers=1) as gpu_pool,
+        ThreadPoolExecutor(max_workers=2) as offload_pool,
+    ):
+        consumer_futures = [
+            driver_pool.submit(_consume, gpu_pool, offload_pool)
+            for _ in range(n_workers)
+        ]
+
+        # Fetch stays a single sequential loop, in order — the risky,
+        # rate-limited resource — feeding the bounded queue that the
+        # driver threads above consume concurrently.
+        for month, video in todo:
+            video_id = video["id"]
+            try:
+                raw_wav = _fetch_stage(video_id)
+            except BotCheckDetected as exc:
+                # Session/IP-level signal, not a per-video gap: stop
+                # issuing any NEW fetch — every further fetch would
+                # likely hit the same wall and only raise more suspicion
+                # (PLAN "how we can improve further"). Clips already
+                # queued/in-flight involve no further network activity,
+                # so they're allowed to drain rather than be discarded.
+                _emit(video_id, _OUTCOME_BOT_CHECK, str(exc))
+                stopped_early = video_id
+                break
+            except Exception as exc:  # noqa: BLE001 — ordinary failures never abort
+                _emit(video_id, "error", f"{type(exc).__name__}: {exc}")
+                continue
+            if raw_wav is not None:
+                work_queue.put((month, video, raw_wav))
+
+        for _ in consumer_futures:
+            work_queue.put(None)
+        for future in consumer_futures:
+            future.result()
 
     counts = {
         "added": sum(1 for o in outcomes.values() if o == _OUTCOME_ADDED),
@@ -254,9 +367,7 @@ def run_densify(
         "ids": outcomes,
         "counts": counts,
         "months_targeted": sorted(buckets),
-        "snapshot": (
-            str(_snapshot_path(measurements_path)) if snapshot_taken else None
-        ),
+        "snapshot": str(_snapshot_path(measurements_path)) if snapshot_written else None,
         "stopped_early": stopped_early,
         "dry_run": dry_run,
     }

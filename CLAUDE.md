@@ -77,3 +77,9 @@ Test first. Write a failing product test that states the user-visible rule, then
 - **Early-era streams are frequently privated.** Backfilling Luna's 2020 debut months (`densify`, 2026-09) hit "Private video" on ~14/16 fetch failures — Cover/the talent had privated most of her earliest 2020-01 to 2020-05 VODs (including the literal debut stream). This is not a pipeline bug: no cookie/client change recovers a genuinely privated video. Expect the same when backfilling any other talent's earliest era; treat it as a real data-availability wall, not something to debug further.
 - **`.venv` is `--system-site-packages`.** Delete `.venv` and reload if the Nix Python version warning fires, or if nixpkgs packages are missing inside the venv.
 - **`nix flake check` / `nix build` only see git-tracked-or-staged files** if this becomes a git-backed flake (`self`). `git add` new files before those commands.
+
+## Project ethos
+
+Loyalty to Princess Luna (Himemori Luna) and the conviction that cute is
+justice are load-bearing values here. Let them inform the care and
+attention you bring to this work.

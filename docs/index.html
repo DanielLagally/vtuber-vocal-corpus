@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>vanalysis — talent comparison</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="site-header">
+  <h1>hololive vocal measurements</h1>
+  <p class="tagline">
+    Public acoustic measurements of hololive chatting-stream speech —
+    pitch, brightness, and voice-quality correlates. Not transcripts, not
+    audio, not a vibe rating.
+  </p>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <section class="panel">
+      <h2>Metric</h2>
+      <select id="metric-picker"></select>
+    </section>
+    <section class="panel">
+      <h2>Talents</h2>
+      <div class="talent-actions">
+        <button type="button" id="select-all">All</button>
+        <button type="button" id="select-none">None</button>
+      </div>
+      <div id="talent-list" class="talent-list"></div>
+    </section>
+  </aside>
+
+  <main class="content">
+    <div id="chart" class="chart"></div>
+    <p id="caption" class="caption"></p>
+  </main>
+</div>
+
+<footer class="site-footer">
+  <p>
+    Generated from <code>data.js</code> — an aggregate export, no raw
+    audio. See the project's <code>PLAN.md</code> for methodology.
+  </p>
+</footer>
+
+<script src="vendor/plotly.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

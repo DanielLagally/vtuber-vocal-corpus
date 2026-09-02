@@ -9,7 +9,7 @@ from vanalysis.catalog import filter_videos, pick_monthly
 from vanalysis.densify import run_densify
 from vanalysis.diagnose import run_diagnose
 from vanalysis.remeasure import run_remeasure
-from vanalysis.expand import run_plan
+from vanalysis.expand import fetch_channel_videos, run_plan
 from vanalysis.fetch import BotCheckDetected, audio_path, fetch_audio_many
 from vanalysis.holodex import holodex_key as _holodex_key
 from vanalysis.holodex import load_dotenv as _load_dotenv  # noqa: F401 (compat alias)
@@ -18,6 +18,7 @@ from vanalysis.measure import run_monthly
 from vanalysis.rescue import run_rescue
 from vanalysis.retry import run_retry
 from vanalysis.roster import fetch_channels, filter_talents, write_roster
+from vanalysis.site_data import write_site_data
 from vanalysis.series import (
     new_run_dir,
     write_feature_multi_talent_yearly_plot,
@@ -223,6 +224,23 @@ def main(argv: list[str] | None = None) -> None:
         default=Path("data/catalog/expansion_plan.json"),
     )
 
+    newt = sub.add_parser(
+        "new-talent",
+        help=(
+            "bootstrap a fresh talent: cache the raw Holodex listing for "
+            "channel_id and seed an empty measurements file, so densify "
+            "can run immediately after"
+        ),
+    )
+    newt.add_argument("name", help='file-path slug, e.g. "chihaya"')
+    newt.add_argument("channel_id")
+    newt.add_argument(
+        "--cache-dir", type=Path, default=Path("data/catalog/video_cache")
+    )
+    newt.add_argument(
+        "--measurements-dir", type=Path, default=Path("data/measurements")
+    )
+
     get = sub.add_parser("fetch", help="download video ids to data/audio/<id>.wav")
     get.add_argument("video_ids", nargs="*")
     get.add_argument("--data-dir", type=Path, default=Path("data"))
@@ -310,6 +328,22 @@ def main(argv: list[str] | None = None) -> None:
         default=None,
         help="optional suffix for the run directory name",
     )
+
+    sit = sub.add_parser(
+        "site-data",
+        help=(
+            "write the interactive site's data.js (docs/, served by GitHub "
+            "Pages) from the "
+            "talent registry — per-talent series plus the cute/mature "
+            "percentile scatter, see vanalysis.site_data"
+        ),
+    )
+    sit.add_argument(
+        "--registry",
+        type=Path,
+        default=Path("data/measurements/talents.json"),
+    )
+    sit.add_argument("-o", "--out", type=Path, default=Path("docs/data.js"))
 
     ret = sub.add_parser(
         "retry",
@@ -450,11 +484,31 @@ def main(argv: list[str] | None = None) -> None:
     dsf.add_argument("--data-dir", type=Path, default=Path("data"))
     dsf.add_argument("--stems-dir", type=Path, default=Path("data/stems_fast"))
     dsf.add_argument("--target-n", type=int, default=2)
+    dsf.add_argument(
+        "--cpu-workers",
+        type=int,
+        default=1,
+        help=(
+            "clips whose window-hunt/isolate/measure stages may run "
+            "concurrently (fetch always stays sequential); default 1 "
+            "reproduces today's fully sequential behavior"
+        ),
+    )
     dsf.add_argument("--model-filename", default=DEFAULT_MODEL_FILENAME)
     dsf.add_argument(
         "--model-file-dir",
         default=None,
         help="optional audio-separator --model_file_dir (model ckpt cache dir)",
+    )
+    dsf.add_argument(
+        "--offload-remote",
+        default=None,
+        help=(
+            "rclone remote (e.g. 'Google Drive:vanalysis-raw-audio') to "
+            "upload a QC-pass id's raw wav to, deleting it locally once "
+            "confirmed uploaded; default None disables offload entirely "
+            "(a QC-fail id's raw wav is never offloaded, regardless)"
+        ),
     )
     dsf.add_argument("--cookies", type=Path, default=None)
     dsf.add_argument(
@@ -523,6 +577,25 @@ def main(argv: list[str] | None = None) -> None:
             if record["pick_count"] == 0:
                 print(f"  zero eligible picks: {record['name']} ({record['group']})")
         return
+    if args.cmd == "new-talent":
+        videos = fetch_channel_videos(
+            args.channel_id, api_key=_holodex_key(), cache_dir=args.cache_dir
+        )
+        cache_path = Path(args.cache_dir) / f"{args.channel_id}.json"
+        measurements_path = Path(args.measurements_dir) / f"{args.name}_monthly.json"
+        if measurements_path.is_file():
+            print(f"measurements already exist, left untouched -> {measurements_path}")
+        else:
+            measurements_path.parent.mkdir(parents=True, exist_ok=True)
+            measurements_path.write_text("[]\n", encoding="utf-8")
+            print(f"measurements seeded -> {measurements_path}")
+        print(f"{len(videos)} videos cached -> {cache_path}")
+        print(
+            "next: vanalysis densify --measurements "
+            f"{measurements_path} --video-cache {cache_path} "
+            "--target-n 3 --cpu-workers 4"
+        )
+        return
     if args.cmd == "catalog":
         kept = filter_videos(_list_holodex(_holodex_key(), channel=args.channel))
         if args.monthly:
@@ -576,6 +649,11 @@ def main(argv: list[str] | None = None) -> None:
         run_dir = new_run_dir(args.out_dir, args.label)
         _write_all_comparison_plots(talents, run_dir)
         print(f"plots -> {run_dir}")
+        return
+    if args.cmd == "site-data":
+        registry = _load_registry(args.registry)
+        payload = write_site_data(registry, args.out)
+        print(f"site data ({', '.join(sorted(payload['talents']))}) -> {args.out}")
         return
     if args.cmd == "retry":
         ids = list(args.ids) if args.ids else []
@@ -639,6 +717,8 @@ def main(argv: list[str] | None = None) -> None:
             cookies=cookies,
             dry_run=args.dry_run,
             log=print,
+            cpu_workers=args.cpu_workers,
+            offload_remote=args.offload_remote,
         )
         print(json.dumps(summary, indent=2))
         return

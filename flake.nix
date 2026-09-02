@@ -40,6 +40,7 @@
             pkgs.yt-dlp
             pkgs.deno
             pkgs.ffmpeg-headless
+            pkgs.rclone
             pkgs.basedpyright
             pkgs.ruff
           ];

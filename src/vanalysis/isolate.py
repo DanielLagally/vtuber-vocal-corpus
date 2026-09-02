@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -7,13 +8,25 @@ from pathlib import Path
 _DEFAULT_PRESET = "vocal_balanced"
 DEFAULT_MODEL_FILENAME = "bs_roformer_vocals_resurrection_unwa.ckpt"
 
+_REPEATED_UNDERSCORE_RE = re.compile(r"_+")
+
+
+def _sanitize_stem(name: str) -> str:
+    """Mirrors audio-separator's own CommonSeparator.sanitize_filename
+    (collapse repeated "_", then strip leading/trailing "_. ") so our
+    predicted output path matches what it actually writes — a video id
+    can legitimately start with "_", and audio-separator strips that
+    before naming its output file."""
+    sanitized = _REPEATED_UNDERSCORE_RE.sub("_", name)
+    return sanitized.strip("_. ")
+
 
 def _model_base(model_filename: str) -> str:
     return Path(model_filename).stem
 
 
 def _stem_name(src: Path | str, model_filename: str | None) -> str:
-    stem = Path(src).stem
+    stem = _sanitize_stem(Path(src).stem)
     if model_filename is None:
         return f"{stem}_(Vocals)_preset_{_DEFAULT_PRESET}.wav"
     return f"{stem}_(vocals)_{_model_base(model_filename)}.wav"

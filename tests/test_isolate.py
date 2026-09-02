@@ -124,6 +124,30 @@ def test_vocals_path_accepts_str_src(tmp_path: Path) -> None:
     )
 
 
+def test_vocals_path_matches_audio_separators_underscore_sanitizing(tmp_path: Path) -> None:
+    """audio-separator's own CommonSeparator.sanitize_filename collapses
+    repeated "_" and strips leading/trailing "_. " from the input file's
+    base name before naming its output — so a source stem starting with
+    "_" (a real, valid leading character for a YouTube video id) must
+    predict the output name WITHOUT that leading "_", matching what
+    audio-separator actually writes to disk. Getting this wrong means
+    stem_features looks for a file that was never created (a real
+    2026-09 densify failure on ids like "_qp49KSEd1o")."""
+    src = tmp_path / "_qp49KSEd1o_raw90.wav"
+    src.write_bytes(b"\x00")
+    expected = (
+        tmp_path / "stems" / "qp49KSEd1o_raw90_(vocals)_"
+        "bs_roformer_vocals_resurrection_unwa.wav"
+    )
+    assert (
+        isolate.vocals_path(
+            src, tmp_path / "stems",
+            model_filename="bs_roformer_vocals_resurrection_unwa.ckpt",
+        )
+        == expected
+    )
+
+
 def test_isolate_vocals_calls_runner_with_audio_separator_argv(tmp_path: Path) -> None:
     """Rule 2b: the runner gets an argv list led by "audio-separator" that
     includes the source path (as str), --output_format=wav, and the

@@ -235,6 +235,44 @@ Do not: kill/replace the 24 `balanced` 15 min stems; mix presets inside one tale
 
 ---
 
+## Post-DEV_IS-batch feature ideas (owner decision pending)
+
+Raised during the 2026-09 DEV_IS batch run: the current plots require prior
+domain knowledge to read (a raw Hz/dB number means little without knowing
+hololive's typical range), and there's no single-glance summary of a
+talent's overall profile. Ideas discussed, in priority order — none
+implemented yet, revisit once the batch is done:
+
+1. **Formants (F1-F4) — recommended.** `parselmouth` is already a pipeline
+   dependency (used for pitch_ac/jitter/shimmer/HNR in `praat_features.py`),
+   so `Sound.to_formant_burg()` slots in the same way, averaged over voiced
+   frames like the existing pitch series. A real, standard vowel-space/
+   resonance measure, complementary to the existing brightness (spectral
+   centroid) metric.
+2. **Nasality — recommended against.** True nasalance needs a two-channel
+   nasometer (separate oral/nasal capsules); physically unrecoverable from
+   single-channel YouTube audio. Single-mic acoustic proxies (A1-P0, extra
+   nasal formants) exist in the literature but are noisy, vowel-context-
+   dependent, and even more mic/EQ-sensitive than the brightness caveat
+   already carried — would undercut the "acoustic correlates, not a vibe
+   rating" stance above.
+3. **Percentile framing extended to every metric plot**, not just the
+   cute/mature scatter. A monthly F0 plot currently just says "182 Hz" —
+   meaningless without knowing hololive's typical range. The z-score/
+   percentile machinery already built for cute/mature could annotate every
+   plot ("brighter than 68% of the corpus") with near-zero new methodology
+   risk.
+4. **Per-talent radar/profile chart** — one glanceable shape combining
+   pitch height, brightness, dynamism, voiced-time, jitter/shimmer/HNR as
+   normalized axes, so "what does this person sound like overall" is one
+   picture instead of eight separate line graphs.
+5. **Clustering (k-means/PCA groupings) — explicitly deferred**, not
+   rejected outright. With only ~10-12 talents in the corpus as of 2026-09,
+   clusters would mostly be small-sample noise dressed up as insight.
+   Revisit once the corpus is meaningfully bigger.
+
+---
+
 ## First-batch clip ids (24-clip balanced reference)
 
 Luna 2024: `Gz_2EzLyhmQ` `ro0lFIj2MJY` `boy302x08Gg` `qyQzBoMOqXo`  
