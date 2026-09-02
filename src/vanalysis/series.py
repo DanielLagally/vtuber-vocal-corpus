@@ -62,14 +62,47 @@ def new_run_dir(base: Path | str, label: str | None = None) -> Path:
     return candidate
 
 
-def f0_series(entries: list[dict], qc: bool = False) -> list[tuple[str, float]]:
+def _cap_entries_per_month(
+    entries: list[dict], max_per_month: int | None
+) -> list[dict]:
+    """Non-destructive "view this data as if only max_per_month clips
+    had ever been fetched that calendar month": per month, keeps only
+    the ``max_per_month`` highest-``score`` entries (ties broken by
+    whichever comes first — same spirit as densify's own ranking).
+    ``entries`` itself is never mutated, so calling again with a higher
+    N (or None) on the same list always restores exactly what capping
+    removed — reversible in both directions, nothing is ever discarded
+    from the underlying measurements file by this function. ``None``
+    (the default everywhere) is a no-op passthrough."""
+    if max_per_month is None:
+        return entries
+    by_month: dict[object, list[dict]] = {}
+    for entry in entries:
+        by_month.setdefault(entry.get("month"), []).append(entry)
+    kept: list[dict] = []
+    for month_entries in by_month.values():
+        ranked = sorted(
+            month_entries, key=lambda e: -(e.get("score") or 0.0)
+        )
+        kept.extend(ranked[:max_per_month])
+    return kept
+
+
+def f0_series(
+    entries: list[dict], qc: bool = False, *, max_per_month: int | None = None
+) -> list[tuple[str, float]]:
     """Monthly median-F0 series, ONE point per calendar month (STATE R3:
     multi-clip months): the plain float mean (no rounding) of that
     month's finite ``median_f0`` values. With ``qc=True`` the shared QC
     rule filters the entries FIRST, then the survivors are averaged —
     a month with no surviving value is a gap in the QC series (it can
     still be present in the all-clip series). A single-record month is
-    unchanged (mean of one is the value itself). Sorted by month."""
+    unchanged (mean of one is the value itself). Sorted by month.
+
+    ``max_per_month`` (default None = every record counts) caps each
+    month at its N highest-``score`` entries BEFORE any other
+    filtering — see ``_cap_entries_per_month``."""
+    entries = _cap_entries_per_month(entries, max_per_month)
     buckets: dict[str, list[float]] = {}
     for entry in entries:
         features = entry.get("features") or {}
@@ -88,12 +121,15 @@ def f0_series(entries: list[dict], qc: bool = False) -> list[tuple[str, float]]:
     return points
 
 
-def iqr_series(entries: list[dict]) -> list[tuple[str, float]]:
+def iqr_series(
+    entries: list[dict], *, max_per_month: int | None = None
+) -> list[tuple[str, float]]:
     """Monthly F0-IQR series, ONE point per calendar month (STATE R3:
     multi-clip months): the plain float mean (no rounding) of that
     month's finite ``f0_iqr`` values. Non-finite IQRs contribute
     nothing; a single-record month is unchanged (mean of one). Sorted
-    by month."""
+    by month. ``max_per_month``: see ``f0_series``."""
+    entries = _cap_entries_per_month(entries, max_per_month)
     buckets: dict[str, list[float]] = {}
     for entry in entries:
         iqr = (entry.get("features") or {}).get("f0_iqr")
@@ -122,7 +158,9 @@ def _quarter(month: object) -> str | None:
     return f"{year}-Q{(m - 1) // 3 + 1}"
 
 
-def f0_quarterly(entries: list[dict], qc: bool = False) -> list[dict]:
+def f0_quarterly(
+    entries: list[dict], qc: bool = False, *, max_per_month: int | None = None
+) -> list[dict]:
     """Per calendar quarter (PLAN L36): the MEAN of that quarter's clip
     ``median_f0`` values, plus min and max of the same values, and n,
     sorted by quarter.
@@ -134,7 +172,11 @@ def f0_quarterly(entries: list[dict], qc: bool = False) -> list[dict]:
     aggregating, so nan-median, IQR >= 200, and median >= 600 clips all
     drop first. A n=1 quarter carries min == max == the single value
     (the plot decides band vs bare point — the aggregation stays pure).
+
+    ``max_per_month`` caps EACH CALENDAR MONTH (not quarter) at its N
+    highest-score clips before aggregating — see ``f0_series``.
     """
+    entries = _cap_entries_per_month(entries, max_per_month)
     buckets: dict[str, list[float]] = {}
     for entry in entries:
         features = entry.get("features") or {}
@@ -176,7 +218,11 @@ def _year(month: object) -> str | None:
 
 
 def f0_yearly(
-    entries: list[dict], qc: bool = False, *, feature_key: str = "median_f0"
+    entries: list[dict],
+    qc: bool = False,
+    *,
+    feature_key: str = "median_f0",
+    max_per_month: int | None = None,
 ) -> list[dict]:
     """Per calendar year (PLAN L36 year rule): the MEDIAN of that year's
     clip ``feature_key`` values (clip-level — not month-means first, the
@@ -194,10 +240,14 @@ def f0_yearly(
     it's a signal-trustworthiness gate, not specific to F0). A n=1 year
     carries min == max == the single value.
 
+    ``max_per_month`` caps EACH CALENDAR MONTH at its N highest-score
+    clips before aggregating — see ``f0_series``.
+
     The median is the lower median for an even clip count (median_low):
     an even-count year reports an actually-observed clip median, not an
     interpolated midpoint — pinned by rule 10 ([300, 615] -> 300.0).
     """
+    entries = _cap_entries_per_month(entries, max_per_month)
     buckets: dict[str, list[float]] = {}
     for entry in entries:
         features = entry.get("features") or {}

@@ -60,7 +60,7 @@ from vanalysis import series
 # ---------------------------------------------------------------- helpers
 
 
-def _entry(month: str, median_f0: float, f0_iqr: float, vid: str) -> dict:
+def _entry(month: str, median_f0: float, f0_iqr: float, vid: str, score: float = 70.0) -> dict:
     """A measurement record shaped exactly like measure persists it; the
     qc block is filled consistently with the shared QC rule (fail iff
     f0_iqr >= 200, median non-finite, or median >= 600)."""
@@ -75,7 +75,7 @@ def _entry(month: str, median_f0: float, f0_iqr: float, vid: str) -> dict:
     return {
         "id": vid,
         "month": month,
-        "score": 70.0,
+        "score": score,
         "window": {"start_s": 0.0, "end_s": 90.0},
         "features": {
             "median_f0": median_f0,
@@ -323,6 +323,66 @@ def test_f0_series_multi_clip_month_two_qc_pass_mean() -> None:
     ]
     assert _pairs(series.f0_series(entries, qc=True)) == [("2025-07", 320.0)]
     assert _pairs(series.f0_series(entries)) == [("2025-07", 320.0)]
+
+
+def test_max_per_month_keeps_only_the_highest_scored_clips() -> None:
+    """max_per_month caps EACH month at the N highest-scored clips
+    BEFORE any other filtering/aggregation — a non-destructive "view
+    this data as if densify had only fetched N clips/month" toggle.
+    Three same-month clips, cap at 2: the lowest-scored one (score 40)
+    is excluded from the mean; capping is per calendar month, not
+    global."""
+    entries = [
+        _entry("2025-07", 300.0, 40.0, "julhigh001", score=90.0),
+        _entry("2025-07", 340.0, 45.0, "julmid0001", score=70.0),
+        _entry("2025-07", 999.0, 40.0, "jullow0001", score=40.0),
+    ]
+    assert _pairs(series.f0_series(entries, max_per_month=2)) == [
+        ("2025-07", (300.0 + 340.0) / 2)
+    ]
+    # uncapped (default): all three, including the low-score outlier
+    assert _pairs(series.f0_series(entries)) == [
+        ("2025-07", (300.0 + 340.0 + 999.0) / 3)
+    ]
+
+
+def test_max_per_month_one_keeps_the_single_highest_scored_clip() -> None:
+    entries = [
+        _entry("2025-07", 300.0, 40.0, "julhigh002", score=90.0),
+        _entry("2025-07", 340.0, 45.0, "jullow0002", score=40.0),
+    ]
+    assert _pairs(series.f0_series(entries, max_per_month=1)) == [("2025-07", 300.0)]
+
+
+def test_max_per_month_is_reversible_none_restores_full_data() -> None:
+    """Capping never discards the underlying entries — calling again
+    with max_per_month=None (or a higher N) on the SAME entries list
+    restores the full, uncapped result. Nothing is mutated in place."""
+    entries = [
+        _entry("2025-07", 300.0, 40.0, "julhigh003", score=90.0),
+        _entry("2025-07", 340.0, 45.0, "julmid0002", score=70.0),
+        _entry("2025-07", 380.0, 45.0, "jullow0003", score=40.0),
+    ]
+    capped = series.f0_series(entries, max_per_month=2)
+    restored = series.f0_series(entries, max_per_month=None)
+    original = series.f0_series(entries)
+    assert capped != restored
+    assert restored == original == [("2025-07", (300.0 + 340.0 + 380.0) / 3)]
+
+
+def test_max_per_month_applies_to_iqr_quarterly_and_yearly_too() -> None:
+    """The same cap-before-aggregate rule applies to iqr_series,
+    f0_quarterly, and f0_yearly — capping always happens per calendar
+    MONTH first, regardless of the aggregation granularity."""
+    entries = [
+        _entry("2025-07", 300.0, 40.0, "julhigh004", score=90.0),
+        _entry("2025-07", 340.0, 240.0, "jullow0004", score=40.0),  # would fail QC
+    ]
+    assert _pairs(series.iqr_series(entries, max_per_month=1)) == [("2025-07", 40.0)]
+    q = series.f0_quarterly(entries, max_per_month=1)
+    assert q == [{"quarter": "2025-Q3", "mean": 300.0, "min": 300.0, "max": 300.0, "n": 1}]
+    y = series.f0_yearly(entries, max_per_month=1)
+    assert y == [{"year": "2025", "median": 300.0, "min": 300.0, "max": 300.0, "n": 1}]
 
 
 def test_f0_series_all_fail_month_gap_in_qc_present_in_all() -> None:
