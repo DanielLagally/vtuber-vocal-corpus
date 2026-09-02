@@ -40,9 +40,9 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import expand
-from vanalysis.catalog import score_video
-from vanalysis.expand import RateLimitedError, build_plan, fetch_channel_videos
+from vvc import expand
+from vvc.catalog import score_video
+from vvc.expand import RateLimitedError, build_plan, fetch_channel_videos
 
 T1 = "UCtalentA0000001"
 T2 = "UCtalentB0000002"
@@ -397,10 +397,10 @@ def test_empty_eligible_talent_listed_with_zero_picks(tmp_path: Path) -> None:
 
 
 def test_cli_plan_wiring(tmp_path: Path, monkeypatch, capsys) -> None:
-    """Rule 7: `vanalysis plan` loads --roster, keys the default fetcher
+    """Rule 7: `vvc plan` loads --roster, keys the default fetcher
     with the Holodex key, caches per talent under --cache-dir, and writes
     the plan document to -o."""
-    import vanalysis.__main__ as cli
+    import vvc.__main__ as cli
 
     roster_path = tmp_path / "roster.json"
     roster_path.write_text(

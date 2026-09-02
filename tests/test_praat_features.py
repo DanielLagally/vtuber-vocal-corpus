@@ -5,13 +5,13 @@ User-visible rules (synthetic audio ONLY — tones/silence; never Cover/
 hololive audio, never downloads):
 
 1. Median F0 on a clean tone lands within 5 Hz of the synthesized
-   frequency, at two different pitches (matches vanalysis.features'
+   frequency, at two different pitches (matches vvc.features'
    own 220 Hz tolerance so the two trackers are comparable).
 2. F0 IQR on a clean, steady tone is near zero (Praat should not itself
    manufacture the kind of large within-clip spread the numpy tracker
    flags as junk).
 3. Silence returns math.nan for median_f0, never an invented Hz value
-   (same no-bogus-confidence rule as vanalysis.features).
+   (same no-bogus-confidence rule as vvc.features).
 4. stem_features(path) returns median_f0, f0_iqr, voiced_fraction,
    brightness_hz, dynamism_semitones, jitter_local, shimmer_local,
    hnr_db, loudness_dynamics_db.
@@ -40,7 +40,7 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import praat_features
+from vvc import praat_features
 
 SR = 16_000
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"

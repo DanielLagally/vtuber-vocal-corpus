@@ -1,4 +1,4 @@
-# vanalysis
+# vtuber-vocal-corpus
 
 Public measurements of hololive chatting-stream speech. v1 is pitch, brightness, voiced-time proxy, and a static plots site generated from aggregates. No audio, transcripts, or embeddings are published. No voice synthesis.
 
@@ -14,14 +14,14 @@ direnv exec . python -m pytest -q
 
 ## Layout
 
-- `src/vanalysis/` — library
+- `src/vvc/` — library
 - `tests/` — product tests (synthetic tones/noise only)
 - `fixtures/` — generated at test time, not committed
 - `data/` — local audio, Holodex key, raw features; gitignored
 
 ## Plots are a permanent record
 
-`data/plots/` is a permanent record, not a scratch dir. Every `vanalysis
+`data/plots/` is a permanent record, not a scratch dir. Every `vvc
 plot` invocation writes into a fresh timestamped subdirectory under
 `data/plots/runs/` — it never overwrites a previous run's PNGs. Do not add
 code that writes plot files to a fixed path outside `runs/<run>/`. Do not
@@ -29,7 +29,7 @@ delete old run directories; if `data/plots/` needs tidying, move things
 into `runs/`, never `rm`.
 
 Every plot must stand on its own for a reader who has never seen this repo
-(2026-09): pass `--talent "<Display Name>"` to `vanalysis plot` so titles
+(2026-09): pass `--talent "<Display Name>"` to `vvc plot` so titles
 name who the data is about, and don't strip the built-in subtitle/caption
 (`series.py`'s `_WHAT_IS_F0` / `_QC_FOOTER`) that explains what's measured
 and what QC drops — that text is the whole point, not decoration. When
@@ -41,7 +41,7 @@ a raw `fig.text` caption silently overlaps rotated x-tick labels). Quarterly
 and yearly plots direct-label every point with its exact Hz value (yearly
 also shows the min–max range) and draw horizontal gridlines — there's
 enough space at those granularities; monthly does not get value labels
-(too dense). `vanalysis plot-compare --talent NAME path --talent NAME path
+(too dense). `vvc plot-compare --talent NAME path --talent NAME path
 ...` overlays multiple talents' QC-pass series on shared quarterly/yearly
 axes (`write_multi_talent_plot`) — a talent's missing quarter/year is a
 real gap (NaN), the line never interpolates across it.
@@ -71,7 +71,7 @@ Test first. Write a failing product test that states the user-visible rule, then
 - **Do not `nix-shell -p python3Packages.parselmouth` (or librosa) to run tests.** Both packages `doCheck = true` and compile Praat / run hundreds of upstream tests. Feature extract is numpy; `direnv exec . python -m pytest -q`.
 - **YouTube cookies live in gitignored `data/youtube.cookies.txt`.** Export with `yt-dlp --cookies-from-browser 'chromium:Profile 1' --cookies data/youtube.cookies.txt --skip-download https://www.youtube.com`. Fetch uses that file if present. Never commit it.
 - **Fetch pins `youtube:player_client=mweb` (changed from `android` then `web`, 2026-09) and needs `deno` on PATH** (flake provides it; yt-dlp uses it for EJS/n-challenge). `android` and `android_vr` are skipped by yt-dlp entirely whenever `--cookies` is passed ("does not support cookies") — pairing either with our cookies file silently drops the cookies and the request still hits YouTube's bot-check; this looked like an IP block at first but was actually this client/cookie incompatibility (confirmed by testing `web`/`mweb`/`web_safari`/`web_embedded` all working cleanly with the same fresh cookies, same video, right after `android`/`android_vr` failed). `tv` still fails with "The page needs to be reloaded". **`web` itself later turned out not to be durable**: YouTube is running a per-video experiment binding a GVS PO Token requirement to specific ids for the `web` client (`yt-dlp -v` shows `Detected experiment to bind GVS PO Token to video ID for web client`), and we have no PO token provider — a Lamy densify batch lost 71/74 candidates to this, all failing "Requested format is not available" via `web`. `mweb` hits the same experiment notice but still finds a working non-PO-token-gated format on the same videos (confirmed on the exact ids that failed on `web`) — that's why `mweb` is the pin now, not `web`. If `mweb` ever starts failing the same way, the durable fix is a self-hosted PO token provider (see the bot-check gotcha above), not another client swap. Per-video yt-dlp failures are skipped and logged — a gap in `data/audio`, never an aborted batch.
-- **Holodex returns 403 without a User-Agent.** Send `User-Agent: vanalysis/0.1` plus `X-APIKEY`. Rate limit header is 80/window. `HOLODEX_API_KEY` lives in gitignored `.env` only — never commit it.
+- **Holodex returns 403 without a User-Agent.** Send `User-Agent: vvc/0.1` plus `X-APIKEY`. Rate limit header is 80/window. `HOLODEX_API_KEY` lives in gitignored `.env` only — never commit it.
 - **Holodex `mentions` is omitted unless `include=mentions`.** Without that param, collabs look like solo streams. `topic_id == "singing"` is rare; songs show up as `Original_Song` / `Music_Cover`, and many recent items are `shorts`.
 - **High-volume sequential `fetch` in one session can trip YouTube's bot check — and needs BOTH valid cookies AND a cookie-compatible client to clear.** Running the Lamy monthly pipeline (2026-09) right after Luna's densify batch got almost every fetch rejected with `Sign in to confirm you're not a bot` (191/198 attempts). First diagnosis (switching to `android_vr`, still failing with old cookies or no cookies) wrongly concluded this was a pure IP-level block immune to client-hopping — that test was confounded: `android`/`android_vr` silently drop `--cookies` entirely ("does not support cookies"), so no combination actually tried at the time paired a real cookie session with a client that would use it. After exporting fresh cookies from an incognito session, `web` + old cookies still failed the bot-check, but `web` + fresh cookies worked instantly — confirming it's specifically about cookie freshness plus client compatibility, not a lingering IP flag. See the fetch-pin gotcha above for the client fix. **The pipeline also now detects the bot-check itself** (`fetch.BotCheckDetected`, `fetch.looks_like_bot_check`) and stops the whole batch immediately instead of skip-and-continuing through the rest of the ids if it ever recurs — see `fetch_audio_many`, `densify.run_densify`'s `stopped_early` field, and the plain `fetch` CLI command. An ordinary per-video failure (private/deleted/region-locked) still skips and continues as before; only the bot-check message triggers the hard stop. Re-export cookies via a **private/incognito** browser window per the [yt-dlp wiki's cookie-export method](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies) (not the live `--cookies-from-browser` approach, which the wiki says exports rotating cookies that work less reliably here) whenever it recurs. If cookies + `web`/`mweb` ever stop being enough, a self-hosted PO token provider ([bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider), has a Deno-based mode — this repo's flake already ships `deno`) is the more durable fallback.
 - **Early-era streams are frequently privated.** Backfilling Luna's 2020 debut months (`densify`, 2026-09) hit "Private video" on ~14/16 fetch failures — Cover/the talent had privated most of her earliest 2020-01 to 2020-05 VODs (including the literal debut stream). This is not a pipeline bug: no cookie/client change recovers a genuinely privated video. Expect the same when backfilling any other talent's earliest era; treat it as a real data-availability wall, not something to debug further.

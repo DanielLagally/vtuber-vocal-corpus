@@ -1,5 +1,5 @@
 window.SITE_DATA = {
-  "generated_at": "2026-09-02T16:53:01+00:00",
+  "generated_at": "2026-09-02T17:55:42+00:00",
   "talents": {
     "Ao": {
       "monthly_f0_all": [

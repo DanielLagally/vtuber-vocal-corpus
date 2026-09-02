@@ -46,7 +46,7 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import isolate
+from vvc import isolate
 
 SRC_NAME = "chat_stream.wav"
 EXPECTED_NAME = "chat_stream_(Vocals)_preset_vocal_balanced.wav"
@@ -193,7 +193,7 @@ def test_isolate_vocals_result_stays_under_out_dir(tmp_path: Path) -> None:
     """Rule 2c: the result path never escapes out_dir (no repo-root or
     cwd writes)."""
     src = _make_src(tmp_path)
-    out_dir = tmp_path / "somewhere" / "vanalysis-stems"
+    out_dir = tmp_path / "somewhere" / "vvc-stems"
     calls: list[list[str]] = []
     runner = _make_fake_runner(calls, isolate.vocals_path(src, out_dir))
 

@@ -2,7 +2,7 @@
 
 For every roster talent the channel's video listing is fetched from
 ``GET /api/v2/videos?channel_id=<id>&include=mentions&limit=50&offset=N``
-(same required ``X-APIKEY`` / ``User-Agent: vanalysis/0.1`` headers as the
+(same required ``X-APIKEY`` / ``User-Agent: vvc/0.1`` headers as the
 roster), cached per talent as the raw listing at
 ``<cache-dir>/<channel_id>.json`` (temp file + rename), and turned into a
 v1 plan with the SHARED catalog machinery: eligible = ``filter_videos``
@@ -31,8 +31,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from vanalysis.catalog import _available_dt, filter_videos, pick_for_year, score_video
-from vanalysis.roster import channel_headers
+from vvc.catalog import _available_dt, filter_videos, pick_for_year, score_video
+from vvc.roster import channel_headers
 
 logger = logging.getLogger(__name__)
 

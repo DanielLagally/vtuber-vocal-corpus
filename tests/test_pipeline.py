@@ -48,14 +48,14 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import measure, series, windows
-from vanalysis.isolate import (
+from vvc import measure, series, windows
+from vvc.isolate import (
     DEFAULT_MODEL_FILENAME,
     isolate_vocals,
     vocals_path,
 )
-from vanalysis.qc import qc_verdict
-from vanalysis.retry import run_retry
+from vvc.qc import qc_verdict
+from vvc.retry import run_retry
 
 SR = 8_000
 ID = "pipelineAa1"

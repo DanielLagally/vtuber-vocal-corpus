@@ -2,7 +2,7 @@
 directory GitHub Pages serves).
 
 Pure data — no matplotlib/plotly here, only JSON-serializable Python
-values built from vanalysis.series's existing aggregation functions, so
+values built from vvc.series's existing aggregation functions, so
 this module is testable without a plotting dependency and the frontend
 never needs to re-derive any statistics itself.
 

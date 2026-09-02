@@ -60,7 +60,7 @@ User-visible rules (local, explicit ids only — never the network in tests):
 import subprocess
 from pathlib import Path
 
-from vanalysis import fetch
+from vvc import fetch
 
 VIDEO_ID = "abc123stream"
 
@@ -171,7 +171,7 @@ def test_fetch_audio_creates_audio_dir_and_returns_wav_path(tmp_path: Path) -> N
 def test_fetch_audio_result_stays_under_data_dir(tmp_path: Path) -> None:
     """Rule 2c: the result path never escapes data_dir (no repo-root or
     cwd writes)."""
-    data_dir = tmp_path / "somewhere" / "vanalysis-data"
+    data_dir = tmp_path / "somewhere" / "vvc-data"
     calls: list[list[str]] = []
     runner = _make_fake_runner(calls, data_dir / "audio" / f"{VIDEO_ID}.wav")
 

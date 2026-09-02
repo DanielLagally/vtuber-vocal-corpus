@@ -19,7 +19,7 @@ User-visible rules:
    the API default sort is not page-stable, so the same channel can
    appear on two pages and must end up in the result exactly once.
 4. Requests carry BOTH required headers: ``X-APIKEY`` and
-   ``User-Agent: vanalysis/0.1`` (Holodex returns 403 without a UA).
+   ``User-Agent: vvc/0.1`` (Holodex returns 403 without a UA).
 5. Output order is deterministic: talents are sorted by ``(group, name)``.
 6. The saved roster file has the schema
    ``{"fetched_at": <ISO-8601>, "count": N, "talents": [rows...]}``
@@ -41,8 +41,8 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import roster
-from vanalysis.roster import filter_talents, fetch_channels, write_roster
+from vvc import roster
+from vvc.roster import filter_talents, fetch_channels, write_roster
 
 TESTS_DIR = Path(__file__).resolve().parent
 CHANNELS_FIXTURE = TESTS_DIR / "fixtures" / "holodex_channels.json"
@@ -231,7 +231,7 @@ def test_channel_headers_require_key_and_user_agent() -> None:
     User-Agent — Holodex returns 403 without a User-Agent."""
     headers = roster.channel_headers("test-key")
     assert headers["X-APIKEY"] == "test-key"
-    assert headers["User-Agent"] == "vanalysis/0.1"
+    assert headers["User-Agent"] == "vvc/0.1"
 
 
 def test_fetch_channels_dedupes_within_a_single_page() -> None:
@@ -282,10 +282,10 @@ def test_write_roster_empty(tmp_path: Path) -> None:
 
 
 def test_cli_roster_writes_default_path(tmp_path: Path, monkeypatch, capsys) -> None:
-    """Rule 7: `vanalysis roster` fetches with --org (default Hololive)
+    """Rule 7: `vvc roster` fetches with --org (default Hololive)
     and the Holodex key, then writes the filtered roster to the default
     out path data/catalog/roster.json, printing the talent count."""
-    import vanalysis.__main__ as cli
+    import vvc.__main__ as cli
 
     monkeypatch.setattr(cli, "_holodex_key", lambda: "test-key")
     captured: dict = {}
@@ -314,7 +314,7 @@ def test_cli_roster_writes_default_path(tmp_path: Path, monkeypatch, capsys) -> 
 
 def test_cli_roster_respects_out_and_org(tmp_path: Path, monkeypatch) -> None:
     """Rule 7: -o overrides the output path, --org is passed through."""
-    import vanalysis.__main__ as cli
+    import vvc.__main__ as cli
 
     monkeypatch.setattr(cli, "_holodex_key", lambda: "test-key")
     captured: dict = {}
@@ -333,7 +333,7 @@ def test_cli_roster_respects_out_and_org(tmp_path: Path, monkeypatch) -> None:
 
 def test_cli_roster_missing_key_exits() -> None:
     """Rule 7: no Holodex key -> exit code 2, no fetch attempted."""
-    import vanalysis.__main__ as cli
+    import vvc.__main__ as cli
 
     def boom(**kwargs):
         raise AssertionError("fetch_channels must not run without a key")

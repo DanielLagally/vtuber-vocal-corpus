@@ -16,7 +16,7 @@ import json
 import wave
 from pathlib import Path
 
-from vanalysis import __main__ as cli
+from vvc import __main__ as cli
 
 
 def _write_wav(path: Path) -> None:

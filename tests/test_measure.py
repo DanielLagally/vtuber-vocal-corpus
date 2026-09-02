@@ -54,7 +54,7 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import catalog, measure
+from vvc import catalog, measure
 
 SR = 16_000
 MODEL_CKPT = "bs_roformer_vocals_resurrection_unwa.ckpt"
@@ -216,7 +216,7 @@ def test_qc_verdict_reasons_and_precedence() -> None:
     IQR purely from having almost no data). Reasons distinguish the cause
     with precedence missing -> voiced_fraction -> iqr -> high; a pass has
     reason None."""
-    from vanalysis import qc  # noqa: local import so a red phase fails only here
+    from vvc import qc  # noqa: local import so a red phase fails only here
 
     assert qc.qc_verdict({"median_f0": 220.0, "f0_iqr": 30.0, "voiced_fraction": 0.5}) == (
         True,
@@ -272,7 +272,7 @@ def test_qc_requalify_recomputes_from_stored_features_only() -> None:
     record's already-stored features (no re-measurement); every other
     key, including a stale/wrong qc block, is left as-is except qc
     itself; a record without features is passed through unchanged."""
-    from vanalysis import qc
+    from vvc import qc
 
     records = [
         {

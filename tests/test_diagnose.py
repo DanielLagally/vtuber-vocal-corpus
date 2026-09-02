@@ -10,8 +10,8 @@ never GPU, never downloads):
    with no file is skipped entirely, never a null/placeholder record.
 2. Each record is ``{"id", "variant", "path", "numpy": {median_f0,
    f0_iqr, voiced_fraction, qc}, "praat": {...same shape...}}`` — same
-   feature keys as vanalysis.measure.stem_features /
-   vanalysis.praat_features.stem_features, plus a qc_verdict block for
+   feature keys as vvc.measure.stem_features /
+   vvc.praat_features.stem_features, plus a qc_verdict block for
    each tracker.
 3. The three variants checked are raw90 (``data/stems_fast/<id>_raw90_
    (vocals)_<model>.wav``), raw90b (same dir, ``_raw90b``) and stem90
@@ -31,8 +31,8 @@ import sys
 import wave
 from pathlib import Path
 
-from vanalysis import diagnose
-from vanalysis.isolate import DEFAULT_MODEL_FILENAME, vocals_path
+from vvc import diagnose
+from vvc.isolate import DEFAULT_MODEL_FILENAME, vocals_path
 
 SR = 16_000
 

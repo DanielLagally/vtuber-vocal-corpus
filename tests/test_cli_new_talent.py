@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from vanalysis import __main__ as cli
+from vvc import __main__ as cli
 
 
 def test_new_talent_caches_videos_and_seeds_empty_measurements(

@@ -46,7 +46,7 @@ never Cover/hololive audio, never downloads):
    iqr_series: the mean of finite f0_iqr values. A single-record
    month is unchanged: mean of one is the value itself.
 
-Entry shape is the measurement record persisted by vanalysis.measure:
+Entry shape is the measurement record persisted by vvc.measure:
 id / month / score / window / features{median_f0, f0_iqr,
 voiced_fraction} / qc{pass, reason} / model.
 """
@@ -54,7 +54,7 @@ voiced_fraction} / qc{pass, reason} / model.
 import math
 from pathlib import Path
 
-from vanalysis import series
+from vvc import series
 
 
 # ---------------------------------------------------------------- helpers

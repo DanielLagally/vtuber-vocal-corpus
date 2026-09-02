@@ -1,5 +1,5 @@
 {
-  description = "vanalysis — hololive chatting-stream voice measurements";
+  description = "vtuber-vocal-corpus — VTuber chatting-stream voice measurements";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";

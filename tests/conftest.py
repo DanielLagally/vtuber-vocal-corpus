@@ -1,7 +1,7 @@
 """Bootstrap the src/ layout so tests run without installing the package.
 
 `pytest tests/` from the project root must work with no editable install;
-this makes `import vanalysis` resolve to src/vanalysis.
+this makes `import vvc` resolve to src/vvc.
 """
 
 import sys

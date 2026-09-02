@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from vanalysis import __main__ as cli
+from vvc import __main__ as cli
 
 
 def _tree(tmp_path: Path) -> tuple[Path, Path, Path]:
@@ -97,8 +97,8 @@ def test_densify_cli_threads_offload_remote_flag(tmp_path: Path, monkeypatch) ->
             "--video-cache",
             str(video_cache),
             "--offload-remote",
-            "Google Drive:vanalysis-raw-audio",
+            "Google Drive:vvc-raw-audio",
         ]
     )
 
-    assert captured["offload_remote"] == "Google Drive:vanalysis-raw-audio"
+    assert captured["offload_remote"] == "Google Drive:vvc-raw-audio"

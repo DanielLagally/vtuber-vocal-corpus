@@ -53,7 +53,7 @@ never Cover/hololive audio, never GPU, never downloads):
     the real index survive as arrays, pre-existing keys (first-window
     and ``_raw90`` entries) are never rewritten, and the file is only
     rewritten when a new key was actually added.
-11. CLI ``python -m vanalysis rescue`` wires the same function with the
+11. CLI ``python -m vvc rescue`` wires the same function with the
     retry flag family, ``--model-file-dir`` defaulting to
     ``"data/models"`` (unlike retry's None), ``--ids-file`` accepting
     dash-leading ids unioned after ``--ids``, and prints the summary as
@@ -78,10 +78,10 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import rescue
-from vanalysis.__main__ import main
-from vanalysis.isolate import vocals_path
-from vanalysis.windows import slice_wav
+from vvc import rescue
+from vvc.__main__ import main
+from vvc.isolate import vocals_path
+from vvc.windows import slice_wav
 
 SR = 8_000
 ID = "rescueAaa01"
@@ -684,7 +684,7 @@ def test_cli_rescue_ids_file_dash_leading_id_reaches_run_rescue(
         return {"ids": {}, "counts": {"total": 0}}
 
     monkeypatch.setattr(rescue, "run_rescue", fake_run_rescue)
-    import vanalysis.__main__ as cli
+    import vvc.__main__ as cli
 
     monkeypatch.setattr(cli, "run_rescue", fake_run_rescue)
     cli.main([
@@ -711,7 +711,7 @@ def test_cli_rescue_model_file_dir_default_is_data_models(
         seen["kwargs"] = kwargs
         return {"ids": {}, "counts": {"total": 0}}
 
-    import vanalysis.__main__ as cli
+    import vvc.__main__ as cli
 
     monkeypatch.setattr(cli, "run_rescue", fake_run_rescue)
     cli.main([
@@ -728,7 +728,7 @@ def test_cli_rescue_model_file_dir_default_is_data_models(
 def test_cli_rescue_dry_run_prints_summary_and_writes_nothing(
     tmp_path: Path, island_wav: Path, capsys
 ) -> None:
-    """Rule 11 (end to end): `python -m vanalysis rescue --dry-run` prints
+    """Rule 11 (end to end): `python -m vvc rescue --dry-run` prints
     the summary JSON and writes nothing."""
     tree = _tree(
         tmp_path,

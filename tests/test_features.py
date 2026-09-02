@@ -1,4 +1,4 @@
-"""Product tests for vanalysis v1 feature measurements.
+"""Product tests for vvc v1 feature measurements.
 
 User-visible rules (v1 measures only, synthetic audio ONLY — tones/noise;
 never Cover/hololive audio, never downloads):
@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import features
+from vvc import features
 
 SR = 16_000
 NYQUIST = SR / 2

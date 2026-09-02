@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import __main__ as cli
+from vvc import __main__ as cli
 
 
 def _write_ids(tmp_path: Path, lines: list[str]) -> Path:

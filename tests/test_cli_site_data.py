@@ -1,11 +1,11 @@
 """The `site-data` CLI command must load the talent registry and write
-vanalysis.site_data's export to --out (default docs/data.js)."""
+vvc.site_data's export to --out (default docs/data.js)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from vanalysis import __main__ as cli
+from vvc import __main__ as cli
 
 
 def test_site_data_cli_writes_export_from_registry(tmp_path: Path, monkeypatch) -> None:

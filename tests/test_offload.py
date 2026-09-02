@@ -9,8 +9,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from vanalysis import offload
-from vanalysis.fetch import audio_path
+from vvc import offload
+from vvc.fetch import audio_path
 
 
 def _write_wav(path: Path) -> None:

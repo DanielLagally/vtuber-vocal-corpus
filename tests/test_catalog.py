@@ -1,4 +1,4 @@
-"""Product tests for the vanalysis catalog filter.
+"""Product tests for the vvc catalog filter.
 
 User-visible rules (streams only — chatting, not singing, not collabs):
 
@@ -52,7 +52,7 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import catalog
+from vvc import catalog
 
 TESTS_DIR = Path(__file__).resolve().parent
 HOLODEX_FIXTURE = TESTS_DIR / "fixtures" / "holodex_videos.json"

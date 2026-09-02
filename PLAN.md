@@ -1,4 +1,4 @@
-# vanalysis plan
+# vtuber-vocal-corpus plan
 
 Public measurements of hololive **chatting-stream speech** (character voice, not off-stream, not singing). No audio, transcripts, or cloneable embeddings in git. No voice synthesis.
 
@@ -75,7 +75,7 @@ Sequential only. Extra parallel yt-dlp processes hit the image-only gate. Per-vi
 3. Hunt 90 s on **raw** → `data/windows/<id>_raw90.wav` + `windows.json` times as offsets **into the 15 min file**.
 4. Isolate **that 90 s** with the single RoFormer → `data/stems_fast/<id>_raw90_(vocals)_bs_roformer_….wav` (the whole file **is** the window).
 5. Measure **the whole 90 s stem** (do not re-apply `windows.json` offsets onto the stem — those times are for the 15 min wav). Persist `window` as metadata. **Tracker: Praat autocorrelation** (`praat_features.py`, via `remeasure-praat`) — numpy ACF was the original tracker but is superseded for Luna (see "Why the Luna series disappointed").
-6. Plots from measurements JSON — `vanalysis plot` writes into a fresh
+6. Plots from measurements JSON — `vvc plot` writes into a fresh
    `data/plots/runs/<run>/`, never a fixed path (see `CLAUDE.md`).
 
 **On the same audio, when a stem fails QC (all shipped and run):** 2nd-window retry (`_raw90b`, non-overlapping, `retry` CLI), stem-hunt rescue (`_stem90`, `rescue` CLI), 2nd-stream fetch (`pick_monthly_n`) — replace-if-pass, gap otherwise, no new YouTube beyond the 2nd stream. See "Why the Luna series disappointed" for what each lever actually moved.
@@ -107,7 +107,7 @@ Do not isolate 15 min `vocal_balanced` for new talents unless a new comparison s
 - 75 × 15 min wavs in `data/audio/` (91 wavs total including Lamy/Sora).
 - 75 × `_raw90.wav` + 75 × RoFormer 90 s vocals in `data/stems_fast/`.
 - Measurements: `data/measurements/luna_monthly.json` (stems, **now Praat-tracked**, see below), `luna_monthly_raw.json` (unisolated 90 s, still numpy). Pre-Praat snapshots: `luna_monthly_pre_retry_snapshot.json`, `luna_monthly_pre_rescue.json`, `luna_monthly_pre_2nd_stream.json`, `luna_monthly_pre_praat_remeasure.json` (numpy-tracked, kept for history — do not delete).
-- Plots: `data/plots/runs/<run>/` — every `vanalysis plot` run gets its own directory now (see `CLAUDE.md`); the current Praat-based set is `20260901T154218-luna-monthly-praat/`.
+- Plots: `data/plots/runs/<run>/` — every `vvc plot` run gets its own directory now (see `CLAUDE.md`); the current Praat-based set is `20260901T154218-luna-monthly-praat/`.
 
 ### Luna monthly numbers (stem 90 s, first window only — numpy, historical)
 - 75 clips; **34 fail** IQR ≥ 200 or nan F0; **41 pass**.
@@ -169,7 +169,7 @@ tracker; that one month is the sole remaining gap.
 
 ## Operator notes
 
-- Holodex: `User-Agent: vanalysis/0.1` or 403; `mentions` only with `include=mentions`; `topic_id == singing` is rare (songs are `Original_Song` / `Music_Cover`); many recent items are `shorts`. Rate-limit folklore is 80/window; official docs do not state a number. Key in `.env` only.
+- Holodex: `User-Agent: vvc/0.1` or 403; `mentions` only with `include=mentions`; `topic_id == singing` is rare (songs are `Original_Song` / `Music_Cover`); many recent items are `shorts`. Rate-limit folklore is 80/window; official docs do not state a number. Key in `.env` only.
 - Isolation: always the same processing per talent so year-over-year is not “Demucs vs raw.”
 - `vocal_balanced` is lunalearn’s Anki preset. For median F0 we need BGM down, not prettier stems.
 - First 15:00 of a stream is usually intro — never sample 0:00–15:00.

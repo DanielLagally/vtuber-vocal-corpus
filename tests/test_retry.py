@@ -48,7 +48,7 @@ never Cover/hololive audio, never GPU, never downloads):
 10. Crash-resume writes: the measurements file is rewritten after each
     successful replacement; windows.json is rewritten only when a new
     window was added.
-11. CLI ``python -m vanalysis retry`` wires the same function with
+11. CLI ``python -m vvc retry`` wires the same function with
     defaults --measurements data/measurements/luna_monthly.json,
     --windows data/windows/windows.json, --data-dir data,
     --stems-dir data/stems_fast, --model-filename DEFAULT_MODEL_FILENAME,
@@ -74,9 +74,9 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import retry
-from vanalysis.__main__ import main
-from vanalysis.isolate import vocals_path
+from vvc import retry
+from vvc.__main__ import main
+from vvc.isolate import vocals_path
 
 SR = 8_000
 ID = "retryAaa01"
@@ -561,7 +561,7 @@ def test_qc_passing_ids_are_untouched(tmp_path: Path, clean2nd_wav: Path) -> Non
 def test_cli_retry_dry_run_prints_summary_and_writes_nothing(
     tmp_path: Path, clean2nd_wav: Path, capsys
 ) -> None:
-    """Rule 11 (dry-run): `python -m vanalysis retry --dry-run` prints the
+    """Rule 11 (dry-run): `python -m vvc retry --dry-run` prints the
     summary JSON and writes nothing."""
     tree = _tree(tmp_path, {ID: clean2nd_wav}, [_record()], stems_for=(ID,))
     pre_measurements = tree["measurements_path"].read_bytes()
@@ -589,7 +589,7 @@ def test_cli_retry_dry_run_prints_summary_and_writes_nothing(
 def test_cli_retry_replaces_and_prints_summary(
     tmp_path: Path, clean2nd_wav: Path, capsys, monkeypatch
 ) -> None:
-    """Rule 11: `python -m vanalysis retry` (no --ids -> the qc-fail
+    """Rule 11: `python -m vvc retry` (no --ids -> the qc-fail
     defaults) replaces the record, writes the snapshot and windows key,
     and prints the summary JSON."""
     tree = _tree(tmp_path, {ID: clean2nd_wav}, [_record()])

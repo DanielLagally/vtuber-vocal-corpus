@@ -9,7 +9,7 @@ never guessed into the roster.
 
 The endpoint's default sort is NOT page-stable, so ``fetch_channels``
 pages the whole listing and deduplicates by channel ``id``. Every
-request carries ``X-APIKEY`` and ``User-Agent: vanalysis/0.1`` —
+request carries ``X-APIKEY`` and ``User-Agent: vvc/0.1`` —
 Holodex returns 403 without the User-Agent.
 """
 
@@ -22,11 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from vanalysis.holodex import holodex_key
+from vvc.holodex import holodex_key
 
 HOLODEX_CHANNELS_URL = "https://holodex.net/api/v2/channels"
 PAGE = 50
-USER_AGENT = "vanalysis/0.1"
+USER_AGENT = "vvc/0.1"
 
 # D13: channels out of the speech corpus (brand channels + male branch).
 _DROP_GROUPS = {"Official", "Misc"}

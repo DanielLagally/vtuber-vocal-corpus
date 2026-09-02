@@ -41,10 +41,10 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import densify
-from vanalysis import fetch as densify_fetch
-from vanalysis.fetch import audio_path
-from vanalysis.isolate import DEFAULT_MODEL_FILENAME, vocals_path
+from vvc import densify
+from vvc import fetch as densify_fetch
+from vvc.fetch import audio_path
+from vvc.isolate import DEFAULT_MODEL_FILENAME, vocals_path
 
 SR = 8_000
 MODEL_CKPT = DEFAULT_MODEL_FILENAME

@@ -1,4 +1,4 @@
-"""Product tests for vanalysis speech-window selection.
+"""Product tests for vvc speech-window selection.
 
 User-visible rules (synthetic audio ONLY — tones/noise; never Cover/hololive
 audio, never downloads):
@@ -43,7 +43,7 @@ from pathlib import Path
 
 import pytest
 
-from vanalysis import windows
+from vvc import windows
 
 SR = 16_000
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"

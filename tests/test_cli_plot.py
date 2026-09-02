@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from vanalysis import __main__ as cli
+from vvc import __main__ as cli
 
 MODEL = "bs_roformer_vocals_resurrection_unwa.ckpt"
 

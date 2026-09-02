@@ -6,7 +6,7 @@ never Cover/hololive audio, never downloads):
 1. build_site_data(registry, loader=...) returns display names exactly as
    given in the registry, one "talents" entry per registry row, each
    carrying monthly_f0_all/monthly_f0_qc/quarterly_f0/yearly/qc_summary —
-   all built from vanalysis.series's existing aggregation functions
+   all built from vvc.series's existing aggregation functions
    (this module does no aggregation math of its own beyond cute_mature).
 2. yearly-key gating: a feature key (of the 7 candidates: median_f0,
    brightness_hz, dynamism_semitones, jitter_local, shimmer_local,
@@ -31,7 +31,7 @@ never Cover/hololive audio, never downloads):
    headless Chromium against an earlier draft of this page), so the page
    must not depend on fetching a separate JSON file at all.
 
-Entry shape matches vanalysis.measure's persisted record: id / month /
+Entry shape matches vvc.measure's persisted record: id / month /
 score / window / features{median_f0, f0_iqr, voiced_fraction,
 brightness_hz, dynamism_semitones, jitter_local, shimmer_local, hnr_db,
 loudness_dynamics_db} / qc{pass, reason} / model / tracker.
@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import json
 
-from vanalysis import site_data
+from vvc import site_data
 
 
 # ---------------------------------------------------------------- helpers

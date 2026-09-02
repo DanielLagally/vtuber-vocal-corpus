@@ -12,8 +12,8 @@ A measurement fails QC iff:
   (features.py). 600 is a junk indicator (octave errors), not "she
   cannot speak that high"; nothing below it is a pitch ceiling.
 
-ONE implementation lives here and is used by both vanalysis.measure
-(record ``qc`` block) and vanalysis.series (QC-series filtering), so
+ONE implementation lives here and is used by both vvc.measure
+(record ``qc`` block) and vvc.series (QC-series filtering), so
 the persisted verdict and the plotted QC set can never drift apart.
 """
 

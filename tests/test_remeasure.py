@@ -29,8 +29,8 @@ import sys
 import wave
 from pathlib import Path
 
-from vanalysis import remeasure
-from vanalysis.isolate import DEFAULT_MODEL_FILENAME, vocals_path
+from vvc import remeasure
+from vvc.isolate import DEFAULT_MODEL_FILENAME, vocals_path
 
 SR = 16_000
 

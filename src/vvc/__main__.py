@@ -5,21 +5,21 @@ import json
 import sys
 from pathlib import Path
 
-from vanalysis.catalog import filter_videos, pick_monthly
-from vanalysis.densify import run_densify
-from vanalysis.diagnose import run_diagnose
-from vanalysis.remeasure import run_remeasure
-from vanalysis.expand import fetch_channel_videos, run_plan
-from vanalysis.fetch import BotCheckDetected, audio_path, fetch_audio_many
-from vanalysis.holodex import holodex_key as _holodex_key
-from vanalysis.holodex import load_dotenv as _load_dotenv  # noqa: F401 (compat alias)
-from vanalysis.isolate import DEFAULT_MODEL_FILENAME, isolate_vocals, vocals_path
-from vanalysis.measure import run_monthly
-from vanalysis.rescue import run_rescue
-from vanalysis.retry import run_retry
-from vanalysis.roster import fetch_channels, filter_talents, write_roster
-from vanalysis.site_data import write_site_data
-from vanalysis.series import (
+from vvc.catalog import filter_videos, pick_monthly
+from vvc.densify import run_densify
+from vvc.diagnose import run_diagnose
+from vvc.remeasure import run_remeasure
+from vvc.expand import fetch_channel_videos, run_plan
+from vvc.fetch import BotCheckDetected, audio_path, fetch_audio_many
+from vvc.holodex import holodex_key as _holodex_key
+from vvc.holodex import load_dotenv as _load_dotenv  # noqa: F401 (compat alias)
+from vvc.isolate import DEFAULT_MODEL_FILENAME, isolate_vocals, vocals_path
+from vvc.measure import run_monthly
+from vvc.rescue import run_rescue
+from vvc.retry import run_retry
+from vvc.roster import fetch_channels, filter_talents, write_roster
+from vvc.site_data import write_site_data
+from vvc.series import (
     new_run_dir,
     write_feature_multi_talent_yearly_plot,
     write_feature_yearly_plot,
@@ -77,7 +77,7 @@ _EXTRA_FEATURE_PLOTS = (
         "relative shape within this pipeline, not the absolute number.",
     ),
 )
-from vanalysis.windows import best_speech_window, raw90_path, slice_wav
+from vvc.windows import best_speech_window, raw90_path, slice_wav
 
 _HOLODEX_VIDEOS = "https://holodex.net/api/v2/videos"
 _PAGE = 50
@@ -101,7 +101,7 @@ def _list_holodex(api_key: str, channel: str | None = None) -> list[dict]:
             params["include"] = "mentions"
         response = requests.get(
             _HOLODEX_VIDEOS,
-            headers={"X-APIKEY": api_key, "User-Agent": "vanalysis/0.1"},
+            headers={"X-APIKEY": api_key, "User-Agent": "vvc/0.1"},
             params=params,
             timeout=30,
         )
@@ -187,7 +187,7 @@ def _dash_ids_argv(argv: list[str] | None, ret: argparse.ArgumentParser) -> list
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="vanalysis")
+    parser = argparse.ArgumentParser(prog="vvc")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     cat = sub.add_parser("catalog", help="write filtered Holodex stream ids")
@@ -335,7 +335,7 @@ def main(argv: list[str] | None = None) -> None:
             "write the interactive site's data.js (docs/, served by GitHub "
             "Pages) from the "
             "talent registry — per-talent series plus the cute/mature "
-            "percentile scatter, see vanalysis.site_data"
+            "percentile scatter, see vvc.site_data"
         ),
     )
     sit.add_argument(
@@ -504,7 +504,7 @@ def main(argv: list[str] | None = None) -> None:
         "--offload-remote",
         default=None,
         help=(
-            "rclone remote (e.g. 'Google Drive:vanalysis-raw-audio') to "
+            "rclone remote (e.g. 'Google Drive:vvc-raw-audio') to "
             "upload a QC-pass id's raw wav to, deleting it locally once "
             "confirmed uploaded; default None disables offload entirely "
             "(a QC-fail id's raw wav is never offloaded, regardless)"
@@ -591,7 +591,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"measurements seeded -> {measurements_path}")
         print(f"{len(videos)} videos cached -> {cache_path}")
         print(
-            "next: vanalysis densify --measurements "
+            "next: vvc densify --measurements "
             f"{measurements_path} --video-cache {cache_path} "
             "--target-n 3 --cpu-workers 4"
         )

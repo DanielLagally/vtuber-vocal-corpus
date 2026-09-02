@@ -1,4 +1,4 @@
-# vanalysis
+# vtuber-vocal-corpus
 
 Acoustic measurement of VTuber chatting-stream speech: pitch (F0), spectral
 brightness, and voice-quality correlates, tracked per talent over time and
@@ -32,7 +32,7 @@ Requires the Nix flake environment (`direnv exec .` or `nix develop`):
 
 ```
 direnv exec . python -m pytest -q          # test suite
-direnv exec . python -m vanalysis --help   # CLI
+direnv exec . python -m vvc --help         # CLI
 ```
 
 Environment setup, tooling details, and known gotchas are documented in
