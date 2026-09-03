@@ -89,15 +89,21 @@ def _cap_entries_per_month(
 
 
 def f0_series(
-    entries: list[dict], qc: bool = False, *, max_per_month: int | None = None
+    entries: list[dict],
+    qc: bool = False,
+    *,
+    feature_key: str = "median_f0",
+    max_per_month: int | None = None,
 ) -> list[tuple[str, float]]:
-    """Monthly median-F0 series, ONE point per calendar month (STATE R3:
-    multi-clip months): the plain float mean (no rounding) of that
-    month's finite ``median_f0`` values. With ``qc=True`` the shared QC
-    rule filters the entries FIRST, then the survivors are averaged —
-    a month with no surviving value is a gap in the QC series (it can
-    still be present in the all-clip series). A single-record month is
-    unchanged (mean of one is the value itself). Sorted by month.
+    """Monthly series, ONE point per calendar month (STATE R3: multi-clip
+    months): the plain float mean (no rounding) of that month's finite
+    ``feature_key`` values (default ``median_f0``, but any numeric
+    feature key works — brightness_hz, dynamism_semitones, etc., same
+    generalization as ``f0_yearly``). With ``qc=True`` the shared QC rule
+    filters the entries FIRST, then the survivors are averaged — a month
+    with no surviving value is a gap in the QC series (it can still be
+    present in the all-clip series). A single-record month is unchanged
+    (mean of one is the value itself). Sorted by month.
 
     ``max_per_month`` (default None = every record counts) caps each
     month at its N highest-``score`` entries BEFORE any other
@@ -110,10 +116,10 @@ def f0_series(
             qc_pass, _ = qc_verdict(features)
             if not qc_pass:
                 continue
-        median = features.get("median_f0")
-        if not _finite(median):
+        value = features.get(feature_key)
+        if not _finite(value):
             continue
-        buckets.setdefault(entry["month"], []).append(float(median))
+        buckets.setdefault(entry["month"], []).append(float(value))
     points = [
         (month, sum(values) / len(values)) for month, values in buckets.items()
     ]
@@ -159,19 +165,26 @@ def _quarter(month: object) -> str | None:
 
 
 def f0_quarterly(
-    entries: list[dict], qc: bool = False, *, max_per_month: int | None = None
+    entries: list[dict],
+    qc: bool = False,
+    *,
+    feature_key: str = "median_f0",
+    max_per_month: int | None = None,
 ) -> list[dict]:
     """Per calendar quarter (PLAN L36): the MEAN of that quarter's clip
-    ``median_f0`` values, plus min and max of the same values, and n,
-    sorted by quarter.
+    ``feature_key`` values (default ``median_f0``, but any numeric
+    feature key works, same generalization as ``f0_yearly``/``f0_series``),
+    plus min and max of the same values, and n, sorted by quarter.
 
-    A clip with a non-finite median is excluded ENTIRELY from its
+    A clip with a non-finite value is excluded ENTIRELY from its
     quarterly point (it cannot plot — it contributes to nothing, not
     even n); a quarter left without plottable clips is simply absent (a
     gap). With ``qc=True`` the shared QC rule filters the entries BEFORE
     aggregating, so nan-median, IQR >= 200, and median >= 600 clips all
-    drop first. A n=1 quarter carries min == max == the single value
-    (the plot decides band vs bare point — the aggregation stays pure).
+    drop first (the QC rule is always about F0/IQR/voiced-fraction,
+    regardless of which feature is being aggregated). A n=1 quarter
+    carries min == max == the single value (the plot decides band vs
+    bare point — the aggregation stays pure).
 
     ``max_per_month`` caps EACH CALENDAR MONTH (not quarter) at its N
     highest-score clips before aggregating — see ``f0_series``.
@@ -184,13 +197,13 @@ def f0_quarterly(
             qc_pass, _ = qc_verdict(features)
             if not qc_pass:
                 continue
-        median = features.get("median_f0")
-        if not _finite(median):
+        value = features.get(feature_key)
+        if not _finite(value):
             continue
         quarter = _quarter(entry.get("month"))
         if quarter is None:
             continue
-        buckets.setdefault(quarter, []).append(float(median))
+        buckets.setdefault(quarter, []).append(float(value))
     return [
         {
             "quarter": quarter,

@@ -172,6 +172,15 @@ let trajSizeKey = "none";
 let trajFromYear = null;
 let trajToYear = null;
 
+// Time Series view: replaces the old fixed "F0 Monthly"/"F0 Quarterly"/
+// "<metric> Yearly" (13 separate metric-picker entries) with one view
+// plus independent X-granularity and Y-metric pickers — any metric at
+// any of the three time granularities, all backed by the same per-key
+// monthly/quarterly/yearly dicts in data.js (site_data.py generalized
+// f0_series/f0_quarterly with a feature_key, matching f0_yearly).
+let seriesGranularity = "monthly";
+let seriesMetricKey = null; // null = not yet initialized; set on first render
+
 let lastControlsMetric = null;
 
 let tableSortColumn = "name";
@@ -276,7 +285,8 @@ function main() {
     render();
   });
 
-  // Deep-linkable views: #cute_mature, #yearly:brightness_hz, etc.
+  // Deep-linkable views: #cute_mature, #series, #radar, etc. (granularity
+  // and metric sub-selections within #series aren't part of the hash).
   const initial = location.hash.slice(1);
   if (initial && [...picker.options].some((o) => o.value === initial)) {
     picker.value = initial;
@@ -330,13 +340,7 @@ function presentYearlyKeys() {
 
 function buildMetricPicker() {
   const picker = document.getElementById("metric-picker");
-  const options = [
-    { value: "f0_monthly", label: "F0 (Pitch) — Monthly" },
-    { value: "f0_quarterly", label: "F0 (Pitch) — Quarterly" },
-  ];
-  for (const key of presentYearlyKeys()) {
-    options.push({ value: `yearly:${key}`, label: YEARLY_METRICS[key].label });
-  }
+  const options = [{ value: "series", label: "Time Series (metric over time)" }];
   if (Object.keys(DATA.cute_mature).length > 0) {
     options.push({ value: "cute_mature", label: "Cute × Mature (F0 vs Brightness)" });
   }
@@ -468,17 +472,15 @@ function render() {
           "column header's tooltip) — switch to percentiles above to compare across metrics " +
           "on one scale.") +
       `\n\n${QC_FOOTER}`;
-  } else if (metric === "f0_monthly") {
-    renderLineSeries(names, (t) => DATA.talents[t].monthly_f0_qc, "Median F0 (Hz)");
-    caption.textContent = `${WHAT_IS_F0}\n\n${QC_FOOTER}`;
-  } else if (metric === "f0_quarterly") {
-    renderQuarterly(names);
-    caption.textContent = `${WHAT_IS_F0}\n\n${QC_FOOTER}`;
-  } else if (metric.startsWith("yearly:")) {
-    const key = metric.slice("yearly:".length);
-    renderYearly(names, key);
+  } else if (metric === "series") {
+    const keys = presentYearlyKeys();
+    if (seriesMetricKey === null || !keys.includes(seriesMetricKey)) {
+      seriesMetricKey = keys.includes("median_f0") ? "median_f0" : keys[0];
+    }
+    renderSeries(names, seriesGranularity, seriesMetricKey);
+    const metricCaption = YEARLY_METRICS[seriesMetricKey].caption;
     caption.textContent =
-      `${YEARLY_METRICS[key].caption}\n\n${QC_FOOTER}\n\n${percentileSummary(names, key)}`;
+      `${metricCaption}\n\n${QC_FOOTER}\n\n${percentileSummary(names, seriesMetricKey)}`;
   } else if (metric === "cute_mature") {
     renderCuteMature(names);
     caption.textContent = CUTE_MATURE_CAPTION;
@@ -507,7 +509,35 @@ function render() {
 
 function buildViewControls(metric) {
   const el = document.getElementById("view-controls");
-  if (metric === "radar") {
+  if (metric === "series") {
+    const keys = presentYearlyKeys();
+    if (seriesMetricKey === null || !keys.includes(seriesMetricKey)) {
+      seriesMetricKey = keys.includes("median_f0") ? "median_f0" : keys[0];
+    }
+    const granOpts = ["monthly", "quarterly", "yearly"]
+      .map(
+        (g) =>
+          `<option value="${g}" ${g === seriesGranularity ? "selected" : ""}>${g[0].toUpperCase()}${g.slice(1)}</option>`
+      )
+      .join("");
+    const metricOpts = keys
+      .map(
+        (k) =>
+          `<option value="${k}" ${k === seriesMetricKey ? "selected" : ""}>${radarAxisLabel(k)}</option>`
+      )
+      .join("");
+    el.innerHTML = `
+      <div class="control-group"><label for="series-granularity">Time</label><select id="series-granularity">${granOpts}</select></div>
+      <div class="control-group"><label for="series-metric">Metric</label><select id="series-metric">${metricOpts}</select></div>`;
+    document.getElementById("series-granularity").addEventListener("change", (e) => {
+      seriesGranularity = e.target.value;
+      render();
+    });
+    document.getElementById("series-metric").addEventListener("change", (e) => {
+      seriesMetricKey = e.target.value;
+      render();
+    });
+  } else if (metric === "radar") {
     const keys = presentYearlyKeys();
     if (radarSelectedKeys === null) radarSelectedKeys = new Set(keys);
     const metricsHtml = keys
@@ -823,38 +853,37 @@ function renderTrajectory(names) {
   );
 }
 
-function renderLineSeries(names, seriesFn, yLabel) {
-  const traces = names.map((name) => {
-    const points = seriesFn(name) || [];
-    return {
-      type: "scatter",
-      mode: "lines+markers",
-      name,
-      x: points.map((p) => p[0]),
-      y: points.map((p) => p[1]),
-      connectgaps: false,
-      marker: { color: talentColor(name) },
-      line: { color: talentColor(name) },
-    };
-  });
-  Plotly.react("chart", traces, layout({ yLabel, xType: "category" }));
+// Normalizes the three different point shapes site_data.py exports
+// (monthly: [month, value] tuples; quarterly/yearly: {quarter|year,
+// mean|median, min, max, n} dicts) into a common {x, y} — the one place
+// that needs to know the shape difference, so renderSeries itself
+// doesn't have to branch on granularity beyond picking the right data.
+function seriesPoint(granularity, point) {
+  if (granularity === "monthly") return { x: point[0], y: point[1] };
+  if (granularity === "quarterly") return { x: point.quarter, y: point.mean };
+  return { x: point.year, y: point.median };
 }
 
-function renderQuarterly(names) {
+function renderSeries(names, granularity, metricKey) {
   const traces = names.map((name) => {
-    const points = DATA.talents[name].quarterly_f0 || [];
+    const points = ((DATA.talents[name][granularity] || {})[metricKey]) || [];
+    const xy = points.map((p) => seriesPoint(granularity, p));
     return {
       type: "scatter",
       mode: "lines+markers",
       name,
-      x: points.map((p) => p.quarter),
-      y: points.map((p) => p.mean),
+      x: xy.map((p) => p.x),
+      y: xy.map((p) => p.y),
       connectgaps: false,
       marker: { color: talentColor(name) },
       line: { color: talentColor(name) },
     };
   });
-  Plotly.react("chart", traces, layout({ yLabel: "Median F0 (Hz)", xType: "category" }));
+  Plotly.react(
+    "chart",
+    traces,
+    layout({ yLabel: YEARLY_METRICS[metricKey].unit, xType: "category" })
+  );
 }
 
 // Percentile = this talent's rank (0-100) among every registered talent
@@ -869,27 +898,6 @@ function percentileSummary(names, key) {
     .map((name) => `${name} ${Math.round(DATA.talents[name].percentiles[key])}`);
   if (parts.length === 0) return "";
   return `Percentile vs. corpus (this metric, 0=lowest 100=highest): ${parts.join(" · ")}`;
-}
-
-function renderYearly(names, key) {
-  const traces = names.map((name) => {
-    const points = (DATA.talents[name].yearly && DATA.talents[name].yearly[key]) || [];
-    return {
-      type: "scatter",
-      mode: "lines+markers",
-      name,
-      x: points.map((p) => p.year),
-      y: points.map((p) => p.median),
-      connectgaps: false,
-      marker: { color: talentColor(name) },
-      line: { color: talentColor(name) },
-    };
-  });
-  Plotly.react(
-    "chart",
-    traces,
-    layout({ yLabel: YEARLY_METRICS[key].unit, xType: "category" })
-  );
 }
 
 function renderCuteMature(names) {

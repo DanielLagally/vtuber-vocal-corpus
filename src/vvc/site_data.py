@@ -305,9 +305,14 @@ def build_site_data(
             groups, branch = _talent_groups_and_branch(name, roster_by_english_name)
         groups_present.update(groups)
         talents[name] = {
-            "monthly_f0_all": f0_series(entries),
-            "monthly_f0_qc": f0_series(entries, qc=True),
-            "quarterly_f0": f0_quarterly(entries, qc=True),
+            "monthly": {
+                key: f0_series(entries, qc=True, feature_key=key)
+                for key in yearly_keys
+            },
+            "quarterly": {
+                key: f0_quarterly(entries, qc=True, feature_key=key)
+                for key in yearly_keys
+            },
             "yearly": {
                 key: f0_yearly(entries, qc=True, feature_key=key)
                 for key in yearly_keys

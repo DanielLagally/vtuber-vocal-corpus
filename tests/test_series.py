@@ -45,6 +45,13 @@ never Cover/hololive audio, never downloads):
    series (but can still be present in the all-clip series).
    iqr_series: the mean of finite f0_iqr values. A single-record
    month is unchanged: mean of one is the value itself.
+10. f0_series and f0_quarterly both take a ``feature_key`` keyword
+    (default "median_f0"), the same generalization f0_yearly already
+    has — aggregating any numeric feature (brightness_hz, dynamism_
+    semitones, ...) monthly/quarterly, not just F0. The QC rule stays
+    the shared F0/IQR/voiced-fraction gate regardless of which feature
+    is being aggregated (a signal-trustworthiness gate, not specific
+    to the plotted feature).
 
 Entry shape is the measurement record persisted by vvc.measure:
 id / month / score / window / features{median_f0, f0_iqr,
@@ -180,6 +187,39 @@ def test_qc_series_applies_full_rule_keeps_599_drops_nan_and_high() -> None:
     assert _pairs(series.f0_series(entries)) == [
         ("2025-01", 599.0),
         ("2025-03", 615.0),
+    ]
+
+
+def test_f0_series_feature_key_generalizes_to_any_numeric_feature() -> None:
+    """Rule 10: f0_series(entries, feature_key="brightness_hz") aggregates
+    brightness instead of F0 — same monthly-mean-of-finite-values logic,
+    just reading a different features key."""
+    entries = [
+        _entry("2024-01", 300.0, 45.0, "aid0000001"),
+        _entry("2024-01", 300.0, 45.0, "aid0000002"),
+    ]
+    entries[0]["features"]["brightness_hz"] = 1900.0
+    entries[1]["features"]["brightness_hz"] = 2100.0
+    assert _pairs(series.f0_series(entries, feature_key="brightness_hz")) == [
+        ("2024-01", 2000.0)
+    ]
+    # default is still median_f0, unaffected by the new keyword existing
+    assert _pairs(series.f0_series(entries)) == [("2024-01", 300.0)]
+
+
+def test_f0_quarterly_feature_key_generalizes_to_any_numeric_feature() -> None:
+    """Rule 10: f0_quarterly(entries, feature_key="brightness_hz")
+    aggregates brightness into the quarterly mean/min/max/n point
+    instead of F0."""
+    entries = [
+        _entry("2024-01", 300.0, 45.0, "aid0000001"),
+        _entry("2024-02", 300.0, 45.0, "aid0000002"),
+    ]
+    entries[0]["features"]["brightness_hz"] = 1900.0
+    entries[1]["features"]["brightness_hz"] = 2100.0
+    result = series.f0_quarterly(entries, feature_key="brightness_hz")
+    assert result == [
+        {"quarter": "2024-Q1", "mean": 2000.0, "min": 1900.0, "max": 2100.0, "n": 2}
     ]
 
 

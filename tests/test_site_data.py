@@ -5,14 +5,19 @@ never Cover/hololive audio, never downloads):
 
 1. build_site_data(registry, loader=...) returns display names exactly as
    given in the registry, one "talents" entry per registry row, each
-   carrying monthly_f0_all/monthly_f0_qc/quarterly_f0/yearly/qc_summary —
-   all built from vvc.series's existing aggregation functions
-   (this module does no aggregation math of its own beyond cute_mature).
-2. yearly-key gating: a feature key (of the 7 candidates: median_f0,
+   carrying monthly/quarterly/yearly/qc_summary — all three of
+   monthly/quarterly/yearly are dicts keyed by feature key (QC-pass
+   only; there is no more "all clips" variant, it was exported but
+   never rendered by the site), built from vvc.series's existing
+   feature_key-generalized aggregation functions (this module does no
+   aggregation math of its own beyond cute_mature).
+2. yearly-key gating: a feature key (of the 11 candidates: median_f0,
    brightness_hz, dynamism_semitones, jitter_local, shimmer_local,
-   hnr_db, loudness_dynamics_db) only appears under "yearly" for ANY
-   talent if at least one record ANYWHERE in the registry has that key —
-   a corpus with only median_f0 never emits an empty brightness_hz list.
+   hnr_db, loudness_dynamics_db, f1_hz, f2_hz, f3_hz, f4_hz) only
+   appears under "monthly"/"quarterly"/"yearly" for ANY talent if at
+   least one record ANYWHERE in the registry has that key — a corpus
+   with only median_f0 never emits an empty brightness_hz list, at any
+   of the three granularities.
 3. cute_mature holds one point per talent that has at least one QC-pass
    clip: f0_mean/brightness_mean/dynamism_mean (plain means of that
    talent's QC-pass clips) plus a percentile — the equal-weight average
@@ -158,7 +163,7 @@ def test_talent_display_names_and_series_pass_through() -> None:
     result = site_data.build_site_data({"a.json": "Talent A"}, loader=_loader(store))
     assert set(result["talents"]) == {"Talent A"}
     talent = result["talents"]["Talent A"]
-    assert talent["monthly_f0_qc"] == [("2024-01", 200.0), ("2024-02", 210.0)]
+    assert talent["monthly"]["median_f0"] == [("2024-01", 200.0), ("2024-02", 210.0)]
     assert talent["qc_summary"] == {"qc_pass": 2, "total": 2}
 
 
@@ -176,6 +181,9 @@ def test_yearly_feature_keys_gated_on_registry_wide_presence() -> None:
     assert "brightness_hz" not in result["talents"]["A"]["yearly"]
     assert "brightness_hz" not in result["talents"]["B"]["yearly"]
     assert "median_f0" in result["talents"]["A"]["yearly"]
+    # Same gating applies at every granularity, not just yearly.
+    assert "brightness_hz" not in result["talents"]["A"]["monthly"]
+    assert "brightness_hz" not in result["talents"]["A"]["quarterly"]
 
     store2 = {
         "a.json": [_entry("2024-01", "vid0000001", median_f0=200.0, brightness_hz=1500.0)],
@@ -187,6 +195,10 @@ def test_yearly_feature_keys_gated_on_registry_wide_presence() -> None:
     assert "brightness_hz" in result2["talents"]["A"]["yearly"]
     assert "brightness_hz" in result2["talents"]["B"]["yearly"]
     assert result2["talents"]["B"]["yearly"]["brightness_hz"] == []
+    assert "brightness_hz" in result2["talents"]["A"]["monthly"]
+    assert "brightness_hz" in result2["talents"]["A"]["quarterly"]
+    assert result2["talents"]["B"]["monthly"]["brightness_hz"] == []
+    assert result2["talents"]["B"]["quarterly"]["brightness_hz"] == []
 
 
 def test_cute_mature_percentile_hand_computed_three_talents() -> None:
