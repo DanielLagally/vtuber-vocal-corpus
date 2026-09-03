@@ -28,7 +28,10 @@ aggregates.
 
 ## Running
 
-Requires the Nix flake environment (`direnv exec .` or `nix develop`):
+Requires the Nix flake environment (`direnv exec .` or `nix develop`).
+Supported on `x86_64-linux` (CUDA GPU acceleration) and `aarch64-darwin` /
+Apple Silicon (Metal/CoreML). The first shell entry builds a project-local
+`.venv` from pip (~6 GB: torch + onnxruntime + audio-separator).
 
 ```
 direnv exec . python -m pytest -q          # test suite

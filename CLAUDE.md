@@ -8,6 +8,20 @@ Nix flake (`flake.nix`) with CUDA *config* enabled (vttt-style unfree/EULA), pro
 
 Nix users: `direnv exec . <cmd>` or `nix develop`. The agent shell does not auto-load `.envrc`.
 
+**Platforms:** `x86_64-linux` (CUDA) and `aarch64-darwin` (Apple Silicon) are
+both supported from the same flake. GPU acceleration is entirely a pip-wheel
+concern, never nixpkgs — `config.cudaSupport` stays `false`. The flake only sets
+`LD_LIBRARY_PATH` (cudnn / cudatoolkit / `/run/opengl-driver/lib`) on Linux; on
+darwin that attr is omitted (the loader ignores it and the macOS torch /
+onnxruntime wheels bundle their own Metal/CoreML dylibs). `requirements.txt`
+picks the onnxruntime backend by `sys_platform` marker: `audio-separator[gpu]`
+(→ `onnxruntime-gpu`, CUDA) on linux, `audio-separator[cpu]` (→ `onnxruntime`
+with the CoreML EP) on darwin. `audio-separator` auto-selects CUDA / MPS /
+CoreML at runtime via `torch.cuda.is_available()` then
+`torch.backends.mps.is_available()` — no code, flag, or env var changes per
+platform. `onnxruntime-gpu` has no macOS wheels, which is why the marker split
+exists; do not "simplify" `requirements.txt` back to one line.
+
 ```
 direnv exec . python -m pytest -q
 ```
@@ -65,7 +79,8 @@ Test first. Write a failing product test that states the user-visible rule, then
 
 ## Known gotchas
 
-- **Vocal isolation is pip `audio-separator[gpu]`, not nixpkgs torch.** Same pattern as lunalearn: venv wheel (~6 GB), `LD_LIBRARY_PATH` for nixpkgs cudnn/cudatoolkit. Do **not** set `cudaSupport = true` on nixpkgs — that compiles CUDA torch/onnxruntime from source and fills the disk. `pip install -r requirements.txt` once inside `nix develop`.
+- **Vocal isolation is pip `audio-separator`, not nixpkgs torch.** Same pattern as lunalearn: venv wheel (~6 GB), `LD_LIBRARY_PATH` for nixpkgs cudnn/cudatoolkit (Linux only). Do **not** set `cudaSupport = true` on nixpkgs — that compiles CUDA torch/onnxruntime from source and fills the disk. `pip install -r requirements.txt` once inside `nix develop`. The `[gpu]`/`[cpu]` extra is marker-selected per platform — see the Stack section's Platforms note.
+- **macOS (Apple Silicon) is a supported platform; the venv still installs from pip.** On darwin the flake omits `LD_LIBRARY_PATH` entirely and `requirements.txt` resolves `audio-separator[cpu]` (`onnxruntime` with CoreML EP) plus an MPS-capable torch wheel. First `nix develop` builds the ~6 GB venv exactly as on Linux. `audio-separator` auto-detects MPS/CoreML — expect "setting Torch device to MPS" in its log, not CUDA. The `PYTHONPATH`-leak from `yt-dlp` and the `unset PYTHONPATH` rule apply identically. Do not gate any pipeline code on `sys.platform`; the only platform split is `flake.nix` + `requirements.txt`.
 - **Do not add `onnxruntime` or `torch` to flake `withPackages`.**
 - **`yt-dlp` leaks a python3.14 `PYTHONPATH` into every `nix develop` shell.** The venv is python3.12, so that path's wheels (cffi `_cffi_backend`, cryptography, …) are visible on `sys.path` but not loadable — and worse, pip sees them as already installed and skips them. Always `unset PYTHONPATH` before venv `pip install` / `pip show` / running the app inside `nix develop` (then re-export `PYTHONPATH=src` if needed). If a fresh install fails with `ModuleNotFoundError: audioread` / `_cffi_backend`, this is why: `audioread` is undeclared upstream (librosa 1.0 dropped it, audio-separator's uvr_lib imports it) and `cffi` was skipped by the polluted path — `pip install audioread cffi` into `.venv`.
 - **Do not `nix-shell -p python3Packages.parselmouth` (or librosa) to run tests.** Both packages `doCheck = true` and compile Praat / run hundreds of upstream tests. Feature extract is numpy; `direnv exec . python -m pytest -q`.

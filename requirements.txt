@@ -1,4 +1,11 @@
-audio-separator[gpu]
+# audio-separator's onnxruntime backend is platform-specific: onnxruntime-gpu
+# (CUDA) has no macOS wheels, and onnxruntime (the [cpu] extra) ships the
+# CoreML execution provider on Apple Silicon. torch is a base dep of
+# audio-separator and resolves to a CUDA-tagged wheel on x86_64-linux and an
+# MPS-capable wheel on arm64-darwin; audio-separator auto-selects CUDA / MPS /
+# CoreML at runtime, so no code or flag changes per platform.
+audio-separator[gpu]; sys_platform == "linux"
+audio-separator[cpu]; sys_platform == "darwin"
 audioread
 cffi
 praat-parselmouth
