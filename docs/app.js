@@ -144,11 +144,6 @@ const YEARLY_METRICS = {
   },
 };
 
-const FORMANT_KEYS = ["f1_hz", "f2_hz", "f3_hz", "f4_hz"];
-const NON_FORMANT_KEYS = Object.keys(YEARLY_METRICS).filter(
-  (key) => !FORMANT_KEYS.includes(key)
-);
-
 let DATA = null;
 let selectedTalents = new Set();
 let branchFilter = "All";
@@ -162,6 +157,10 @@ let generationFilter = "All";
 let RADAR_AXIS_RANGE = {};
 let radarOverall = true;
 let radarYear = null;
+// Which metrics appear as radar axes — user-editable via checkboxes,
+// defaults to every present yearly metric the first time the radar view
+// is built (null means "not yet initialized", not "none selected").
+let radarSelectedKeys = null;
 
 // Trajectory view: X/Y (+ optional size) metric pickers and a from/to
 // year range, all read straight from the already-present per-year
@@ -287,15 +286,7 @@ function buildMetricPicker() {
     (t) => Object.keys(t.percentiles || {}).length > 0
   );
   if (anyPercentiles) {
-    options.push({ value: "radar:all", label: "Profile (Percentile Radar) — All" });
-    options.push({
-      value: "radar:formants",
-      label: "Profile (Percentile Radar) — Formants (F1-F4)",
-    });
-    options.push({
-      value: "radar:nonformants",
-      label: "Profile (Percentile Radar) — Non-Formants",
-    });
+    options.push({ value: "radar", label: "Profile (Percentile Radar)" });
   }
   if (presentYearlyKeys().length >= 2 && ALL_YEARS.length > 0) {
     options.push({ value: "trajectory", label: "Trajectory (metric vs. metric, by year)" });
@@ -418,25 +409,20 @@ function render() {
   } else if (metric === "cute_mature") {
     renderCuteMature(names);
     caption.textContent = CUTE_MATURE_CAPTION;
-  } else if (metric.startsWith("radar:")) {
-    const variant = metric.slice("radar:".length);
-    const axisKeys =
-      variant === "formants" ? FORMANT_KEYS : variant === "nonformants" ? NON_FORMANT_KEYS : null;
-    const variantNote =
-      variant === "formants"
-        ? "Formants only (F1-F4).\n\n"
-        : variant === "nonformants"
-        ? "Every measured metric except formants.\n\n"
-        : "";
-    renderRadar(names, axisKeys);
-    caption.textContent =
-      variantNote +
-      (radarOverall
-        ? RADAR_CAPTION
-        : `${RADAR_CAPTION}\n\nShowing ${radarYear} only: each axis is min-max scaled ` +
-          `against that metric's full range across every talent and every year (a fixed ` +
-          `frame, so the shape's movement across years is meaningful) — not the overall ` +
-          `rank percentile used in "Overall" mode.`);
+  } else if (metric === "radar") {
+    if (radarSelectedKeys === null) radarSelectedKeys = new Set(presentYearlyKeys());
+    if (radarSelectedKeys.size === 0) {
+      Plotly.purge(chart);
+      caption.textContent = "Select at least one metric (see the checkboxes above the chart).";
+      return;
+    }
+    renderRadar(names, [...radarSelectedKeys]);
+    caption.textContent = radarOverall
+      ? RADAR_CAPTION
+      : `${RADAR_CAPTION}\n\nShowing ${radarYear} only: each axis is min-max scaled ` +
+        `against that metric's full range across every talent and every year (a fixed ` +
+        `frame, so the shape's movement across years is meaningful) — not the overall ` +
+        `rank percentile used in "Overall" mode.`;
   } else if (metric === "trajectory") {
     renderTrajectory(names);
     caption.textContent =
@@ -448,7 +434,18 @@ function render() {
 
 function buildViewControls(metric) {
   const el = document.getElementById("view-controls");
-  if (metric.startsWith("radar:")) {
+  if (metric === "radar") {
+    const keys = presentYearlyKeys();
+    if (radarSelectedKeys === null) radarSelectedKeys = new Set(keys);
+    const metricsHtml = keys
+      .map(
+        (k) => `
+        <label>
+          <input type="checkbox" class="radar-metric-cb" value="${k}" ${radarSelectedKeys.has(k) ? "checked" : ""} />
+          ${radarAxisLabel(k)}
+        </label>`
+      )
+      .join("");
     el.innerHTML = `
       <div class="control-group">
         <label><input type="checkbox" id="radar-overall" ${radarOverall ? "checked" : ""} /> Overall (all years)</label>
@@ -458,6 +455,12 @@ function buildViewControls(metric) {
         <input type="range" id="radar-year" min="${ALL_YEARS[0]}" max="${ALL_YEARS[ALL_YEARS.length - 1]}"
           step="1" value="${radarYear}" ${radarOverall ? "disabled" : ""} />
         <span class="range-value" id="radar-year-value">${radarYear}</span>
+      </div>
+      <div class="metric-checklist-row">
+        <span class="filter-label metric-checklist-label">Axes</span>
+        <button type="button" id="radar-metrics-all" class="mini-btn">All</button>
+        <button type="button" id="radar-metrics-none" class="mini-btn">None</button>
+        <div class="metric-checklist">${metricsHtml}</div>
       </div>`;
     document.getElementById("radar-overall").addEventListener("change", (e) => {
       radarOverall = e.target.checked;
@@ -467,6 +470,21 @@ function buildViewControls(metric) {
     document.getElementById("radar-year").addEventListener("input", (e) => {
       radarYear = Number(e.target.value);
       document.getElementById("radar-year-value").textContent = radarYear;
+      render();
+    });
+    el.querySelector(".metric-checklist").addEventListener("change", (e) => {
+      if (e.target.checked) radarSelectedKeys.add(e.target.value);
+      else radarSelectedKeys.delete(e.target.value);
+      render();
+    });
+    document.getElementById("radar-metrics-all").addEventListener("click", () => {
+      radarSelectedKeys = new Set(keys);
+      buildViewControls(metric);
+      render();
+    });
+    document.getElementById("radar-metrics-none").addEventListener("click", () => {
+      radarSelectedKeys = new Set();
+      buildViewControls(metric);
       render();
     });
   } else if (metric === "trajectory") {
