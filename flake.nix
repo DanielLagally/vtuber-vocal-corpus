@@ -64,6 +64,7 @@
               pkgs.deno
               pkgs.ffmpeg-headless
               pkgs.rclone
+              pkgs.jq
               pkgs.basedpyright
               pkgs.ruff
             ];

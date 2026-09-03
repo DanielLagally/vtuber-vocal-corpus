@@ -24,12 +24,27 @@ const RADAR_CAPTION =
 // known. A talent NOT in this map falls back to Plotly's default
 // categorical palette (assignTalentColor below) rather than a guessed
 // hex value — colors are identity, worth getting right or not at all.
-// STILL NEEDS VERIFICATION: Takane Lui, Rindo Chihaya, Isaki Riona,
-// Kikirara Vivi, Todoroki Hajime, Otonose Kanade, Juufuutei Raden,
-// Ichijou Ririka (fill in real values here once confirmed).
+// Values below (Himemori Luna through Omaru Polka) are the official
+// hololive schedule color, provided directly (2026-09-03) — the same
+// source also has an official "subtitle" color per talent, not used
+// here yet, see [[future: subtitle color]] if a lighter/alt variant is
+// ever wanted. DEV_IS (ReGLOSS/FLOW GLOW), Hiodoshi Ao (graduated), and
+// Takane Lui aren't in that source at all — STILL NEEDS VERIFICATION:
+// Takane Lui, Rindo Chihaya, Isaki Riona, Kikirara Vivi, Todoroki
+// Hajime, Otonose Kanade, Juufuutei Raden, Ichijou Ririka, Hiodoshi Ao,
+// Koganei Niko, Mizumiya Su (fill in real values here once confirmed).
 const TALENT_COLORS = {
-  "Himemori Luna": "#FF6FA5",
-  "Yukihana Lamy": "#4FC3F7",
+  "Himemori Luna": "#F7ABD5",
+  "Yukihana Lamy": "#6ABADF",
+  "Tokino Sora": "#266AFF",
+  "Robocosan": "#D192FE",
+  "Shirakami Fubuki": "#43BFEF",
+  "Oozora Subaru": "#E5FB67",
+  "Nekomata Okayu": "#B190FC",
+  "Inugami Korone": "#FEE039",
+  "Kiryu Coco": "#F38514",
+  "Tsunomaki Watame": "#F9AFB2",
+  "Omaru Polka": "#B92731",
   "Hiodoshi Ao": "#3A7CA5",
   "Koganei Niko": "#E8973D",
   "Mizumiya Su": "#3AA6B9",
