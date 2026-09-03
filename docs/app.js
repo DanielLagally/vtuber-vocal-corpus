@@ -99,6 +99,34 @@ const YEARLY_METRICS = {
       "Spread of frame loudness (RMS in dB) within a clip - animated volume " +
       "swings vs. a flat, even delivery.",
   },
+  f1_hz: {
+    label: "First Formant (F1) — Yearly",
+    unit: "F1 (Hz)",
+    caption:
+      "Vocal-tract resonance most tied to jaw/tongue height - not a pitch " +
+      "measure. Sensitive to the formant tracker's parameters and residual " +
+      "isolation artifact; trust the relative shape.",
+  },
+  f2_hz: {
+    label: "Second Formant (F2) — Yearly",
+    unit: "F2 (Hz)",
+    caption:
+      "Vocal-tract resonance most tied to tongue front/back position - " +
+      "with F1, the classic acoustic vowel-space axes.",
+  },
+  f3_hz: {
+    label: "Third Formant (F3) — Yearly",
+    unit: "F3 (Hz)",
+    caption:
+      "Higher vocal-tract resonance. Overall formant spacing (F1-F4) tracks " +
+      "vocal tract length - the strongest acoustic correlate of perceived " +
+      "voice maturity/body size measured here.",
+  },
+  f4_hz: {
+    label: "Fourth Formant (F4) — Yearly",
+    unit: "F4 (Hz)",
+    caption: "Highest formant tracked - completes the F1-F4 picture with F1-F3.",
+  },
 };
 
 let DATA = null;

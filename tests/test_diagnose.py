@@ -92,6 +92,7 @@ def test_compare_tracker_record_shape(tmp_path: Path) -> None:
     praat_keys = numpy_keys | {
         "brightness_hz", "dynamism_semitones", "jitter_local",
         "shimmer_local", "hnr_db", "loudness_dynamics_db",
+        "f1_hz", "f2_hz", "f3_hz", "f4_hz",
     }
     for tracker, expected_keys in (("numpy", numpy_keys), ("praat", praat_keys)):
         features = record[tracker]

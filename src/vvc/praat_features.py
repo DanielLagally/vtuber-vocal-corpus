@@ -121,15 +121,53 @@ def hnr_db(path: Path | str) -> float:
     return float(value) if value == value else math.nan
 
 
+_FORMANT_MAX_HZ = 5500.0
+_FORMANT_WINDOW_S = 0.025
+_FORMANT_PRE_EMPHASIS_HZ = 50.0
+
+
+def formants_hz(path: Path | str) -> dict:
+    """Mean F1-F4 (vocal-tract resonance frequencies, Hz) via Praat's
+    Burg-method formant tracker, over frames where a formant number has
+    a defined value — undefined frames (unvoiced/silent/too little
+    energy) are excluded, never averaged in as 0, same no-bogus-
+    confidence convention as median_f0. The strongest, most literature-
+    grounded acoustic correlate of perceived voice maturity/body size
+    (formant spacing tracks vocal tract length) — see PLAN.md's
+    deferred-feature notes; added specifically to make the cute/mature
+    scoring less arbitrary than pitch+brightness+dynamism alone."""
+    sound = parselmouth.Sound(str(path))
+    formant = sound.to_formant_burg(
+        time_step=_HOP_S,
+        max_number_of_formants=5,
+        maximum_formant=_FORMANT_MAX_HZ,
+        window_length=_FORMANT_WINDOW_S,
+        pre_emphasis_from=_FORMANT_PRE_EMPHASIS_HZ,
+    )
+    times = formant.ts()
+
+    def _mean(formant_number: int) -> float:
+        values = np.array([formant.get_value_at_time(formant_number, t) for t in times])
+        finite = values[~np.isnan(values)]
+        return float(np.mean(finite)) if finite.size else math.nan
+
+    return {
+        "f1_hz": _mean(1),
+        "f2_hz": _mean(2),
+        "f3_hz": _mean(3),
+        "f4_hz": _mean(4),
+    }
+
+
 def stem_features(path: Path | str) -> dict:
     """Same shape as measure.stem_features / features.{median_f0,f0_iqr,
     voiced_fraction}, backed by Praat autocorrelation instead of numpy
     ACF, same 75-600 Hz bounds — for tracker-vs-tracker comparison on the
     same audio (see diagnose.py). Plus tracker-independent extras:
     brightness_hz and loudness_dynamics_db (features.py, pure FFT/RMS,
-    reused as-is), dynamism_semitones, and the voice-quality trio
-    jitter_local/shimmer_local/hnr_db (this module — see their
-    docstrings for the sustained-vowel/isolation-artifact caveat)."""
+    reused as-is), dynamism_semitones, the voice-quality trio
+    jitter_local/shimmer_local/hnr_db, and f1_hz/f2_hz/f3_hz/f4_hz
+    (formants_hz — see their docstrings for caveats)."""
     return {
         "median_f0": median_f0(path),
         "f0_iqr": f0_iqr(path),
@@ -140,4 +178,5 @@ def stem_features(path: Path | str) -> dict:
         "shimmer_local": shimmer_local(path),
         "hnr_db": hnr_db(path),
         "loudness_dynamics_db": loudness_dynamics_db(path),
+        **formants_hz(path),
     }

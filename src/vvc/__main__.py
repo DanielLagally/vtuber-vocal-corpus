@@ -76,6 +76,47 @@ _EXTRA_FEATURE_PLOTS = (
         "and sensitive to residual vocal-isolation artifact - trust the\n"
         "relative shape within this pipeline, not the absolute number.",
     ),
+    (
+        "f1_hz", "f1_yearly.png", "First Formant (F1) by Year",
+        "Vocal-tract resonance most tied to jaw/tongue height - lower F1 is a\n"
+        "more close vowel articulation, not directly a pitch measure.",
+        "F1 (Hz)",
+        "CAVEAT: formant tracking is sensitive to the maximum-formant\n"
+        "parameter, pre-emphasis, and residual vocal-isolation artifact -\n"
+        "trust the relative shape within this pipeline, not the absolute Hz\n"
+        "against a clinical/phonetics reference.",
+    ),
+    (
+        "f2_hz", "f2_yearly.png", "Second Formant (F2) by Year",
+        "Vocal-tract resonance most tied to tongue front/back position -\n"
+        "together with F1, the classic acoustic vowel-space axes.",
+        "F2 (Hz)",
+        "CAVEAT: formant tracking is sensitive to the maximum-formant\n"
+        "parameter, pre-emphasis, and residual vocal-isolation artifact -\n"
+        "trust the relative shape within this pipeline, not the absolute Hz\n"
+        "against a clinical/phonetics reference.",
+    ),
+    (
+        "f3_hz", "f3_yearly.png", "Third Formant (F3) by Year",
+        "Higher vocal-tract resonance - overall formant spacing (F1-F4)\n"
+        "tracks vocal tract length, the strongest acoustic correlate of\n"
+        "perceived voice maturity/body size measured on this site.",
+        "F3 (Hz)",
+        "CAVEAT: formant tracking is sensitive to the maximum-formant\n"
+        "parameter, pre-emphasis, and residual vocal-isolation artifact -\n"
+        "trust the relative shape within this pipeline, not the absolute Hz\n"
+        "against a clinical/phonetics reference.",
+    ),
+    (
+        "f4_hz", "f4_yearly.png", "Fourth Formant (F4) by Year",
+        "Highest formant tracked here - completes the F1-F4 vocal-tract-\n"
+        "length picture alongside F1-F3.",
+        "F4 (Hz)",
+        "CAVEAT: formant tracking is sensitive to the maximum-formant\n"
+        "parameter, pre-emphasis, and residual vocal-isolation artifact -\n"
+        "trust the relative shape within this pipeline, not the absolute Hz\n"
+        "against a clinical/phonetics reference.",
+    ),
 )
 from vvc.windows import best_speech_window, raw90_path, slice_wav
 

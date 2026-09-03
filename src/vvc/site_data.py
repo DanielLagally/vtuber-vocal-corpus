@@ -46,6 +46,10 @@ YEARLY_FEATURE_KEYS = (
     "shimmer_local",
     "hnr_db",
     "loudness_dynamics_db",
+    "f1_hz",
+    "f2_hz",
+    "f3_hz",
+    "f4_hz",
 )
 
 _CUTE_MATURE_AXES = ("median_f0", "brightness_hz", "dynamism_semitones")
