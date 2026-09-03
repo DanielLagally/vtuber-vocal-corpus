@@ -144,6 +144,11 @@ const YEARLY_METRICS = {
   },
 };
 
+const FORMANT_KEYS = ["f1_hz", "f2_hz", "f3_hz", "f4_hz"];
+const NON_FORMANT_KEYS = Object.keys(YEARLY_METRICS).filter(
+  (key) => !FORMANT_KEYS.includes(key)
+);
+
 let DATA = null;
 let selectedTalents = new Set();
 let branchFilter = "All";
@@ -169,6 +174,9 @@ let trajFromYear = null;
 let trajToYear = null;
 
 let lastControlsMetric = null;
+
+let tableSortColumn = "name";
+let tableSortAscending = true;
 
 function main() {
   // window.SITE_DATA comes from data.js (a <script>, not a fetch() —
@@ -279,11 +287,20 @@ function buildMetricPicker() {
     (t) => Object.keys(t.percentiles || {}).length > 0
   );
   if (anyPercentiles) {
-    options.push({ value: "radar", label: "Profile (Percentile Radar)" });
+    options.push({ value: "radar:all", label: "Profile (Percentile Radar) — All" });
+    options.push({
+      value: "radar:formants",
+      label: "Profile (Percentile Radar) — Formants (F1-F4)",
+    });
+    options.push({
+      value: "radar:nonformants",
+      label: "Profile (Percentile Radar) — Non-Formants",
+    });
   }
   if (presentYearlyKeys().length >= 2 && ALL_YEARS.length > 0) {
     options.push({ value: "trajectory", label: "Trajectory (metric vs. metric, by year)" });
   }
+  options.push({ value: "table", label: "Table (sortable)" });
   picker.innerHTML = options
     .map((o) => `<option value="${o.value}">${o.label}</option>`)
     .join("");
@@ -362,6 +379,7 @@ function selectedNames() {
 function render() {
   const metric = document.getElementById("metric-picker").value;
   const chart = document.getElementById("chart");
+  const tableView = document.getElementById("table-view");
   const caption = document.getElementById("caption");
   const names = selectedNames();
 
@@ -370,13 +388,23 @@ function render() {
     buildViewControls(metric);
   }
 
+  const isTable = metric === "table";
+  chart.style.display = isTable ? "none" : "";
+  tableView.style.display = isTable ? "" : "none";
+
   if (names.length === 0) {
     Plotly.purge(chart);
+    tableView.innerHTML = "";
     caption.textContent = "Select at least one talent.";
     return;
   }
 
-  if (metric === "f0_monthly") {
+  if (metric === "table") {
+    renderTable(names);
+    caption.textContent =
+      "Click a column header to sort (click again to reverse). Percentile columns: 0=lowest, " +
+      `100=highest vs. the whole registered corpus on that metric, independently per column.\n\n${QC_FOOTER}`;
+  } else if (metric === "f0_monthly") {
     renderLineSeries(names, (t) => DATA.talents[t].monthly_f0_qc, "Median F0 (Hz)");
     caption.textContent = `${WHAT_IS_F0}\n\n${QC_FOOTER}`;
   } else if (metric === "f0_quarterly") {
@@ -390,14 +418,25 @@ function render() {
   } else if (metric === "cute_mature") {
     renderCuteMature(names);
     caption.textContent = CUTE_MATURE_CAPTION;
-  } else if (metric === "radar") {
-    renderRadar(names);
-    caption.textContent = radarOverall
-      ? RADAR_CAPTION
-      : `${RADAR_CAPTION}\n\nShowing ${radarYear} only: each axis is min-max scaled ` +
-        `against that metric's full range across every talent and every year (a fixed ` +
-        `frame, so the shape's movement across years is meaningful) — not the overall ` +
-        `rank percentile used in "Overall" mode.`;
+  } else if (metric.startsWith("radar:")) {
+    const variant = metric.slice("radar:".length);
+    const axisKeys =
+      variant === "formants" ? FORMANT_KEYS : variant === "nonformants" ? NON_FORMANT_KEYS : null;
+    const variantNote =
+      variant === "formants"
+        ? "Formants only (F1-F4).\n\n"
+        : variant === "nonformants"
+        ? "Every measured metric except formants.\n\n"
+        : "";
+    renderRadar(names, axisKeys);
+    caption.textContent =
+      variantNote +
+      (radarOverall
+        ? RADAR_CAPTION
+        : `${RADAR_CAPTION}\n\nShowing ${radarYear} only: each axis is min-max scaled ` +
+          `against that metric's full range across every talent and every year (a fixed ` +
+          `frame, so the shape's movement across years is meaningful) — not the overall ` +
+          `rank percentile used in "Overall" mode.`);
   } else if (metric === "trajectory") {
     renderTrajectory(names);
     caption.textContent =
@@ -409,7 +448,7 @@ function render() {
 
 function buildViewControls(metric) {
   const el = document.getElementById("view-controls");
-  if (metric === "radar") {
+  if (metric.startsWith("radar:")) {
     el.innerHTML = `
       <div class="control-group">
         <label><input type="checkbox" id="radar-overall" ${radarOverall ? "checked" : ""} /> Overall (all years)</label>
@@ -473,6 +512,98 @@ function radarAxisLabel(key) {
   return YEARLY_METRICS[key].label.replace(/\s*—\s*Yearly$/, "");
 }
 
+// One row per talent: identity columns (name/branch/generation) plus a
+// QC-pass-rate column and one percentile column per present yearly
+// metric — percentiles, not raw values, so every numeric column is
+// directly comparable/sortable on the same 0-100 scale regardless of
+// the metric's native unit (Hz, dB, fraction, semitones, ...).
+function tableColumns() {
+  const cols = [
+    { key: "name", label: "Talent", type: "text" },
+    { key: "branch", label: "Branch", type: "text" },
+    { key: "group", label: "Generation", type: "text" },
+    { key: "qc_pass", label: "QC-pass %", type: "number" },
+  ];
+  for (const key of presentYearlyKeys()) {
+    cols.push({ key: `pct:${key}`, label: `${radarAxisLabel(key)} pctl`, type: "number" });
+  }
+  return cols;
+}
+
+function tableCellValue(name, col) {
+  const t = DATA.talents[name];
+  if (col.key === "name") return name;
+  if (col.key === "branch") return t.branch || "Unknown";
+  if (col.key === "group") return t.group || "Unknown";
+  if (col.key === "qc_pass") {
+    const s = t.qc_summary;
+    return s && s.total > 0 ? (100 * s.qc_pass) / s.total : null;
+  }
+  if (col.key.startsWith("pct:")) {
+    const value = (t.percentiles || {})[col.key.slice(4)];
+    return value == null ? null : value;
+  }
+  return null;
+}
+
+function sortTableBy(columnKey) {
+  if (tableSortColumn === columnKey) {
+    tableSortAscending = !tableSortAscending;
+  } else {
+    tableSortColumn = columnKey;
+    tableSortAscending = true;
+  }
+  render();
+}
+
+function renderTable(names) {
+  const cols = tableColumns();
+  const sortCol = cols.find((c) => c.key === tableSortColumn) || cols[0];
+  const rows = names.map((name) => ({
+    name,
+    values: Object.fromEntries(cols.map((c) => [c.key, tableCellValue(name, c)])),
+  }));
+  // Missing values always sink to the bottom regardless of sort
+  // direction — reversing the direction should never make "no data"
+  // look like "the highest/lowest value".
+  rows.sort((a, b) => {
+    const av = a.values[sortCol.key];
+    const bv = b.values[sortCol.key];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    const cmp = sortCol.type === "number" ? av - bv : String(av).localeCompare(String(bv));
+    return tableSortAscending ? cmp : -cmp;
+  });
+
+  const headerHtml = cols
+    .map((c) => {
+      const arrow = c.key === tableSortColumn ? (tableSortAscending ? " ▲" : " ▼") : "";
+      return `<th data-col="${c.key}">${c.label}${arrow ? `<span class="sort-arrow">${arrow}</span>` : ""}</th>`;
+    })
+    .join("");
+  const bodyHtml = rows
+    .map((row) => {
+      const cells = cols
+        .map((c) => {
+          const value = row.values[c.key];
+          if (c.key === "name") return `<td class="name-cell">${row.name}</td>`;
+          if (value == null) return "<td>—</td>";
+          return `<td>${c.type === "number" ? value.toFixed(0) : value}</td>`;
+        })
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  const wrap = document.getElementById("table-view");
+  wrap.innerHTML = `<table class="data-table"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+  wrap.querySelector("thead").addEventListener("click", (event) => {
+    const th = event.target.closest("th");
+    if (th) sortTableBy(th.dataset.col);
+  });
+}
+
 // Overall mode: axis value = corpus-wide rank percentile (site_data.py,
 // unchanged). Per-year mode: axis value = that year's raw median,
 // min-max scaled into 0-100 against RADAR_AXIS_RANGE — the fixed
@@ -487,8 +618,10 @@ function radarValueForYear(name, key, year) {
   return (100 * (point.median - range.min)) / (range.max - range.min);
 }
 
-function renderRadar(names) {
-  const allKeys = presentYearlyKeys();
+function renderRadar(names, restrictToKeys) {
+  const allKeys = restrictToKeys
+    ? presentYearlyKeys().filter((key) => restrictToKeys.includes(key))
+    : presentYearlyKeys();
   const valueFor = radarOverall
     ? (name, key) => (DATA.talents[name].percentiles || {})[key]
     : (name, key) => radarValueForYear(name, key, radarYear);
