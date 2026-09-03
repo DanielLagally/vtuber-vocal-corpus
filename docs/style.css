@@ -187,7 +187,8 @@ body {
 }
 
 .view-controls select,
-.view-controls input[type="range"] {
+.view-controls input[type="range"],
+.view-controls input[type="text"] {
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
@@ -198,6 +199,16 @@ body {
 
 .view-controls input[type="range"] {
   width: 180px;
+}
+
+.view-controls input[type="text"] {
+  width: 160px;
+}
+
+.control-hint {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin: 0.2rem 0 0;
 }
 
 .view-controls .range-value {

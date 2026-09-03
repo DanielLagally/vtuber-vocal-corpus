@@ -189,6 +189,19 @@ let tableSortAscending = true;
 // raw_means); "percentile" = 0-100 rank vs. the corpus (percentiles).
 let tableMode = "raw";
 
+// Group Comparison view: bucket the SELECTED talents into groups (by
+// generation, by branch, or user-defined) and compare each group's
+// per-metric aggregate (median or mean of its members' own raw_means —
+// entirely client-side, no new backend data). "generation"/"branch"
+// groups are derived fresh from DATA every render; "custom" groups are
+// user-built and live only for this session (not persisted).
+let groupingMode = "generation";
+let groupAggFunc = "median";
+let customGroups = []; // [{ name: string, members: Set<talentName> }]
+let editingCustomGroupIndex = 0;
+let groupSortColumn = "name";
+let groupSortAscending = true;
+
 // Short header text for the table (full names are used for chart/radar
 // labels elsewhere, but they make table columns unusably wide) — the
 // full name still shows via the header's title tooltip.
@@ -354,6 +367,7 @@ function buildMetricPicker() {
     options.push({ value: "trajectory", label: "Trajectory (metric vs. metric, by year)" });
   }
   options.push({ value: "table", label: "Table (sortable)" });
+  options.push({ value: "groups", label: "Group Comparison" });
   picker.innerHTML = options
     .map((o) => `<option value="${o.value}">${o.label}</option>`)
     .join("");
@@ -450,9 +464,9 @@ function render() {
     buildViewControls(metric);
   }
 
-  const isTable = metric === "table";
-  chart.style.display = isTable ? "none" : "";
-  tableView.style.display = isTable ? "" : "none";
+  const usesTableView = metric === "table" || metric === "groups";
+  chart.style.display = usesTableView ? "none" : "";
+  tableView.style.display = usesTableView ? "" : "none";
 
   if (names.length === 0) {
     Plotly.purge(chart);
@@ -472,6 +486,23 @@ function render() {
           "column header's tooltip) — switch to percentiles above to compare across metrics " +
           "on one scale.") +
       `\n\n${QC_FOOTER}`;
+  } else if (metric === "groups") {
+    const groups = derivedGroups(names);
+    if (groups.size === 0) {
+      tableView.innerHTML = "";
+      caption.textContent =
+        groupingMode === "custom"
+          ? "No custom groups yet — use the controls above to create one and assign talents to it."
+          : "No groups to show.";
+    } else {
+      renderGroupTable(groups);
+      caption.textContent =
+        `Click a column header to sort (click again to reverse). Each cell is the ${groupAggFunc} ` +
+        "of that group's member talents' own overall means (site_data.py's raw_means), in the " +
+        "metric's native unit — not a pooled median/mean of every underlying clip. Members with " +
+        `no QC-pass data for a metric are excluded from that group's ${groupAggFunc}, not treated ` +
+        `as 0.\n\n${QC_FOOTER}`;
+    }
   } else if (metric === "series") {
     const keys = presentYearlyKeys();
     if (seriesMetricKey === null || !keys.includes(seriesMetricKey)) {
@@ -633,6 +664,104 @@ function buildViewControls(metric) {
       tableMode = e.target.checked ? "percentile" : "raw";
       render();
     });
+  } else if (metric === "groups") {
+    const modeOpts = ["generation", "branch", "custom"]
+      .map(
+        (m) =>
+          `<option value="${m}" ${m === groupingMode ? "selected" : ""}>${m[0].toUpperCase()}${m.slice(1)}</option>`
+      )
+      .join("");
+    const aggOpts = ["median", "mean"]
+      .map(
+        (a) =>
+          `<option value="${a}" ${a === groupAggFunc ? "selected" : ""}>${a[0].toUpperCase()}${a.slice(1)}</option>`
+      )
+      .join("");
+    let customHtml = "";
+    if (groupingMode === "custom") {
+      if (editingCustomGroupIndex >= customGroups.length) editingCustomGroupIndex = 0;
+      const editingGroup = customGroups[editingCustomGroupIndex];
+      const groupOpts = customGroups
+        .map(
+          (g, i) =>
+            `<option value="${i}" ${i === editingCustomGroupIndex ? "selected" : ""}>${g.name}</option>`
+        )
+        .join("");
+      const memberBoxes = Object.keys(DATA.talents)
+        .sort()
+        .map(
+          (name) => `
+        <label>
+          <input type="checkbox" class="custom-group-member-cb" value="${name}" ${editingGroup && editingGroup.members.has(name) ? "checked" : ""} />
+          ${name}
+        </label>`
+        )
+        .join("");
+      customHtml = `
+      <div class="control-group">
+        <input type="text" id="new-group-name" placeholder="New group name" />
+        <button type="button" id="add-group-btn" class="mini-btn">Add Group</button>
+      </div>
+      ${
+        customGroups.length > 0
+          ? `
+      <div class="control-group">
+        <label for="edit-group-select">Editing</label>
+        <select id="edit-group-select">${groupOpts}</select>
+        <button type="button" id="delete-group-btn" class="mini-btn">Delete</button>
+      </div>
+      <div class="metric-checklist-row">
+        <span class="filter-label metric-checklist-label">Members of "${editingGroup.name}"</span>
+        <div class="metric-checklist">${memberBoxes}</div>
+      </div>`
+          : `<p class="control-hint">No custom groups yet — name one above and click Add Group.</p>`
+      }`;
+    }
+    el.innerHTML = `
+      <div class="control-group"><label for="group-mode">Group by</label><select id="group-mode">${modeOpts}</select></div>
+      <div class="control-group"><label for="group-agg">Aggregate</label><select id="group-agg">${aggOpts}</select></div>
+      ${customHtml}`;
+    document.getElementById("group-mode").addEventListener("change", (e) => {
+      groupingMode = e.target.value;
+      buildViewControls(metric);
+      render();
+    });
+    document.getElementById("group-agg").addEventListener("change", (e) => {
+      groupAggFunc = e.target.value;
+      render();
+    });
+    if (groupingMode === "custom") {
+      document.getElementById("add-group-btn").addEventListener("click", () => {
+        const input = document.getElementById("new-group-name");
+        const name = input.value.trim();
+        if (!name) return;
+        customGroups.push({ name, members: new Set() });
+        editingCustomGroupIndex = customGroups.length - 1;
+        buildViewControls(metric);
+        render();
+      });
+      if (customGroups.length > 0) {
+        document.getElementById("edit-group-select").addEventListener("change", (e) => {
+          editingCustomGroupIndex = Number(e.target.value);
+          buildViewControls(metric);
+          render();
+        });
+        document.getElementById("delete-group-btn").addEventListener("click", () => {
+          customGroups.splice(editingCustomGroupIndex, 1);
+          editingCustomGroupIndex = 0;
+          buildViewControls(metric);
+          render();
+        });
+        for (const cb of document.querySelectorAll(".custom-group-member-cb")) {
+          cb.addEventListener("change", (e) => {
+            const group = customGroups[editingCustomGroupIndex];
+            if (e.target.checked) group.members.add(e.target.value);
+            else group.members.delete(e.target.value);
+            render();
+          });
+        }
+      }
+    }
   } else {
     el.innerHTML = "";
   }
@@ -749,6 +878,150 @@ function renderTable(names) {
   wrap.querySelector("thead").addEventListener("click", (event) => {
     const th = event.target.closest("th");
     if (th) sortTableBy(th.dataset.col);
+  });
+}
+
+// ------------------------------------------------------------- Groups
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function mean(values) {
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+// Buckets the SELECTED talents (respects the sidebar checkboxes/filters,
+// same as every other view) into groups. "generation"/"branch" groups
+// are derived fresh every call — a talent with multiple generation
+// memberships (Fubuki: 1st Generation + GAMERS) lands in BOTH groups,
+// same as the sidebar generation filter already treats her. "custom"
+// groups are whatever the user has built via the controls above the
+// table; a talent can belong to more than one custom group too (no
+// reason to forbid it — e.g. "veterans" and "high pitch" could overlap).
+function derivedGroups(names) {
+  const map = new Map(); // label -> Set<name>
+  if (groupingMode === "generation") {
+    for (const name of names) {
+      for (const g of DATA.talents[name].group || ["Unknown"]) {
+        if (!map.has(g)) map.set(g, new Set());
+        map.get(g).add(name);
+      }
+    }
+  } else if (groupingMode === "branch") {
+    for (const name of names) {
+      const b = DATA.talents[name].branch || "Unknown";
+      if (!map.has(b)) map.set(b, new Set());
+      map.get(b).add(name);
+    }
+  } else {
+    for (const g of customGroups) {
+      const members = new Set([...g.members].filter((n) => names.includes(n)));
+      if (members.size > 0) map.set(g.name, members);
+    }
+  }
+  return map;
+}
+
+function groupTableColumns() {
+  const cols = [
+    { key: "name", label: "Group", full: "Group", type: "text" },
+    { key: "n", label: "N", full: "Member count", type: "number" },
+  ];
+  for (const key of presentYearlyKeys()) {
+    const short = TABLE_SHORT_LABEL[key] || radarAxisLabel(key);
+    cols.push({
+      key: `metric:${key}`,
+      label: short,
+      full: YEARLY_METRICS[key].unit,
+      type: "number",
+      metricKey: key,
+    });
+  }
+  return cols;
+}
+
+// Deliberately its own function, not a reuse of tableFormatNumber: that
+// one keys its raw-vs-percentile decision off the talent table's global
+// tableMode, which has nothing to do with this view — group values are
+// always raw native-unit aggregates, never percentiles, regardless of
+// what the talent table's toggle happens to be set to.
+function groupFormatNumber(value, col) {
+  if (col.key.startsWith("metric:")) {
+    return value.toFixed(TABLE_RAW_DECIMALS[col.metricKey] || 0);
+  }
+  return value.toFixed(0);
+}
+
+function groupTableCellValue(members, col) {
+  if (col.key === "n") return members.size;
+  if (col.key.startsWith("metric:")) {
+    const values = [...members]
+      .map((name) => (DATA.talents[name].raw_means || {})[col.metricKey])
+      .filter((v) => v != null);
+    if (values.length === 0) return null;
+    return groupAggFunc === "median" ? median(values) : mean(values);
+  }
+  return null;
+}
+
+function sortGroupTableBy(columnKey) {
+  if (groupSortColumn === columnKey) {
+    groupSortAscending = !groupSortAscending;
+  } else {
+    groupSortColumn = columnKey;
+    groupSortAscending = true;
+  }
+  render();
+}
+
+function renderGroupTable(groups) {
+  const cols = groupTableColumns();
+  const sortCol = cols.find((c) => c.key === groupSortColumn) || cols[0];
+  const rows = [...groups.entries()].map(([name, members]) => ({
+    name,
+    members,
+    values: Object.fromEntries(
+      cols.map((c) => [c.key, c.key === "name" ? name : groupTableCellValue(members, c)])
+    ),
+  }));
+  rows.sort((a, b) => {
+    const av = a.values[sortCol.key];
+    const bv = b.values[sortCol.key];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    const cmp = sortCol.type === "number" ? av - bv : String(av).localeCompare(String(bv));
+    return groupSortAscending ? cmp : -cmp;
+  });
+
+  const headerHtml = cols
+    .map((c) => {
+      const arrow = c.key === groupSortColumn ? (groupSortAscending ? " ▲" : " ▼") : "";
+      return `<th data-col="${c.key}" title="${c.full}">${c.label}${arrow ? `<span class="sort-arrow">${arrow}</span>` : ""}</th>`;
+    })
+    .join("");
+  const bodyHtml = rows
+    .map((row) => {
+      const cells = cols
+        .map((c) => {
+          const value = row.values[c.key];
+          if (c.key === "name") return `<td class="name-cell">${row.name}</td>`;
+          if (value == null) return "<td>—</td>";
+          return `<td>${c.type === "number" ? groupFormatNumber(value, c) : value}</td>`;
+        })
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  const wrap = document.getElementById("table-view");
+  wrap.innerHTML = `<table class="data-table"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+  wrap.querySelector("thead").addEventListener("click", (event) => {
+    const th = event.target.closest("th");
+    if (th) sortGroupTableBy(th.dataset.col);
   });
 }
 
