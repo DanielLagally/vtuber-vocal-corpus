@@ -69,6 +69,53 @@ _ROSTER_NAME_ALIASES = {
 }
 
 
+# Graduated talents are entirely absent from roster.json (Holodex's
+# roster fetch is active-only), but their real generation is still
+# knowable — queried once directly against each talent's own Holodex
+# channel (not the roster list) and hardcoded here, so "Graduated"
+# describes their branch, not their era.
+_KNOWN_GRADUATED_GROUPS = {
+    "Hiodoshi Ao": "DEV_IS ReGLOSS",
+    "Kiryu Coco": "4th Generation (holoForce)",
+}
+
+# Talents holding more than one generation membership — Holodex's own
+# per-channel "group" field is single-valued, so this can't come from
+# the roster at all; it's a deliberate, small, hand-maintained override.
+# Shirakami Fubuki debuted in 1st Generation and later joined GAMERS
+# (formed from members across generations, not a numbered cohort itself).
+_MULTI_GROUP_TALENTS = {
+    "Shirakami Fubuki": ["1st Generation", "GAMERS"],
+}
+
+# Real-world debut chronology (earliest member's Holodex published_at
+# per group, resolved once directly against the API on 2026-09-03 — see
+# PLAN.md). Alphabetical order badly scrambles this (e.g. "DEV_IS
+# ReGLOSS" (2023) would sort before "English -Myth-" (2020)), so
+# generation_order in the export uses this reference table instead of a
+# plain string sort.
+_GROUP_CHRONOLOGICAL_ORDER = (
+    "0th Generation",
+    "1st Generation",
+    "2nd Generation",
+    "GAMERS",
+    "3rd Generation (Fantasy)",
+    "4th Generation (holoForce)",
+    "Indonesia 1st Gen (AREA 15)",
+    "5th Generation (holoFive)",
+    "English -Myth-",
+    "Indonesia 2nd Gen (holoro)",
+    "English -Promise-",
+    "6th Generation -holoX-",
+    "Indonesia 3rd Gen (holoh3ro)",
+    "English -Advent-",
+    "DEV_IS ReGLOSS",
+    "English -Justice-",
+    "DEV_IS FLOW GLOW",
+    "mekPark",
+)
+
+
 def _branch_for_group(group: str) -> str:
     if group.startswith("English"):
         return "EN"
@@ -81,14 +128,26 @@ def _branch_for_group(group: str) -> str:
     return "JP"
 
 
-def _talent_group_branch(
+def _talent_groups_and_branch(
     display_name: str, roster_by_english_name: dict[str, str]
-) -> tuple[str, str]:
+) -> tuple[list[str], str]:
+    if display_name in _MULTI_GROUP_TALENTS:
+        groups = _MULTI_GROUP_TALENTS[display_name]
+        return groups, _branch_for_group(groups[0])
     lookup_name = _ROSTER_NAME_ALIASES.get(display_name, display_name)
     group = roster_by_english_name.get(lookup_name)
-    if group is None:
-        return "Graduated", "Graduated"
-    return group, _branch_for_group(group)
+    if group is not None:
+        return [group], _branch_for_group(group)
+    graduated_group = _KNOWN_GRADUATED_GROUPS.get(display_name)
+    if graduated_group is not None:
+        return [graduated_group], "Graduated"
+    return ["Graduated"], "Graduated"
+
+
+def _generation_order(groups_present: set[str]) -> list[str]:
+    known = [g for g in _GROUP_CHRONOLOGICAL_ORDER if g in groups_present]
+    unknown = sorted(groups_present - set(_GROUP_CHRONOLOGICAL_ORDER))
+    return known + unknown
 
 
 def _default_loader(path: str) -> list[dict]:
@@ -231,12 +290,14 @@ def build_site_data(
     }
 
     talents: dict[str, dict] = {}
+    groups_present: set[str] = set()
     for name, entries in talents_entries.items():
         qc_pass = sum(1 for e in entries if (e.get("qc") or {}).get("pass"))
         if roster is None:
-            group, branch = "Unknown", "Unknown"
+            groups, branch = ["Unknown"], "Unknown"
         else:
-            group, branch = _talent_group_branch(name, roster_by_english_name)
+            groups, branch = _talent_groups_and_branch(name, roster_by_english_name)
+        groups_present.update(groups)
         talents[name] = {
             "monthly_f0_all": f0_series(entries),
             "monthly_f0_qc": f0_series(entries, qc=True),
@@ -246,7 +307,7 @@ def build_site_data(
                 for key in yearly_keys
             },
             "qc_summary": {"qc_pass": qc_pass, "total": len(entries)},
-            "group": group,
+            "group": groups,
             "branch": branch,
             "percentiles": {
                 key: axis_percentiles[key][name]
@@ -259,6 +320,7 @@ def build_site_data(
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "talents": talents,
         "cute_mature": _cute_mature(talents_entries),
+        "generation_order": _generation_order(groups_present),
     }
 
 

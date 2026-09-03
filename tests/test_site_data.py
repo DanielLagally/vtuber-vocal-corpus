@@ -30,24 +30,47 @@ never Cover/hololive audio, never downloads):
    ``file://`` is blocked by CORS in every major browser (confirmed via
    headless Chromium against an earlier draft of this page), so the page
    must not depend on fetching a separate JSON file at all.
-7. build_site_data(registry, roster=..., loader=...) attaches "group" (the
-   exact Holodex generation/unit label, e.g. "4th Generation (holoForce)")
-   and "branch" (a coarser EN/ID/DEV_IS/JP/Graduated bucket derived from
-   that group string) to every talent entry, matched by english_name
-   against the roster list. A handful of DEV_IS talents are registered
-   under short given names (e.g. "Niko") that don't equal roster's full
-   english_name ("Koganei Niko") — those go through a small known-alias
-   table. A talent absent from the roster entirely (graduated members,
-   who Holodex's active-only roster fetch excludes) gets group="Graduated"
-   branch="Graduated" rather than silently vanishing from every
-   generation/branch filtered view.
-8. Branch bucketing from the group string: "English -*-" -> EN,
-   "Indonesia *" -> ID, "DEV_IS *" -> DEV_IS, anything else present in the
-   roster (JP numbered generations, GAMERS, mekPark) -> JP.
+7. build_site_data(registry, roster=..., loader=...) attaches "group" (a
+   LIST of exact Holodex generation/unit labels, e.g.
+   ["4th Generation (holoForce)"] — a list because a handful of talents
+   hold more than one membership, see rule 7b) and "branch" (a coarser
+   EN/ID/DEV_IS/JP/Graduated bucket derived from group[0]) to every
+   talent entry, matched by english_name against the roster list. A
+   handful of DEV_IS talents are registered under short given names
+   (e.g. "Niko") that don't equal roster's full english_name ("Koganei
+   Niko") — those go through a small known-alias table. A talent absent
+   from the roster entirely (graduated members, who Holodex's
+   active-only roster fetch excludes) still gets their REAL generation
+   in "group" via a small known-graduated lookup (queried once, directly
+   from Holodex, against each graduated talent's own channel — not the
+   roster list), branch="Graduated" always (not derived from that real
+   group) so they stay filterable by their actual era while still
+   flagged as graduated. A graduated talent not yet in that lookup table
+   falls back to group=["Graduated"] branch="Graduated" — never silently
+   vanishing from every generation/branch filtered view.
+7b. A talent with more than one generation membership (today: Shirakami
+   Fubuki, "1st Generation" AND "GAMERS" — she debuted in 1st Generation
+   and later joined the GAMERS unit) gets every membership in "group",
+   via a small explicit override table, and appears under EACH of those
+   generations in a generation-filtered view.
+8. Branch bucketing from group[0]: "English -*-" -> EN, "Indonesia *" ->
+   ID, "DEV_IS *" -> DEV_IS, anything else present in the roster (JP
+   numbered generations, GAMERS, mekPark) -> JP — EXCEPT a graduated
+   talent (rule 7), whose branch is always "Graduated" regardless of
+   what real group is now shown.
 9. Without a roster argument (backward compatible — existing callers/tests
-   above don't pass one), every talent still gets group="Unknown"
+   above don't pass one), every talent still gets group=["Unknown"]
    branch="Unknown" rather than a missing key, so frontend filter code
    never has to special-case an absent field.
+9b. build_site_data's top-level payload includes "generation_order": every
+   group value appearing anywhere in this build's talents, sorted by
+   actual real-world debut chronology (earliest-debuting member's
+   published_at per group, resolved once against Holodex and hardcoded
+   as a reference table — alphabetical order scrambles this badly, e.g.
+   "DEV_IS ReGLOSS" debuted 2023 but sorts before "English -Myth-"
+   (2020) alphabetically). A group with no chronology entry (unlikely,
+   but not fatal) sorts alphabetically after every known group rather
+   than crashing.
 10. Every talent's "percentiles" dict carries a rank percentile (0-100,
     same population z-score-then-rank as cute_mature, but computed
     per-axis independently rather than combined) for each yearly feature
@@ -235,15 +258,16 @@ def _roster_entry(english_name: str, group: str) -> dict:
 
 
 def test_group_and_branch_attached_via_roster_english_name_match() -> None:
-    """Rule 7: a direct english_name match picks up group verbatim, and
-    rule 8: a JP numbered-generation group buckets to branch 'JP'."""
+    """Rule 7: a direct english_name match picks up group verbatim (as a
+    one-element list), and rule 8: a JP numbered-generation group buckets
+    to branch 'JP'."""
     store = {"a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)]}
     roster = [_roster_entry("Himemori Luna", "4th Generation (holoForce)")]
     result = site_data.build_site_data(
         {"a.json": "Himemori Luna"}, roster=roster, loader=_loader(store)
     )
     talent = result["talents"]["Himemori Luna"]
-    assert talent["group"] == "4th Generation (holoForce)"
+    assert talent["group"] == ["4th Generation (holoForce)"]
     assert talent["branch"] == "JP"
 
 
@@ -258,8 +282,22 @@ def test_dev_is_short_name_resolves_via_alias_table() -> None:
         {"a.json": "Niko"}, roster=roster, loader=_loader(store)
     )
     talent = result["talents"]["Niko"]
-    assert talent["group"] == "DEV_IS FLOW GLOW"
+    assert talent["group"] == ["DEV_IS FLOW GLOW"]
     assert talent["branch"] == "DEV_IS"
+
+
+def test_multi_group_talent_appears_under_every_membership() -> None:
+    """Rule 7b: Shirakami Fubuki holds two generation memberships — both
+    appear in "group", regardless of what the roster alone says (roster
+    would only ever report one, matching real Holodex data)."""
+    store = {"a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)]}
+    roster = [_roster_entry("Shirakami Fubuki", "1st Generation")]
+    result = site_data.build_site_data(
+        {"a.json": "Shirakami Fubuki"}, roster=roster, loader=_loader(store)
+    )
+    talent = result["talents"]["Shirakami Fubuki"]
+    assert talent["group"] == ["1st Generation", "GAMERS"]
+    assert talent["branch"] == "JP"
 
 
 def test_en_and_id_branches_derived_from_group_string() -> None:
@@ -281,29 +319,84 @@ def test_en_and_id_branches_derived_from_group_string() -> None:
     assert result["talents"]["Kaela Kovalskia"]["branch"] == "ID"
 
 
-def test_talent_absent_from_roster_gets_graduated_bucket() -> None:
-    """Rule 7: a graduated talent (Holodex's active-only roster fetch
-    excludes them) gets group=branch='Graduated' instead of vanishing
-    from filtered views."""
+def test_graduated_talent_gets_real_generation_but_graduated_branch() -> None:
+    """Rule 7: Kiryu Coco (graduated, absent from the roster entirely)
+    still gets her REAL generation in "group" via the known-graduated
+    lookup — not just "Graduated" — while "branch" stays "Graduated"
+    always, not derived from that real group."""
     store = {"a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)]}
     roster: list[dict] = [_roster_entry("Someone Else", "5th Generation (holoFive)")]
     result = site_data.build_site_data(
         {"a.json": "Kiryu Coco"}, roster=roster, loader=_loader(store)
     )
     talent = result["talents"]["Kiryu Coco"]
-    assert talent["group"] == "Graduated"
+    assert talent["group"] == ["4th Generation (holoForce)"]
+    assert talent["branch"] == "Graduated"
+
+
+def test_graduated_talent_not_in_known_lookup_falls_back_to_graduated_bucket() -> None:
+    """Rule 7: a graduated talent NOT (yet) in the known-graduated lookup
+    still gets group=["Graduated"] branch="Graduated" rather than
+    crashing or vanishing."""
+    store = {"a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)]}
+    roster: list[dict] = [_roster_entry("Someone Else", "5th Generation (holoFive)")]
+    result = site_data.build_site_data(
+        {"a.json": "Some Unlisted Graduate"}, roster=roster, loader=_loader(store)
+    )
+    talent = result["talents"]["Some Unlisted Graduate"]
+    assert talent["group"] == ["Graduated"]
     assert talent["branch"] == "Graduated"
 
 
 def test_no_roster_argument_defaults_group_branch_to_unknown() -> None:
     """Rule 9: existing callers that never pass roster= (all tests above
-    this one) still get group/branch keys, defaulted to 'Unknown' rather
-    than omitted, so frontend filter code never special-cases a missing
-    field."""
+    this one) still get group/branch keys, defaulted to group=["Unknown"]
+    branch="Unknown" rather than omitted, so frontend filter code never
+    special-cases an absent field."""
     store = {"a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)]}
     result = site_data.build_site_data({"a.json": "A"}, loader=_loader(store))
-    assert result["talents"]["A"]["group"] == "Unknown"
+    assert result["talents"]["A"]["group"] == ["Unknown"]
     assert result["talents"]["A"]["branch"] == "Unknown"
+
+
+def test_generation_order_is_chronological_not_alphabetical() -> None:
+    """Rule 9b: DEV_IS ReGLOSS (2023) sorts AFTER English -Myth- (2020)
+    in generation_order, the opposite of alphabetical order."""
+    store = {
+        "a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)],
+        "b.json": [_entry("2024-01", "vid0000002", median_f0=200.0)],
+    }
+    roster = [
+        _roster_entry("Mori Calliope", "English -Myth-"),
+        _roster_entry("Otonose Kanade", "DEV_IS ReGLOSS"),
+    ]
+    result = site_data.build_site_data(
+        {"a.json": "Mori Calliope", "b.json": "Otonose Kanade"},
+        roster=roster,
+        loader=_loader(store),
+    )
+    order = result["generation_order"]
+    assert order.index("English -Myth-") < order.index("DEV_IS ReGLOSS")
+
+
+def test_generation_order_unknown_group_appended_alphabetically_not_fatal() -> None:
+    """Rule 9b: a group with no chronology entry doesn't crash — it just
+    sorts after every known group."""
+    store = {
+        "a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)],
+        "b.json": [_entry("2024-01", "vid0000002", median_f0=200.0)],
+    }
+    roster = [
+        _roster_entry("Mori Calliope", "English -Myth-"),
+        _roster_entry("Someone New", "Some Brand New Unit"),
+    ]
+    result = site_data.build_site_data(
+        {"a.json": "Mori Calliope", "b.json": "Someone New"},
+        roster=roster,
+        loader=_loader(store),
+    )
+    order = result["generation_order"]
+    assert order.index("English -Myth-") < order.index("Some Brand New Unit")
 
 
 def test_percentiles_computed_independently_per_yearly_axis() -> None:

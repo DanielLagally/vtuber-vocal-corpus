@@ -298,23 +298,30 @@ function buildMetricPicker() {
 }
 
 // Branch (EN/ID/DEV_IS/JP/Graduated/Unknown) is a coarse bucket derived
-// server-side (site_data.py) from generation. Generation is the exact
-// Holodex group string (e.g. "4th Generation (holoForce)") — every talent
-// has both, defaulted to "Unknown" if the site was built without a
-// roster.json (see site_data.py rule 9), so these dropdowns are always
+// server-side (site_data.py) from generation. "group" is a LIST of exact
+// Holodex generation/unit strings (e.g. ["4th Generation (holoForce)"])
+// — a list because a handful of talents (currently just Shirakami
+// Fubuki: 1st Generation + GAMERS) hold more than one membership and
+// should be filterable under either. Every talent has both fields,
+// defaulted to ["Unknown"]/"Unknown" if the site was built without a
+// roster.json (site_data.py rule 9), so these dropdowns are always
 // populated, never missing a talent silently.
-function distinctSorted(key) {
-  return [...new Set(Object.values(DATA.talents).map((t) => t[key] || "Unknown"))].sort();
+function distinctBranches() {
+  return [...new Set(Object.values(DATA.talents).map((t) => t.branch || "Unknown"))].sort();
 }
 
 function buildFilterPickers() {
   const branchSel = document.getElementById("branch-filter");
   const genSel = document.getElementById("generation-filter");
   branchSel.innerHTML = ['<option value="All">All branches</option>']
-    .concat(distinctSorted("branch").map((b) => `<option value="${b}">${b}</option>`))
+    .concat(distinctBranches().map((b) => `<option value="${b}">${b}</option>`))
     .join("");
+  // generation_order is computed server-side from real debut chronology
+  // (site_data.py) — a plain alphabetical sort here would badly scramble
+  // it (e.g. "DEV_IS ReGLOSS" (2023) sorting before "English -Myth-"
+  // (2020)).
   genSel.innerHTML = ['<option value="All">All generations</option>']
-    .concat(distinctSorted("group").map((g) => `<option value="${g}">${g}</option>`))
+    .concat((DATA.generation_order || []).map((g) => `<option value="${g}">${g}</option>`))
     .join("");
   branchSel.addEventListener("change", () => {
     branchFilter = branchSel.value;
@@ -335,13 +342,15 @@ function buildFilterPickers() {
 // filter change selects. Independent of selectedTalents: a filter change
 // replaces the selection with exactly its matches (predictable "show me
 // this branch" behavior), but a single checkbox toggle afterward only
-// edits selectedTalents, not the filter.
+// edits selectedTalents, not the filter. A multi-generation talent
+// matches the generation filter if ANY of their memberships does.
 function filteredNames() {
   return Object.keys(DATA.talents)
     .filter((name) => {
       const t = DATA.talents[name];
       const branchOk = branchFilter === "All" || (t.branch || "Unknown") === branchFilter;
-      const genOk = generationFilter === "All" || (t.group || "Unknown") === generationFilter;
+      const genOk =
+        generationFilter === "All" || (t.group || ["Unknown"]).includes(generationFilter);
       return branchOk && genOk;
     })
     .sort();
@@ -552,7 +561,7 @@ function tableCellValue(name, col) {
   const t = DATA.talents[name];
   if (col.key === "name") return name;
   if (col.key === "branch") return t.branch || "Unknown";
-  if (col.key === "group") return t.group || "Unknown";
+  if (col.key === "group") return (t.group || ["Unknown"]).join(", ");
   if (col.key === "qc_pass") {
     const s = t.qc_summary;
     return s && s.total > 0 ? (100 * s.qc_pass) / s.total : null;
