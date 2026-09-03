@@ -81,6 +81,12 @@ never Cover/hololive audio, never downloads):
 11. An axis with fewer than 2 contributing talents (nothing to compare
     against) is entirely absent from every talent's percentiles dict —
     mirrors cute_mature's own "n<2 -> empty" rule, applied per-axis.
+12. Every talent's "raw_means" dict carries the plain mean of that
+    talent's QC-pass values (no z-score, no ranking) for each yearly
+    feature key they have at least one QC-pass value for — unlike
+    "percentiles", this needs no comparison talent, so it's present even
+    when only ONE talent corpus-wide has that axis (n=1 has no
+    percentile, per rule 11, but does have a raw mean).
 
 Entry shape matches vvc.measure's persisted record: id / month /
 score / window / features{median_f0, f0_iqr, voiced_fraction,
@@ -453,6 +459,37 @@ def test_percentile_axis_absent_entirely_when_under_two_talents_have_it() -> Non
     )
     assert "brightness_hz" not in result["talents"]["A"]["percentiles"]
     assert "brightness_hz" not in result["talents"]["B"]["percentiles"]
+
+
+def test_raw_means_present_even_for_a_lone_talent_with_no_percentile() -> None:
+    """Rule 12: A's brightness_hz raw mean is present (1000.0, its only
+    QC-pass clip's value) even though only one talent has this axis at
+    all, so brightness_hz has no percentile for anyone (rule 11)."""
+    store = {
+        "a.json": [_entry("2024-01", "vidA0000001", median_f0=200.0, brightness_hz=1000.0)],
+        "b.json": [_entry("2024-01", "vidB0000001", median_f0=300.0)],
+    }
+    result = site_data.build_site_data(
+        {"a.json": "A", "b.json": "B"}, loader=_loader(store)
+    )
+    assert result["talents"]["A"]["raw_means"]["brightness_hz"] == 1000.0
+    assert "brightness_hz" not in result["talents"]["B"]["raw_means"]
+
+
+def test_raw_means_is_plain_mean_of_qc_pass_values_no_zscore() -> None:
+    """Rule 12: two QC-pass clips at 200/220 -> raw mean 210.0 exactly,
+    not a z-score or percentile."""
+    store = {
+        "a.json": [
+            _entry("2024-01", "vidA0000001", median_f0=200.0),
+            _entry("2024-02", "vidA0000002", median_f0=220.0),
+        ],
+        "b.json": [_entry("2024-01", "vidB0000001", median_f0=300.0)],
+    }
+    result = site_data.build_site_data(
+        {"a.json": "A", "b.json": "B"}, loader=_loader(store)
+    )
+    assert result["talents"]["A"]["raw_means"]["median_f0"] == 210.0
 
 
 def test_write_site_data_emits_a_js_assignment_not_bare_json(tmp_path) -> None:

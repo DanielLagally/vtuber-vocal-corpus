@@ -176,6 +176,32 @@ let lastControlsMetric = null;
 
 let tableSortColumn = "name";
 let tableSortAscending = true;
+// "raw" = each metric's plain mean in its native unit (site_data.py's
+// raw_means); "percentile" = 0-100 rank vs. the corpus (percentiles).
+let tableMode = "raw";
+
+// Short header text for the table (full names are used for chart/radar
+// labels elsewhere, but they make table columns unusably wide) — the
+// full name still shows via the header's title tooltip.
+const TABLE_SHORT_LABEL = {
+  median_f0: "F0",
+  brightness_hz: "Bright.",
+  dynamism_semitones: "Dynam.",
+  jitter_local: "Jitter",
+  shimmer_local: "Shimmer",
+  hnr_db: "HNR",
+  loudness_dynamics_db: "Loud.",
+  f1_hz: "F1",
+  f2_hz: "F2",
+  f3_hz: "F3",
+  f4_hz: "F4",
+};
+
+// Decimal places for RAW values only (percentiles are always whole
+// numbers) — jitter/shimmer are small fractions (~0.01-0.05) that round
+// to 0 with no decimals, everything else is large enough (Hz/dB/
+// semitones) that whole numbers are the right precision.
+const TABLE_RAW_DECIMALS = { jitter_local: 3, shimmer_local: 3 };
 
 function main() {
   // window.SITE_DATA comes from data.js (a <script>, not a fetch() —
@@ -402,8 +428,14 @@ function render() {
   if (metric === "table") {
     renderTable(names);
     caption.textContent =
-      "Click a column header to sort (click again to reverse). Percentile columns: 0=lowest, " +
-      `100=highest vs. the whole registered corpus on that metric, independently per column.\n\n${QC_FOOTER}`;
+      "Click a column header to sort (click again to reverse)." +
+      (tableMode === "percentile"
+        ? " Metric columns are percentiles: 0=lowest, 100=highest vs. the whole registered " +
+          "corpus on that metric, independently per column."
+        : " Metric columns are each talent's plain mean in that metric's native unit (see a " +
+          "column header's tooltip) — switch to percentiles above to compare across metrics " +
+          "on one scale.") +
+      `\n\n${QC_FOOTER}`;
   } else if (metric === "f0_monthly") {
     renderLineSeries(names, (t) => DATA.talents[t].monthly_f0_qc, "Median F0 (Hz)");
     caption.textContent = `${WHAT_IS_F0}\n\n${QC_FOOTER}`;
@@ -530,6 +562,15 @@ function buildViewControls(metric) {
       trajToYear = Number(e.target.value);
       render();
     });
+  } else if (metric === "table") {
+    el.innerHTML = `
+      <div class="control-group">
+        <label><input type="checkbox" id="table-percentile-toggle" ${tableMode === "percentile" ? "checked" : ""} /> Show percentiles (instead of raw values)</label>
+      </div>`;
+    document.getElementById("table-percentile-toggle").addEventListener("change", (e) => {
+      tableMode = e.target.checked ? "percentile" : "raw";
+      render();
+    });
   } else {
     el.innerHTML = "";
   }
@@ -540,19 +581,28 @@ function radarAxisLabel(key) {
 }
 
 // One row per talent: identity columns (name/branch/generation) plus a
-// QC-pass-rate column and one percentile column per present yearly
-// metric — percentiles, not raw values, so every numeric column is
-// directly comparable/sortable on the same 0-100 scale regardless of
-// the metric's native unit (Hz, dB, fraction, semitones, ...).
+// QC-pass-rate column and one column per present yearly metric. Metric
+// columns switch between raw (site_data.py's raw_means, native unit per
+// metric) and percentile (0-100 vs. the corpus) via tableMode — raw is
+// the default since "what's the actual number" is usually the first
+// question, percentile is there for comparing across differently-united
+// metrics on one sortable scale.
 function tableColumns() {
   const cols = [
-    { key: "name", label: "Talent", type: "text" },
-    { key: "branch", label: "Branch", type: "text" },
-    { key: "group", label: "Generation", type: "text" },
-    { key: "qc_pass", label: "QC-pass %", type: "number" },
+    { key: "name", label: "Talent", full: "Talent", type: "text" },
+    { key: "branch", label: "Branch", full: "Branch", type: "text" },
+    { key: "group", label: "Gen.", full: "Generation", type: "text" },
+    { key: "qc_pass", label: "QC%", full: "QC-pass %", type: "number" },
   ];
   for (const key of presentYearlyKeys()) {
-    cols.push({ key: `pct:${key}`, label: `${radarAxisLabel(key)} pctl`, type: "number" });
+    const short = TABLE_SHORT_LABEL[key] || radarAxisLabel(key);
+    cols.push({
+      key: `metric:${key}`,
+      label: tableMode === "percentile" ? `${short} pctl` : short,
+      full: tableMode === "percentile" ? `${radarAxisLabel(key)} percentile` : YEARLY_METRICS[key].unit,
+      type: "number",
+      metricKey: key,
+    });
   }
   return cols;
 }
@@ -566,11 +616,20 @@ function tableCellValue(name, col) {
     const s = t.qc_summary;
     return s && s.total > 0 ? (100 * s.qc_pass) / s.total : null;
   }
-  if (col.key.startsWith("pct:")) {
-    const value = (t.percentiles || {})[col.key.slice(4)];
+  if (col.key.startsWith("metric:")) {
+    const source = tableMode === "percentile" ? t.percentiles : t.raw_means;
+    const value = (source || {})[col.metricKey];
     return value == null ? null : value;
   }
   return null;
+}
+
+function tableFormatNumber(value, col) {
+  if (col.key.startsWith("metric:") && tableMode === "raw") {
+    const decimals = TABLE_RAW_DECIMALS[col.metricKey] || 0;
+    return value.toFixed(decimals);
+  }
+  return value.toFixed(0);
 }
 
 function sortTableBy(columnKey) {
@@ -606,7 +665,7 @@ function renderTable(names) {
   const headerHtml = cols
     .map((c) => {
       const arrow = c.key === tableSortColumn ? (tableSortAscending ? " ▲" : " ▼") : "";
-      return `<th data-col="${c.key}">${c.label}${arrow ? `<span class="sort-arrow">${arrow}</span>` : ""}</th>`;
+      return `<th data-col="${c.key}" title="${c.full}">${c.label}${arrow ? `<span class="sort-arrow">${arrow}</span>` : ""}</th>`;
     })
     .join("");
   const bodyHtml = rows
@@ -616,7 +675,7 @@ function renderTable(names) {
           const value = row.values[c.key];
           if (c.key === "name") return `<td class="name-cell">${row.name}</td>`;
           if (value == null) return "<td>—</td>";
-          return `<td>${c.type === "number" ? value.toFixed(0) : value}</td>`;
+          return `<td>${c.type === "number" ? tableFormatNumber(value, c) : value}</td>`;
         })
         .join("");
       return `<tr>${cells}</tr>`;

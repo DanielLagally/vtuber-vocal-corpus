@@ -5,6 +5,10 @@
   --text: #e6e8ec;
   --text-dim: #9aa0ab;
   --accent: #7aa2f7;
+  /* Opaque (not the transparent row-hover tint) — the sticky name column
+     sits on its own stacking layer and needs a solid color to actually
+     cover the rows scrolling underneath it. */
+  --panel-hover: color-mix(in srgb, var(--accent) 10%, var(--panel));
 }
 
 @media (prefers-color-scheme: light) {
@@ -15,6 +19,7 @@
     --text: #1a1d23;
     --text-dim: #5b616e;
     --accent: #3b5fd9;
+    --panel-hover: color-mix(in srgb, var(--accent) 10%, var(--panel));
   }
 }
 
@@ -33,7 +38,7 @@ body {
 
 .site-header {
   padding: 1.75rem 1.5rem 1rem;
-  max-width: 1100px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
@@ -52,7 +57,7 @@ body {
 .layout {
   display: flex;
   gap: 1.25rem;
-  max-width: 1100px;
+  max-width: 1800px;
   margin: 0 auto;
   padding: 0 1.5rem 2rem;
   align-items: flex-start;
@@ -247,7 +252,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.5rem;
-  min-height: 480px;
+  min-height: 620px;
 }
 
 .table-view-wrap {
@@ -255,7 +260,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow-x: auto;
-  max-height: 75vh;
+  max-height: 78vh;
   overflow-y: auto;
 }
 
@@ -268,7 +273,7 @@ body {
 
 .data-table th,
 .data-table td {
-  padding: 0.45rem 0.7rem;
+  padding: 0.4rem 0.6rem;
   text-align: right;
   border-bottom: 1px solid var(--border);
 }
@@ -311,6 +316,28 @@ body {
   color: var(--text);
 }
 
+/* Name column stays visible while the rest of a wide table scrolls
+   horizontally. The header's first cell is the sticky-top/sticky-left
+   corner, so it needs the higher z-index of the two sticky layers. */
+.data-table th:first-child,
+.data-table td:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--panel);
+}
+
+.data-table th:first-child {
+  z-index: 3;
+}
+
+.data-table td:first-child {
+  z-index: 1;
+}
+
+.data-table tbody tr:hover td:first-child {
+  background: var(--panel-hover);
+}
+
 .caption {
   color: var(--text-dim);
   font-size: 0.82rem;
@@ -319,7 +346,7 @@ body {
 }
 
 .site-footer {
-  max-width: 1100px;
+  max-width: 1800px;
   margin: 0 auto;
   padding: 0 1.5rem 2rem;
   color: var(--text-dim);

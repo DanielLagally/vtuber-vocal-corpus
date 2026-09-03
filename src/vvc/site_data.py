@@ -200,19 +200,24 @@ def _zscore_axis(names: list[str], means: dict[str, float]) -> dict[str, float]:
     }
 
 
-def _single_axis_percentiles(
+def _axis_means(
     talents_entries: dict[str, list[dict]], feature_key: str
 ) -> dict[str, float]:
-    """Rank percentile on ONE feature axis independently — unlike
-    cute_mature's combined-then-ranked score, each yearly metric gets its
-    own separate ranking. A talent with no QC-pass value for this feature
-    is omitted (not a fabricated 50.0); with fewer than 2 contributing
-    talents the axis has nothing to compare against and is empty."""
-    means = {
+    """Plain mean of each talent's QC-pass values on one axis — no
+    z-score, no ranking, no comparison-talent requirement. Exported
+    as-is as "raw_means"."""
+    return {
         name: statistics.mean(values)
         for name, entries in talents_entries.items()
         if (values := _qc_pass_values(entries, feature_key))
     }
+
+
+def _single_axis_percentiles(means: dict[str, float]) -> dict[str, float]:
+    """Rank percentile on ONE feature axis independently — unlike
+    cute_mature's combined-then-ranked score, each yearly metric gets its
+    own separate ranking. With fewer than 2 contributing talents the
+    axis has nothing to compare against and is empty."""
     if len(means) < 2:
         return {}
     names = sorted(means)
@@ -285,8 +290,9 @@ def build_site_data(
         display_name: load(path) for path, display_name in registry.items()
     }
     yearly_keys = _present_yearly_keys(list(talents_entries.values()))
+    axis_means = {key: _axis_means(talents_entries, key) for key in yearly_keys}
     axis_percentiles = {
-        key: _single_axis_percentiles(talents_entries, key) for key in yearly_keys
+        key: _single_axis_percentiles(axis_means[key]) for key in yearly_keys
     }
 
     talents: dict[str, dict] = {}
@@ -313,6 +319,11 @@ def build_site_data(
                 key: axis_percentiles[key][name]
                 for key in yearly_keys
                 if name in axis_percentiles[key]
+            },
+            "raw_means": {
+                key: axis_means[key][name]
+                for key in yearly_keys
+                if name in axis_means[key]
             },
         }
 
