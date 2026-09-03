@@ -358,6 +358,14 @@ body {
   padding: 0.05rem 0.35rem;
 }
 
+.site-footer a {
+  color: var(--accent);
+}
+
+.site-footer a:hover {
+  text-decoration: none;
+}
+
 @media (max-width: 720px) {
   .layout {
     flex-direction: column;
