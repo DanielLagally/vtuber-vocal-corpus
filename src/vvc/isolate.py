@@ -8,6 +8,14 @@ from pathlib import Path
 _DEFAULT_PRESET = "vocal_balanced"
 DEFAULT_MODEL_FILENAME = "bs_roformer_vocals_resurrection_unwa.ckpt"
 
+# A 90 s slice isolates in ~90 s on MPS, ~a few min on CPU. This ceiling
+# is far above either — it exists only to break a genuine hang (a
+# subprocess stuck in uninterruptible I/O has deadlocked a whole
+# unattended densify batch before): on timeout the child is killed and
+# TimeoutExpired propagates, so the caller skips that clip instead of
+# waiting forever.
+_ISOLATE_TIMEOUT_S = 20 * 60
+
 _REPEATED_UNDERSCORE_RE = re.compile(r"_+")
 
 
@@ -39,7 +47,7 @@ def vocals_path(
 
 
 def _default_runner(argv: list[str]) -> object:
-    return subprocess.run(argv, check=True)
+    return subprocess.run(argv, check=True, timeout=_ISOLATE_TIMEOUT_S)
 
 
 def isolate_vocals(
