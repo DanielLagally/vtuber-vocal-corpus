@@ -198,10 +198,42 @@ const TABLE_SHORT_LABEL = {
 };
 
 // Decimal places for RAW values only (percentiles are always whole
-// numbers) — jitter/shimmer are small fractions (~0.01-0.05) that round
-// to 0 with no decimals, everything else is large enough (Hz/dB/
-// semitones) that whole numbers are the right precision.
-const TABLE_RAW_DECIMALS = { jitter_local: 3, shimmer_local: 3 };
+// numbers) — jitter/shimmer are small fractions (~0.01-0.05) and
+// dynamism is typically ~0.5-2 semitones, all of which round to the
+// same 0-1 with no decimals (dynamism specifically rounded to "1" for
+// every single talent — not a real tie, just lost precision). Hz/dB are
+// large enough that whole numbers are the right precision.
+const TABLE_RAW_DECIMALS = { jitter_local: 3, shimmer_local: 3, dynamism_semitones: 2 };
+
+// Minimal display form for the table's Generation column — full group
+// strings ("4th Generation (holoForce)") are fine for the sidebar
+// filter dropdown but too verbose for a table column. Numbered JP
+// generations collapse to a bare digit; units with a distinctive brand
+// name use that instead (matches the source Holodex group strings'
+// exact capitalization, not a guess): "6th Generation -holoX-" ->
+// "holoX", "DEV_IS ReGLOSS" -> "ReGLOSS" (tag dropped), etc. ID
+// generations keep their brand suffix rather than a bare digit — unlike
+// JP, a plain "1"/"2"/"3" would collide with the JP numbered gens once
+// the Branch column (which used to disambiguate them) is gone from this
+// table.
+const GENERATION_SHORT_LABEL = {
+  "0th Generation": "0",
+  "1st Generation": "1",
+  "2nd Generation": "2",
+  "3rd Generation (Fantasy)": "3",
+  "4th Generation (holoForce)": "4",
+  "5th Generation (holoFive)": "5",
+  "6th Generation -holoX-": "holoX",
+  "DEV_IS ReGLOSS": "ReGLOSS",
+  "DEV_IS FLOW GLOW": "FLOW GLOW",
+  "English -Myth-": "Myth",
+  "English -Promise-": "Promise",
+  "English -Justice-": "Justice",
+  "English -Advent-": "Advent",
+  "Indonesia 1st Gen (AREA 15)": "AREA 15",
+  "Indonesia 2nd Gen (holoro)": "holoro",
+  "Indonesia 3rd Gen (holoh3ro)": "holoh3ro",
+};
 
 function main() {
   // window.SITE_DATA comes from data.js (a <script>, not a fetch() —
@@ -590,7 +622,6 @@ function radarAxisLabel(key) {
 function tableColumns() {
   const cols = [
     { key: "name", label: "Talent", full: "Talent", type: "text" },
-    { key: "branch", label: "Branch", full: "Branch", type: "text" },
     { key: "group", label: "Gen.", full: "Generation", type: "text" },
     { key: "qc_pass", label: "QC%", full: "QC-pass %", type: "number" },
   ];
@@ -610,8 +641,9 @@ function tableColumns() {
 function tableCellValue(name, col) {
   const t = DATA.talents[name];
   if (col.key === "name") return name;
-  if (col.key === "branch") return t.branch || "Unknown";
-  if (col.key === "group") return (t.group || ["Unknown"]).join(", ");
+  if (col.key === "group") {
+    return (t.group || ["Unknown"]).map((g) => GENERATION_SHORT_LABEL[g] || g).join(", ");
+  }
   if (col.key === "qc_pass") {
     const s = t.qc_summary;
     return s && s.total > 0 ? (100 * s.qc_pass) / s.total : null;
