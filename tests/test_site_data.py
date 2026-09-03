@@ -30,6 +30,34 @@ never Cover/hololive audio, never downloads):
    ``file://`` is blocked by CORS in every major browser (confirmed via
    headless Chromium against an earlier draft of this page), so the page
    must not depend on fetching a separate JSON file at all.
+7. build_site_data(registry, roster=..., loader=...) attaches "group" (the
+   exact Holodex generation/unit label, e.g. "4th Generation (holoForce)")
+   and "branch" (a coarser EN/ID/DEV_IS/JP/Graduated bucket derived from
+   that group string) to every talent entry, matched by english_name
+   against the roster list. A handful of DEV_IS talents are registered
+   under short given names (e.g. "Niko") that don't equal roster's full
+   english_name ("Koganei Niko") — those go through a small known-alias
+   table. A talent absent from the roster entirely (graduated members,
+   who Holodex's active-only roster fetch excludes) gets group="Graduated"
+   branch="Graduated" rather than silently vanishing from every
+   generation/branch filtered view.
+8. Branch bucketing from the group string: "English -*-" -> EN,
+   "Indonesia *" -> ID, "DEV_IS *" -> DEV_IS, anything else present in the
+   roster (JP numbered generations, GAMERS, mekPark) -> JP.
+9. Without a roster argument (backward compatible — existing callers/tests
+   above don't pass one), every talent still gets group="Unknown"
+   branch="Unknown" rather than a missing key, so frontend filter code
+   never has to special-case an absent field.
+10. Every talent's "percentiles" dict carries a rank percentile (0-100,
+    same population z-score-then-rank as cute_mature, but computed
+    per-axis independently rather than combined) for each yearly feature
+    key that has QC-pass data from at least 2 talents — one percentile
+    per metric, not just the 3 cute/mature axes. A talent with zero
+    QC-pass data on a given axis is omitted from that axis's percentiles
+    (not a fabricated value).
+11. An axis with fewer than 2 contributing talents (nothing to compare
+    against) is entirely absent from every talent's percentiles dict —
+    mirrors cute_mature's own "n<2 -> empty" rule, applied per-axis.
 
 Entry shape matches vvc.measure's persisted record: id / month /
 score / window / features{median_f0, f0_iqr, voiced_fraction,
@@ -200,6 +228,138 @@ def test_cute_mature_zero_corpus_sd_gives_zero_zscore_not_a_crash() -> None:
     )
     assert result["cute_mature"]["A"]["percentile"] == 50.0
     assert result["cute_mature"]["B"]["percentile"] == 50.0
+
+
+def _roster_entry(english_name: str, group: str) -> dict:
+    return {"id": f"UC{english_name}", "english_name": english_name, "group": group}
+
+
+def test_group_and_branch_attached_via_roster_english_name_match() -> None:
+    """Rule 7: a direct english_name match picks up group verbatim, and
+    rule 8: a JP numbered-generation group buckets to branch 'JP'."""
+    store = {"a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)]}
+    roster = [_roster_entry("Himemori Luna", "4th Generation (holoForce)")]
+    result = site_data.build_site_data(
+        {"a.json": "Himemori Luna"}, roster=roster, loader=_loader(store)
+    )
+    talent = result["talents"]["Himemori Luna"]
+    assert talent["group"] == "4th Generation (holoForce)"
+    assert talent["branch"] == "JP"
+
+
+def test_dev_is_short_name_resolves_via_alias_table() -> None:
+    """Rule 7: 'Niko' (the registry display name) has no english_name
+    match on its own — it resolves via the known DEV_IS alias to roster's
+    'Koganei Niko' — and rule 8: a DEV_IS group buckets to branch
+    'DEV_IS'."""
+    store = {"a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)]}
+    roster = [_roster_entry("Koganei Niko", "DEV_IS FLOW GLOW")]
+    result = site_data.build_site_data(
+        {"a.json": "Niko"}, roster=roster, loader=_loader(store)
+    )
+    talent = result["talents"]["Niko"]
+    assert talent["group"] == "DEV_IS FLOW GLOW"
+    assert talent["branch"] == "DEV_IS"
+
+
+def test_en_and_id_branches_derived_from_group_string() -> None:
+    """Rule 8: English -*- and Indonesia * groups bucket to EN / ID."""
+    store = {
+        "a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)],
+        "b.json": [_entry("2024-01", "vid0000002", median_f0=200.0)],
+    }
+    roster = [
+        _roster_entry("Mori Calliope", "English -Myth-"),
+        _roster_entry("Kaela Kovalskia", "Indonesia 3rd Gen (holoh3ro)"),
+    ]
+    result = site_data.build_site_data(
+        {"a.json": "Mori Calliope", "b.json": "Kaela Kovalskia"},
+        roster=roster,
+        loader=_loader(store),
+    )
+    assert result["talents"]["Mori Calliope"]["branch"] == "EN"
+    assert result["talents"]["Kaela Kovalskia"]["branch"] == "ID"
+
+
+def test_talent_absent_from_roster_gets_graduated_bucket() -> None:
+    """Rule 7: a graduated talent (Holodex's active-only roster fetch
+    excludes them) gets group=branch='Graduated' instead of vanishing
+    from filtered views."""
+    store = {"a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)]}
+    roster: list[dict] = [_roster_entry("Someone Else", "5th Generation (holoFive)")]
+    result = site_data.build_site_data(
+        {"a.json": "Kiryu Coco"}, roster=roster, loader=_loader(store)
+    )
+    talent = result["talents"]["Kiryu Coco"]
+    assert talent["group"] == "Graduated"
+    assert talent["branch"] == "Graduated"
+
+
+def test_no_roster_argument_defaults_group_branch_to_unknown() -> None:
+    """Rule 9: existing callers that never pass roster= (all tests above
+    this one) still get group/branch keys, defaulted to 'Unknown' rather
+    than omitted, so frontend filter code never special-cases a missing
+    field."""
+    store = {"a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)]}
+    result = site_data.build_site_data({"a.json": "A"}, loader=_loader(store))
+    assert result["talents"]["A"]["group"] == "Unknown"
+    assert result["talents"]["A"]["branch"] == "Unknown"
+
+
+def test_percentiles_computed_independently_per_yearly_axis() -> None:
+    """Rule 10: median_f0 percentiles rank A < C < B (200/250/300), but
+    brightness percentiles rank B < A < C (1500/1000/1300) — independent
+    per-axis rankings, not the combined cute_mature order."""
+    store = {
+        "a.json": [
+            _entry("2024-01", "vidA0000001", median_f0=200.0, brightness_hz=1000.0),
+        ],
+        "b.json": [
+            _entry("2024-01", "vidB0000001", median_f0=300.0, brightness_hz=1500.0),
+        ],
+        "c.json": [
+            _entry("2024-01", "vidC0000001", median_f0=250.0, brightness_hz=1300.0),
+        ],
+    }
+    result = site_data.build_site_data(
+        {"a.json": "A", "b.json": "B", "c.json": "C"}, loader=_loader(store)
+    )
+    pct = {name: result["talents"][name]["percentiles"] for name in ("A", "B", "C")}
+    assert pct["A"]["median_f0"] == 0.0
+    assert pct["C"]["median_f0"] == 50.0
+    assert pct["B"]["median_f0"] == 100.0
+    assert pct["A"]["brightness_hz"] == 0.0
+    assert pct["C"]["brightness_hz"] == 50.0
+    assert pct["B"]["brightness_hz"] == 100.0
+
+
+def test_percentile_axis_omits_talent_with_no_qc_pass_data_on_that_axis() -> None:
+    """Rule 10: a talent with brightness_hz never set anywhere in its
+    entries is simply absent from "percentiles"."brightness_hz", not a
+    fabricated 0/50 value; its median_f0 percentile is unaffected."""
+    store = {
+        "a.json": [_entry("2024-01", "vidA0000001", median_f0=200.0, brightness_hz=1000.0)],
+        "b.json": [_entry("2024-01", "vidB0000001", median_f0=300.0)],
+    }
+    result = site_data.build_site_data(
+        {"a.json": "A", "b.json": "B"}, loader=_loader(store)
+    )
+    assert "brightness_hz" not in result["talents"]["B"]["percentiles"]
+    assert "median_f0" in result["talents"]["B"]["percentiles"]
+
+
+def test_percentile_axis_absent_entirely_when_under_two_talents_have_it() -> None:
+    """Rule 11: with only one talent carrying brightness_hz, that axis
+    doesn't appear in ANY talent's percentiles dict."""
+    store = {
+        "a.json": [_entry("2024-01", "vidA0000001", median_f0=200.0, brightness_hz=1000.0)],
+        "b.json": [_entry("2024-01", "vidB0000001", median_f0=300.0)],
+    }
+    result = site_data.build_site_data(
+        {"a.json": "A", "b.json": "B"}, loader=_loader(store)
+    )
+    assert "brightness_hz" not in result["talents"]["A"]["percentiles"]
+    assert "brightness_hz" not in result["talents"]["B"]["percentiles"]
 
 
 def test_write_site_data_emits_a_js_assignment_not_bare_json(tmp_path) -> None:

@@ -11,8 +11,7 @@
   <h1>hololive vocal measurements</h1>
   <p class="tagline">
     Public acoustic measurements of hololive chatting-stream speech —
-    pitch, brightness, and voice-quality correlates. Not transcripts, not
-    audio, not a vibe rating.
+    pitch, brightness, and voice-quality correlates.
   </p>
 </header>
 
@@ -28,11 +27,16 @@
         <button type="button" id="select-all">All</button>
         <button type="button" id="select-none">None</button>
       </div>
+      <label class="filter-label" for="branch-filter">Branch</label>
+      <select id="branch-filter"></select>
+      <label class="filter-label" for="generation-filter">Generation</label>
+      <select id="generation-filter"></select>
       <div id="talent-list" class="talent-list"></div>
     </section>
   </aside>
 
   <main class="content">
+    <div id="view-controls" class="view-controls"></div>
     <div id="chart" class="chart"></div>
     <p id="caption" class="caption"></p>
   </main>

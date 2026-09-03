@@ -273,6 +273,157 @@ implemented yet, revisit once the batch is done:
 
 ---
 
+## 2026-09-02/03: DEV_IS batch complete, pipeline infra shipped, repo renamed
+
+All 10 DEV_IS members are done — ReGLOSS (Hajime, Kanade, Raden, Ririka),
+FLOW GLOW (Chihaya, Niko, Riona, Su, Vivi), plus graduated member Ao.
+Order run: Chihaya, Ririka, Raden, Hajime, Vivi (as specified), then
+Kanade, Niko, Riona, Su, Ao (unspecified order, arbitrary). **800 records,
+767 QC-pass (96%)** — per-member breakdown and the full run log are not
+reproduced here; re-run `vvc site-data` and check `docs/data.js`, or see
+`data/measurements/<name>_monthly.json` per talent (gitignored, local
+only). This closes out the roster expansion goal — no more DEV_IS members
+pending.
+
+New infrastructure that shipped alongside the batch (all in `src/vvc/`,
+tested, committed on `main` as of `2da1884`):
+
+- **`densify`'s `cpu_workers`**: overlaps window-hunt/isolate/measure
+  across clips (producer/consumer queue + single-worker GPU pool); fetch
+  stays strictly sequential (bot-check safety, unchanged). `--cpu-workers
+  4` is the benchmarked sweet spot (8 workers is measurably worse, GIL
+  contention). Real-world throughput is fetch-bound, not CPU/GPU-bound —
+  see the session transcript if the reasoning is needed again, the short
+  version is fetch's ~35s/clip local ffmpeg extraction step sets the pace
+  regardless of pipelining.
+- **`densify`'s `offload_remote`**: streams a QC-pass clip's raw audio to
+  Google Drive via `rclone` (remote `Google Drive:vanalysis-raw-audio` —
+  NOTE: still the old pre-rename remote name, harmless since it's just a
+  label, but rename it in `rclone config` if it bothers you) and deletes
+  the local copy once confirmed uploaded. Watch for Drive throttling on
+  sustained heavy use (~1 MB/s instead of the usual ~13 MB/s was observed
+  after hours of continuous upload) — not fatal, just don't block a batch
+  waiting on the tail of it; a `rclone move --files-from <list>` bulk
+  sweep afterward is faster than waiting on the live per-clip trickle.
+- **`isolate.py` fix**: predicted output filenames now match
+  audio-separator's own `sanitize_filename` (strips leading/trailing/
+  repeated `_`) — previously silently lost isolation work for any video
+  id starting with `_` (~1-2% of ids, real data loss before the fix).
+- **`vvc new-talent <name> <channel_id>`**: bootstraps a fresh talent
+  (caches the raw Holodex listing, seeds an empty measurements file) in
+  one command — replaces the ad-hoc Python that had to be written by hand
+  for each of the 10 DEV_IS members before this existed.
+- **`docs/`**: interactive comparison site (talent multi-select, 9 metric
+  views incl. cute/mature percentile scatter), fed by `vvc site-data` →
+  `docs/data.js`. Plain HTML/CSS/JS, Plotly.js vendored locally, loads via
+  `window.SITE_DATA = {...}` (NOT `fetch()` — that's CORS-blocked under
+  `file://`, learned the hard way). Ready for GitHub Pages' "deploy from
+  branch, /docs" — no Actions workflow needed. 5 talents have real
+  hardcoded colors (Luna, Lamy, Ao, Niko, Su); the rest use a fallback
+  palette pending someone confirming their actual official colors.
+- **Package renamed**: `vanalysis` → `vvc` (module/CLI), project name →
+  `vtuber-vocal-corpus` (PyPI/repo name, in `pyproject.toml`). Editable
+  install (`pip install -e .`) means `PYTHONPATH=src` is no longer
+  needed — just `direnv exec . python -m vvc ...`.
+- `README.md` (MIT `LICENSE`) added — this file (`PLAN.md`) stays the
+  working engineering log, not the public front door.
+
+**Not yet done**: no GitHub remote configured, nothing pushed anywhere.
+`main` and the old `pipeline-and-drive-offload` branch both point at
+`2da1884` locally (fast-forward, no divergence) — safe to delete the
+feature branch whenever. The post-batch feature ideas above (formants,
+percentile-everywhere, radar chart) are still just ideas, not started.
+
+---
+
+## 2026-09-03: veteran-JP batch (autonomous run) + site filters/plots
+
+Owner decision: expansion resumes with long-career JP veterans — Sora,
+Roboco, Coco, Fubuki, Subaru, Korone, Okayu, Watame, Polka (order given),
+then remaining roster unspecified order. Sampling: monthly, `densify
+--target-n 2`, matching the Luna/Lamy precedent exactly (not the
+"locked" quarterly rule, not DEV_IS's approach — owner's explicit call
+given the disk math). `data/windows`/`data/stems_fast` are staying local
+this run (not offloaded) — owner wants that audio available for a future
+F1-F4 formant pass; only `data/audio` (raw pre-isolation wav, not used
+for feature extraction) continues to offload to Drive.
+
+Fixed before starting: `offload.py`'s `DEFAULT_REMOTE` and the CLI help
+text said `Google Drive:vvc-raw-audio` (stale, pre-rename) but the
+actually-configured rclone remote is `Google Drive:vanalysis-raw-audio`
+— every `densify` call must pass `--offload-remote` explicitly with the
+correct name or offload silently no-ops (fire-and-forget thread, no
+result checked, see `densify.py`'s offload_pool). Also fixed: DEV_IS
+talents + Ao were registered in `talents.json` under short given names
+(`Niko`, `Su`, `Ao`, …) instead of full names like everyone else —
+renamed all 10 to their full Holodex `english_name` (Koganei Niko,
+Mizumiya Su, Rindo Chihaya, Todoroki Hajime, Otonose Kanade, Juufuutei
+Raden, Isaki Riona, Ichijou Ririka, Kikirara Vivi, Hiodoshi Ao —
+Hiodoshi Ao resolved via Holodex video lookup since she's graduated and
+absent from `roster.json`) via `vvc plot --talent` re-runs (registry
+auto-update + fresh PNGs with correct titles), then `vvc site-data`.
+
+Sora special case: `sora_v1.json` (33 records, numpy tracker, parked)
+renamed to `sora_monthly.json` (matches everyone else's `<name>_
+monthly.json` convention), `remeasure-praat`'d (33/33 pass), then
+densified normally.
+
+Orchestrator: `data/logs/run_veteran_batch.sh` — per-talent
+`new-talent`/`densify`/`plot`/`site-data` as separate subprocesses (not
+one in-process Python loop; `run_densify` has no top-level exception
+guard, so a setup error in one talent must not kill the ones queued
+after it). Disk policy: soft-pause (stop starting new talents) below 40G
+free, hard-stop (kill in-flight, stop the batch) below 15G free.
+Bot-check (`stopped_early` non-null in densify's JSON summary) stops the
+whole batch, not just that talent — stale cookies fail identically for
+everyone queued after.
+
+Website (parallel to the batch, no fetch/GPU involved): generation/
+branch filter dropdowns (`site_data.py` now joins `talents.json` display
+names against `roster.json`'s `group` via a 9-entry DEV_IS alias table,
+falls back to group=branch="Graduated" for talents absent from the
+roster like Ao/Coco, or "Unknown" if no roster is passed at all — new
+`--roster` flag on `vvc site-data`, default `data/catalog/roster.json`);
+percentile-everywhere (`_single_axis_percentiles`, a generalization of
+`_cute_mature`'s combined z-score-then-rank into one independent ranking
+per yearly metric, surfaced as a "Percentile vs. corpus" line under every
+yearly plot's caption); radar/profile chart (new `scatterpolar` view,
+one axis per yearly metric, axis value = that talent's per-axis
+percentile). All three verified by headless-Chromium screenshot against
+real `docs/data.js`, not just unit tests. Formants were explicitly
+excluded from this batch (needs new Praat feature extraction + a full
+corpus remeasure — real pipeline work competing with the batch, and the
+owner wants the not-yet-offloaded stems/windows audio preserved for a
+dedicated future formant pass instead).
+
+Owner follow-up, same session, purely frontend (no new measurements, no
+`site_data.py` change) since every per-year value the radar/scatter needed
+was already sitting in the existing `yearly` series:
+- **Radar timeline**: an "Overall (all years)" checkbox + year slider.
+  Unchecked, each axis switches from the corpus-wide rank percentile to
+  that year's raw median min-max-scaled against a *fixed* per-axis
+  range (every talent, every year, computed once at load) — so scrubbing
+  years moves the shape within a stable frame instead of the axes
+  rescaling underneath you. A talent with no data that year just has no
+  vertex, same as the existing "missing axis" behavior.
+- **Trajectory view**: new metric-picker entry with X/Y (+ optional
+  size) axis pickers and a from/to year range, defaulting to F0 ×
+  brightness. Draws each selected talent's year-ordered path with
+  Plotly's `marker.symbol:"arrow", angleref:"previous"` (needs Plotly.js
+  2.18+; vendored copy is 2.35.2) so direction of travel is visible, each
+  point labeled with its year. Independent of the original cute/mature
+  scatter (kept as-is, its own combined-percentile methodology) — this is
+  a raw-value view, not a percentile one.
+All view-specific controls live in a new `#view-controls` panel above
+the chart, built by `buildViewControls(metric)` and rebuilt only when the
+selected metric actually changes (`lastControlsMetric` guard) so mid-drag
+slider state survives an unrelated re-render (e.g. toggling a talent
+checkbox). Verified via headless-Chromium: default view, both new radar
+modes, trajectory with axis/size/range changes, and every metric-picker
+option cycled with a `window.onerror` trap — no console errors.
+
+---
+
 ## First-batch clip ids (24-clip balanced reference)
 
 Luna 2024: `Gz_2EzLyhmQ` `ro0lFIj2MJY` `boy302x08Gg` `qyQzBoMOqXo`  

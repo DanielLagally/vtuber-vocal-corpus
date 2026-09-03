@@ -1,6 +1,18 @@
 .venv/
 .direnv/
-data/
+# data/ is ignored wholesale (audio, stems, windows, catalog, models,
+# plots, logs — copyrighted/huge/local-only), EXCEPT the final per-talent
+# measurement files: no audio, just video ids + numeric features + QC
+# verdicts, and CLAUDE.md's own policy already says aggregates derived
+# from measurements may be tracked. `data/*` (not `data/`) so git still
+# descends into data/measurements/ to see the negations below; pipeline
+# snapshot files (*_pre_*.json, *_raw.json, *_tracker_diagnostic.json)
+# stay ignored — they're internal working files, not the corpus.
+data/*
+!data/measurements/
+data/measurements/*
+!data/measurements/*_monthly.json
+!data/measurements/talents.json
 .env
 __pycache__/
 *.py[cod]

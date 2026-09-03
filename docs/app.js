@@ -13,19 +13,26 @@ const CUTE_MATURE_CAPTION =
   "Acoustic correlates, not a vibe rating. Percentile = equal-weight average " +
   "of each talent's z-scored mean F0, brightness, and pitch dynamism vs. " +
   "every other talent shown here with QC-pass data.";
+const RADAR_CAPTION =
+  "One shape per talent: each axis is that talent's percentile (0=lowest, " +
+  "100=highest) vs. the whole registered corpus on that metric, computed " +
+  "independently per axis (not a combined cute/mature score). A talent " +
+  "missing an axis (no QC-pass data on that metric, or fewer than 2 " +
+  "talents corpus-wide have it) simply has no vertex there.";
 
 // Each talent's official/fandom-recognized image color, where confidently
 // known. A talent NOT in this map falls back to Plotly's default
 // categorical palette (assignTalentColor below) rather than a guessed
 // hex value — colors are identity, worth getting right or not at all.
-// STILL NEEDS VERIFICATION: Takane Lui, Chihaya, Riona, Vivi, Hajime,
-// Kanade, Raden, Ririka (fill in real values here once confirmed).
+// STILL NEEDS VERIFICATION: Takane Lui, Rindo Chihaya, Isaki Riona,
+// Kikirara Vivi, Todoroki Hajime, Otonose Kanade, Juufuutei Raden,
+// Ichijou Ririka (fill in real values here once confirmed).
 const TALENT_COLORS = {
   "Himemori Luna": "#FF6FA5",
   "Yukihana Lamy": "#4FC3F7",
-  Ao: "#3A7CA5",
-  Niko: "#E8973D",
-  Su: "#3AA6B9",
+  "Hiodoshi Ao": "#3A7CA5",
+  "Koganei Niko": "#E8973D",
+  "Mizumiya Su": "#3AA6B9",
 };
 
 // Plotly's default categorical palette (d3.schemeCategory10-derived),
@@ -96,6 +103,29 @@ const YEARLY_METRICS = {
 
 let DATA = null;
 let selectedTalents = new Set();
+let branchFilter = "All";
+let generationFilter = "All";
+
+// Radar "timeline" mode: per-axis min-max range across EVERY talent and
+// EVERY year (computed once at load, held fixed) so scrubbing the year
+// slider moves points within a stable frame instead of the axes silently
+// rescaling underneath you. Falls back to the corpus-wide rank percentile
+// (radarOverall = true, the original behavior) when unchecked.
+let RADAR_AXIS_RANGE = {};
+let radarOverall = true;
+let radarYear = null;
+
+// Trajectory view: X/Y (+ optional size) metric pickers and a from/to
+// year range, all read straight from the already-present per-year
+// "yearly" series — no new backend aggregation.
+let ALL_YEARS = [];
+let trajXKey = null;
+let trajYKey = null;
+let trajSizeKey = "none";
+let trajFromYear = null;
+let trajToYear = null;
+
+let lastControlsMetric = null;
 
 function main() {
   // window.SITE_DATA comes from data.js (a <script>, not a fetch() —
@@ -104,18 +134,32 @@ function main() {
   DATA = window.SITE_DATA;
   selectedTalents = new Set(Object.keys(DATA.talents));
   assignFallbackColors(Object.keys(DATA.talents));
+  computeRadarAxisRanges();
+  computeYearRangeAndDefaultAxes();
 
   buildMetricPicker();
+  buildFilterPickers();
   buildTalentList();
 
+  // Delegated once on the stable container — buildTalentList() only ever
+  // replaces its innerHTML (on every filter change too), so a listener
+  // attached here keeps working without re-attaching (re-attaching inside
+  // buildTalentList would stack a duplicate handler per filter change).
+  document.getElementById("talent-list").addEventListener("change", (event) => {
+    const name = event.target.value;
+    if (event.target.checked) selectedTalents.add(name);
+    else selectedTalents.delete(name);
+    render();
+  });
+
   document.getElementById("select-all").addEventListener("click", () => {
-    selectedTalents = new Set(Object.keys(DATA.talents));
-    syncCheckboxes();
+    selectedTalents = new Set(filteredNames());
+    buildTalentList();
     render();
   });
   document.getElementById("select-none").addEventListener("click", () => {
     selectedTalents = new Set();
-    syncCheckboxes();
+    buildTalentList();
     render();
   });
   const picker = document.getElementById("metric-picker");
@@ -131,6 +175,41 @@ function main() {
   }
 
   render();
+}
+
+function computeRadarAxisRanges() {
+  RADAR_AXIS_RANGE = {};
+  for (const key of Object.keys(YEARLY_METRICS)) {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const talent of Object.values(DATA.talents)) {
+      for (const point of (talent.yearly && talent.yearly[key]) || []) {
+        if (typeof point.median === "number") {
+          min = Math.min(min, point.median);
+          max = Math.max(max, point.median);
+        }
+      }
+    }
+    if (min <= max) RADAR_AXIS_RANGE[key] = { min, max };
+  }
+}
+
+function computeYearRangeAndDefaultAxes() {
+  const years = new Set();
+  for (const talent of Object.values(DATA.talents)) {
+    for (const points of Object.values(talent.yearly || {})) {
+      for (const point of points) years.add(Number(point.year));
+    }
+  }
+  ALL_YEARS = [...years].sort((a, b) => a - b);
+  if (ALL_YEARS.length > 0) {
+    radarYear = ALL_YEARS[ALL_YEARS.length - 1];
+    trajFromYear = ALL_YEARS[0];
+    trajToYear = ALL_YEARS[ALL_YEARS.length - 1];
+  }
+  const keys = presentYearlyKeys();
+  trajXKey = keys.includes("median_f0") ? "median_f0" : keys[0];
+  trajYKey = keys.includes("brightness_hz") ? "brightness_hz" : keys[1] || keys[0];
 }
 
 function presentYearlyKeys() {
@@ -153,35 +232,82 @@ function buildMetricPicker() {
   if (Object.keys(DATA.cute_mature).length > 0) {
     options.push({ value: "cute_mature", label: "Cute × Mature (F0 vs Brightness)" });
   }
+  const anyPercentiles = Object.values(DATA.talents).some(
+    (t) => Object.keys(t.percentiles || {}).length > 0
+  );
+  if (anyPercentiles) {
+    options.push({ value: "radar", label: "Profile (Percentile Radar)" });
+  }
+  if (presentYearlyKeys().length >= 2 && ALL_YEARS.length > 0) {
+    options.push({ value: "trajectory", label: "Trajectory (metric vs. metric, by year)" });
+  }
   picker.innerHTML = options
     .map((o) => `<option value="${o.value}">${o.label}</option>`)
     .join("");
 }
 
-function buildTalentList() {
-  const list = document.getElementById("talent-list");
-  const names = Object.keys(DATA.talents).sort();
-  list.innerHTML = names
-    .map(
-      (name) => `
-      <label>
-        <input type="checkbox" value="${name}" checked />
-        <span>${name}</span>
-      </label>`
-    )
+// Branch (EN/ID/DEV_IS/JP/Graduated/Unknown) is a coarse bucket derived
+// server-side (site_data.py) from generation. Generation is the exact
+// Holodex group string (e.g. "4th Generation (holoForce)") — every talent
+// has both, defaulted to "Unknown" if the site was built without a
+// roster.json (see site_data.py rule 9), so these dropdowns are always
+// populated, never missing a talent silently.
+function distinctSorted(key) {
+  return [...new Set(Object.values(DATA.talents).map((t) => t[key] || "Unknown"))].sort();
+}
+
+function buildFilterPickers() {
+  const branchSel = document.getElementById("branch-filter");
+  const genSel = document.getElementById("generation-filter");
+  branchSel.innerHTML = ['<option value="All">All branches</option>']
+    .concat(distinctSorted("branch").map((b) => `<option value="${b}">${b}</option>`))
     .join("");
-  list.addEventListener("change", (event) => {
-    const name = event.target.value;
-    if (event.target.checked) selectedTalents.add(name);
-    else selectedTalents.delete(name);
+  genSel.innerHTML = ['<option value="All">All generations</option>']
+    .concat(distinctSorted("group").map((g) => `<option value="${g}">${g}</option>`))
+    .join("");
+  branchSel.addEventListener("change", () => {
+    branchFilter = branchSel.value;
+    selectedTalents = new Set(filteredNames());
+    buildTalentList();
+    render();
+  });
+  genSel.addEventListener("change", () => {
+    generationFilter = genSel.value;
+    selectedTalents = new Set(filteredNames());
+    buildTalentList();
     render();
   });
 }
 
-function syncCheckboxes() {
-  for (const input of document.querySelectorAll("#talent-list input")) {
-    input.checked = selectedTalents.has(input.value);
-  }
+// Talents matching the current branch/generation filters (AND'd
+// together) — the set the checkbox list displays, and what "All"/a
+// filter change selects. Independent of selectedTalents: a filter change
+// replaces the selection with exactly its matches (predictable "show me
+// this branch" behavior), but a single checkbox toggle afterward only
+// edits selectedTalents, not the filter.
+function filteredNames() {
+  return Object.keys(DATA.talents)
+    .filter((name) => {
+      const t = DATA.talents[name];
+      const branchOk = branchFilter === "All" || (t.branch || "Unknown") === branchFilter;
+      const genOk = generationFilter === "All" || (t.group || "Unknown") === generationFilter;
+      return branchOk && genOk;
+    })
+    .sort();
+}
+
+function buildTalentList() {
+  const list = document.getElementById("talent-list");
+  const names = filteredNames();
+  list.innerHTML = names
+    .map(
+      (name) => `
+      <label>
+        <input type="checkbox" value="${name}" ${selectedTalents.has(name) ? "checked" : ""} />
+        <span>${name}</span>
+      </label>`
+    )
+    .join("");
 }
 
 function selectedNames() {
@@ -195,6 +321,11 @@ function render() {
   const chart = document.getElementById("chart");
   const caption = document.getElementById("caption");
   const names = selectedNames();
+
+  if (metric !== lastControlsMetric) {
+    lastControlsMetric = metric;
+    buildViewControls(metric);
+  }
 
   if (names.length === 0) {
     Plotly.purge(chart);
@@ -211,11 +342,191 @@ function render() {
   } else if (metric.startsWith("yearly:")) {
     const key = metric.slice("yearly:".length);
     renderYearly(names, key);
-    caption.textContent = `${YEARLY_METRICS[key].caption}\n\n${QC_FOOTER}`;
+    caption.textContent =
+      `${YEARLY_METRICS[key].caption}\n\n${QC_FOOTER}\n\n${percentileSummary(names, key)}`;
   } else if (metric === "cute_mature") {
     renderCuteMature(names);
     caption.textContent = CUTE_MATURE_CAPTION;
+  } else if (metric === "radar") {
+    renderRadar(names);
+    caption.textContent = radarOverall
+      ? RADAR_CAPTION
+      : `${RADAR_CAPTION}\n\nShowing ${radarYear} only: each axis is min-max scaled ` +
+        `against that metric's full range across every talent and every year (a fixed ` +
+        `frame, so the shape's movement across years is meaningful) — not the overall ` +
+        `rank percentile used in "Overall" mode.`;
+  } else if (metric === "trajectory") {
+    renderTrajectory(names);
+    caption.textContent =
+      "Each talent's path from year to year on the two chosen metrics (arrows show " +
+      "direction of travel). Built from the same per-year values as the Yearly plots — " +
+      `a year missing either metric for a talent is simply skipped.\n\n${QC_FOOTER}`;
   }
+}
+
+function buildViewControls(metric) {
+  const el = document.getElementById("view-controls");
+  if (metric === "radar") {
+    el.innerHTML = `
+      <div class="control-group">
+        <label><input type="checkbox" id="radar-overall" ${radarOverall ? "checked" : ""} /> Overall (all years)</label>
+      </div>
+      <div class="control-group">
+        <label for="radar-year">Year</label>
+        <input type="range" id="radar-year" min="${ALL_YEARS[0]}" max="${ALL_YEARS[ALL_YEARS.length - 1]}"
+          step="1" value="${radarYear}" ${radarOverall ? "disabled" : ""} />
+        <span class="range-value" id="radar-year-value">${radarYear}</span>
+      </div>`;
+    document.getElementById("radar-overall").addEventListener("change", (e) => {
+      radarOverall = e.target.checked;
+      document.getElementById("radar-year").disabled = radarOverall;
+      render();
+    });
+    document.getElementById("radar-year").addEventListener("input", (e) => {
+      radarYear = Number(e.target.value);
+      document.getElementById("radar-year-value").textContent = radarYear;
+      render();
+    });
+  } else if (metric === "trajectory") {
+    const keys = presentYearlyKeys();
+    const opts = (selected) =>
+      keys.map((k) => `<option value="${k}" ${k === selected ? "selected" : ""}>${radarAxisLabel(k)}</option>`).join("");
+    const sizeOpts =
+      `<option value="none" ${trajSizeKey === "none" ? "selected" : ""}>None</option>` + opts(trajSizeKey);
+    const yearOpts = (selected) =>
+      ALL_YEARS.map((y) => `<option value="${y}" ${y === selected ? "selected" : ""}>${y}</option>`).join("");
+    el.innerHTML = `
+      <div class="control-group"><label for="traj-x">X</label><select id="traj-x">${opts(trajXKey)}</select></div>
+      <div class="control-group"><label for="traj-y">Y</label><select id="traj-y">${opts(trajYKey)}</select></div>
+      <div class="control-group"><label for="traj-size">Size</label><select id="traj-size">${sizeOpts}</select></div>
+      <div class="control-group"><label for="traj-from">From</label><select id="traj-from">${yearOpts(trajFromYear)}</select></div>
+      <div class="control-group"><label for="traj-to">To</label><select id="traj-to">${yearOpts(trajToYear)}</select></div>`;
+    document.getElementById("traj-x").addEventListener("change", (e) => {
+      trajXKey = e.target.value;
+      render();
+    });
+    document.getElementById("traj-y").addEventListener("change", (e) => {
+      trajYKey = e.target.value;
+      render();
+    });
+    document.getElementById("traj-size").addEventListener("change", (e) => {
+      trajSizeKey = e.target.value;
+      render();
+    });
+    document.getElementById("traj-from").addEventListener("change", (e) => {
+      trajFromYear = Number(e.target.value);
+      render();
+    });
+    document.getElementById("traj-to").addEventListener("change", (e) => {
+      trajToYear = Number(e.target.value);
+      render();
+    });
+  } else {
+    el.innerHTML = "";
+  }
+}
+
+function radarAxisLabel(key) {
+  return YEARLY_METRICS[key].label.replace(/\s*—\s*Yearly$/, "");
+}
+
+// Overall mode: axis value = corpus-wide rank percentile (site_data.py,
+// unchanged). Per-year mode: axis value = that year's raw median,
+// min-max scaled into 0-100 against RADAR_AXIS_RANGE — the fixed
+// all-years/all-talents range per axis, computed once at load, so
+// scrubbing the year slider moves the shape within a stable frame
+// instead of the axes rescaling underneath you every year.
+function radarValueForYear(name, key, year) {
+  const points = (DATA.talents[name].yearly && DATA.talents[name].yearly[key]) || [];
+  const point = points.find((p) => Number(p.year) === year);
+  const range = RADAR_AXIS_RANGE[key];
+  if (!point || !range || range.max === range.min) return null;
+  return (100 * (point.median - range.min)) / (range.max - range.min);
+}
+
+function renderRadar(names) {
+  const allKeys = presentYearlyKeys();
+  const valueFor = radarOverall
+    ? (name, key) => (DATA.talents[name].percentiles || {})[key]
+    : (name, key) => radarValueForYear(name, key, radarYear);
+  const keys = allKeys.filter((key) =>
+    names.some((name) => valueFor(name, key) != null)
+  );
+  const traces = names
+    .map((name) => {
+      const axisKeys = keys.filter((key) => valueFor(name, key) != null);
+      return {
+        type: "scatterpolar",
+        name,
+        r: axisKeys.map((key) => valueFor(name, key)),
+        theta: axisKeys.map((key) => radarAxisLabel(key)),
+        fill: "toself",
+        opacity: 0.5,
+        line: { color: talentColor(name) },
+        marker: { color: talentColor(name) },
+      };
+    })
+    .filter((trace) => trace.r.length > 0);
+  Plotly.react("chart", traces, polarLayout());
+}
+
+function renderTrajectory(names) {
+  const xKey = trajXKey;
+  const yKey = trajYKey;
+  const traces = names
+    .map((name) => {
+      const yearly = DATA.talents[name].yearly || {};
+      const xByYear = new Map((yearly[xKey] || []).map((p) => [Number(p.year), p.median]));
+      const yByYear = new Map((yearly[yKey] || []).map((p) => [Number(p.year), p.median]));
+      const sizeByYear =
+        trajSizeKey !== "none"
+          ? new Map((yearly[trajSizeKey] || []).map((p) => [Number(p.year), p.median]))
+          : null;
+      const years = ALL_YEARS.filter(
+        (y) =>
+          y >= trajFromYear &&
+          y <= trajToYear &&
+          xByYear.has(y) &&
+          yByYear.has(y) &&
+          (!sizeByYear || sizeByYear.has(y))
+      );
+      const sizes = sizeByYear ? years.map((y) => sizeByYear.get(y)) : null;
+      const scaledSizes = sizes
+        ? (() => {
+            const lo = Math.min(...sizes);
+            const hi = Math.max(...sizes);
+            return sizes.map((v) => (hi === lo ? 14 : 8 + (22 * (v - lo)) / (hi - lo)));
+          })()
+        : undefined;
+      return {
+        type: "scatter",
+        mode: "lines+markers+text",
+        name,
+        x: years.map((y) => xByYear.get(y)),
+        y: years.map((y) => yByYear.get(y)),
+        text: years.map((y) => String(y)),
+        textposition: "top center",
+        textfont: { size: 9 },
+        line: { color: talentColor(name) },
+        marker: {
+          color: talentColor(name),
+          size: scaledSizes || 10,
+          symbol: "arrow",
+          angleref: "previous",
+          standoff: scaledSizes ? undefined : 4,
+        },
+      };
+    })
+    .filter((trace) => trace.x.length > 0);
+  Plotly.react(
+    "chart",
+    traces,
+    layout({
+      yLabel: YEARLY_METRICS[yKey].unit,
+      xLabel: YEARLY_METRICS[xKey].unit,
+      xType: "linear",
+    })
+  );
 }
 
 function renderLineSeries(names, seriesFn, yLabel) {
@@ -250,6 +561,20 @@ function renderQuarterly(names) {
     };
   });
   Plotly.react("chart", traces, layout({ yLabel: "Median F0 (Hz)", xType: "category" }));
+}
+
+// Percentile = this talent's rank (0-100) among every registered talent
+// with QC-pass data on this exact metric (site_data.py's per-axis
+// ranking, independent of the combined cute/mature score) — corpus-wide,
+// so it does not change when the talent filter/selection narrows; only
+// which talents' numbers are shown here does. Absent entirely (empty
+// string) when fewer than 2 talents corpus-wide have this axis at all.
+function percentileSummary(names, key) {
+  const parts = names
+    .filter((name) => key in (DATA.talents[name].percentiles || {}))
+    .map((name) => `${name} ${Math.round(DATA.talents[name].percentiles[key])}`);
+  if (parts.length === 0) return "";
+  return `Percentile vs. corpus (this metric, 0=lowest 100=highest): ${parts.join(" · ")}`;
 }
 
 function renderYearly(names, key) {
@@ -321,6 +646,26 @@ function layout({ yLabel, xLabel, xType }) {
     },
     yaxis: { title: yLabel || "", gridcolor: grid },
     legend: { orientation: "h", y: -0.25 },
+  };
+}
+
+function polarLayout() {
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const fg = dark ? "#e6e8ec" : "#1a1d23";
+  const grid = dark ? "#2a2e38" : "#dde1e7";
+  return {
+    autosize: true,
+    height: 520,
+    margin: { t: 20, r: 40, b: 40, l: 40 },
+    paper_bgcolor: "transparent",
+    font: { color: fg },
+    polar: {
+      bgcolor: "transparent",
+      radialaxis: { range: [0, 100], gridcolor: grid, color: fg },
+      angularaxis: { gridcolor: grid, color: fg },
+    },
+    legend: { orientation: "h", y: -0.15 },
+    showlegend: true,
   };
 }
 

@@ -50,6 +50,42 @@ YEARLY_FEATURE_KEYS = (
 
 _CUTE_MATURE_AXES = ("median_f0", "brightness_hz", "dynamism_semitones")
 
+# talents.json display names that don't equal roster.json's english_name
+# for that person (DEV_IS members registered under short given names).
+_ROSTER_NAME_ALIASES = {
+    "Niko": "Koganei Niko",
+    "Su": "Mizumiya Su",
+    "Chihaya": "Rindo Chihaya",
+    "Hajime": "Todoroki Hajime",
+    "Kanade": "Otonose Kanade",
+    "Raden": "Juufuutei Raden",
+    "Riona": "Isaki Riona",
+    "Ririka": "Ichijou Ririka",
+    "Vivi": "Kikirara Vivi",
+}
+
+
+def _branch_for_group(group: str) -> str:
+    if group.startswith("English"):
+        return "EN"
+    if group.startswith("Indonesia"):
+        return "ID"
+    if group.startswith("DEV_IS"):
+        return "DEV_IS"
+    if group == "Graduated":
+        return "Graduated"
+    return "JP"
+
+
+def _talent_group_branch(
+    display_name: str, roster_by_english_name: dict[str, str]
+) -> tuple[str, str]:
+    lookup_name = _ROSTER_NAME_ALIASES.get(display_name, display_name)
+    group = roster_by_english_name.get(lookup_name)
+    if group is None:
+        return "Graduated", "Graduated"
+    return group, _branch_for_group(group)
+
 
 def _default_loader(path: str) -> list[dict]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -74,6 +110,52 @@ def _present_yearly_keys(all_entries: list[list[dict]]) -> list[str]:
     return [key for key in YEARLY_FEATURE_KEYS if key in present]
 
 
+def _rank_percentiles(scores: dict[str, float]) -> dict[str, float]:
+    """0-100 rank percentile (0 = lowest, 100 = highest) from a mapping of
+    name -> comparable score (a z-score, a combined z-score, or any other
+    already-computed axis). Every name tied at the same score (no
+    discriminating signal at all) lands at the midpoint 50.0 instead of an
+    arbitrary tie-break order."""
+    names = sorted(scores)
+    if max(scores.values()) == min(scores.values()):
+        return {name: 50.0 for name in names}
+    ranked = sorted(names, key=lambda name: scores[name])
+    n = len(names)
+    return {name: 100.0 * rank / (n - 1) for rank, name in enumerate(ranked)}
+
+
+def _zscore_axis(names: list[str], means: dict[str, float]) -> dict[str, float]:
+    """Population z-score (the included names ARE the comparison set, not
+    a sample of a larger one) of each name's mean on one axis. Zero
+    corpus-wide variance (every included name tied) gives z=0 for all
+    rather than dividing by zero."""
+    axis_values = [means[name] for name in names]
+    mean = statistics.mean(axis_values)
+    sd = statistics.pstdev(axis_values)
+    return {
+        name: (0.0 if sd == 0.0 else (means[name] - mean) / sd) for name in names
+    }
+
+
+def _single_axis_percentiles(
+    talents_entries: dict[str, list[dict]], feature_key: str
+) -> dict[str, float]:
+    """Rank percentile on ONE feature axis independently — unlike
+    cute_mature's combined-then-ranked score, each yearly metric gets its
+    own separate ranking. A talent with no QC-pass value for this feature
+    is omitted (not a fabricated 50.0); with fewer than 2 contributing
+    talents the axis has nothing to compare against and is empty."""
+    means = {
+        name: statistics.mean(values)
+        for name, entries in talents_entries.items()
+        if (values := _qc_pass_values(entries, feature_key))
+    }
+    if len(means) < 2:
+        return {}
+    names = sorted(means)
+    return _rank_percentiles(_zscore_axis(names, means))
+
+
 def _cute_mature(talents_entries: dict[str, list[dict]]) -> dict[str, dict]:
     means: dict[str, dict[str, float]] = {}
     for name, entries in talents_entries.items():
@@ -92,29 +174,16 @@ def _cute_mature(talents_entries: dict[str, list[dict]]) -> dict[str, dict]:
         return {}
 
     names = sorted(means)
-    z_by_axis: dict[str, dict[str, float]] = {}
-    for axis in _CUTE_MATURE_AXES:
-        axis_values = [means[name][axis] for name in names]
-        mean = statistics.mean(axis_values)
-        sd = statistics.pstdev(axis_values)
-        z_by_axis[axis] = {
-            name: (0.0 if sd == 0.0 else (means[name][axis] - mean) / sd)
-            for name in names
-        }
+    z_by_axis = {
+        axis: _zscore_axis(names, {name: means[name][axis] for name in names})
+        for axis in _CUTE_MATURE_AXES
+    }
 
     combined = {
         name: sum(z_by_axis[axis][name] for axis in _CUTE_MATURE_AXES) / len(_CUTE_MATURE_AXES)
         for name in names
     }
-
-    n = len(names)
-    if max(combined.values()) == min(combined.values()):
-        percentiles = {name: 50.0 for name in names}
-    else:
-        ranked = sorted(names, key=lambda name: combined[name])
-        percentiles = {
-            name: 100.0 * rank / (n - 1) for rank, name in enumerate(ranked)
-        }
+    percentiles = _rank_percentiles(combined)
 
     return {
         name: {
@@ -128,21 +197,42 @@ def _cute_mature(talents_entries: dict[str, list[dict]]) -> dict[str, dict]:
 
 
 def build_site_data(
-    registry: dict[str, str], *, loader: Loader | None = None
+    registry: dict[str, str],
+    *,
+    roster: list[dict] | None = None,
+    loader: Loader | None = None,
 ) -> dict:
     """Build the full export: per-talent series (from series.py, unchanged)
     plus the cute/mature percentile scatter. ``registry`` is the same
-    ``{measurements_path: display_name}`` shape as talents.json."""
+    ``{measurements_path: display_name}`` shape as talents.json. ``roster``
+    is the ``talents`` list from roster.json (each dict needs at least
+    ``english_name``/``group``); when given, every talent entry gets
+    ``group``/``branch`` (see module rules 7-9 in the test file); when
+    omitted, every talent gets group=branch='Unknown' rather than a
+    missing key."""
     load = loader if loader is not None else _default_loader
+
+    roster_by_english_name = {
+        entry["english_name"]: entry["group"]
+        for entry in (roster or [])
+        if entry.get("english_name") and entry.get("group")
+    }
 
     talents_entries: dict[str, list[dict]] = {
         display_name: load(path) for path, display_name in registry.items()
     }
     yearly_keys = _present_yearly_keys(list(talents_entries.values()))
+    axis_percentiles = {
+        key: _single_axis_percentiles(talents_entries, key) for key in yearly_keys
+    }
 
     talents: dict[str, dict] = {}
     for name, entries in talents_entries.items():
         qc_pass = sum(1 for e in entries if (e.get("qc") or {}).get("pass"))
+        if roster is None:
+            group, branch = "Unknown", "Unknown"
+        else:
+            group, branch = _talent_group_branch(name, roster_by_english_name)
         talents[name] = {
             "monthly_f0_all": f0_series(entries),
             "monthly_f0_qc": f0_series(entries, qc=True),
@@ -152,6 +242,13 @@ def build_site_data(
                 for key in yearly_keys
             },
             "qc_summary": {"qc_pass": qc_pass, "total": len(entries)},
+            "group": group,
+            "branch": branch,
+            "percentiles": {
+                key: axis_percentiles[key][name]
+                for key in yearly_keys
+                if name in axis_percentiles[key]
+            },
         }
 
     return {
@@ -162,14 +259,18 @@ def build_site_data(
 
 
 def write_site_data(
-    registry: dict[str, str], out_path: Path | str, *, loader: Loader | None = None
+    registry: dict[str, str],
+    out_path: Path | str,
+    *,
+    roster: list[dict] | None = None,
+    loader: Loader | None = None,
 ) -> dict:
     """Writes ``window.SITE_DATA = {...};`` — a plain <script src=...>
     the page loads directly, NOT bare JSON fetched at runtime. A
     ``fetch("data.json")`` from a page opened via ``file://`` (the whole
     point of a static, no-server site) is blocked by CORS in every major
     browser; a script-tag assignment has no such restriction."""
-    payload = build_site_data(registry, loader=loader)
+    payload = build_site_data(registry, roster=roster, loader=loader)
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     body = json.dumps(payload, indent=2, ensure_ascii=False)

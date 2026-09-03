@@ -20,7 +20,10 @@ from .fetch import audio_path
 # Matches the rclone remote name configured on this machine via
 # `rclone config` (Settings > Google Drive, scope drive.file — this app
 # can only see/manage files it created itself, not the whole Drive).
-DEFAULT_REMOTE = "Google Drive:vvc-raw-audio"
+# Named before the vanalysis -> vvc package rename; the remote itself was
+# never renamed in `rclone config`, so this must keep matching reality,
+# not the package name.
+DEFAULT_REMOTE = "Google Drive:vanalysis-raw-audio"
 
 
 def _default_runner(argv: list[str]) -> object:

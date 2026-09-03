@@ -343,6 +343,17 @@ def main(argv: list[str] | None = None) -> None:
         type=Path,
         default=Path("data/measurements/talents.json"),
     )
+    sit.add_argument(
+        "--roster",
+        type=Path,
+        default=Path("data/catalog/roster.json"),
+        help=(
+            "roster.json (talents list with english_name/group) used to "
+            "attach generation/branch metadata per talent; pass a "
+            "nonexistent path or empty file to fall back to "
+            "group=branch='Unknown'"
+        ),
+    )
     sit.add_argument("-o", "--out", type=Path, default=Path("docs/data.js"))
 
     ret = sub.add_parser(
@@ -504,7 +515,7 @@ def main(argv: list[str] | None = None) -> None:
         "--offload-remote",
         default=None,
         help=(
-            "rclone remote (e.g. 'Google Drive:vvc-raw-audio') to "
+            "rclone remote (e.g. 'Google Drive:vanalysis-raw-audio') to "
             "upload a QC-pass id's raw wav to, deleting it locally once "
             "confirmed uploaded; default None disables offload entirely "
             "(a QC-fail id's raw wav is never offloaded, regardless)"
@@ -652,7 +663,10 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.cmd == "site-data":
         registry = _load_registry(args.registry)
-        payload = write_site_data(registry, args.out)
+        roster = None
+        if args.roster.is_file():
+            roster = json.loads(args.roster.read_text(encoding="utf-8")).get("talents")
+        payload = write_site_data(registry, args.out, roster=roster)
         print(f"site data ({', '.join(sorted(payload['talents']))}) -> {args.out}")
         return
     if args.cmd == "retry":
