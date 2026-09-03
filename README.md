@@ -20,6 +20,7 @@ aggregates.
 
 ## Output
 
+- **Live site: https://daniellagally.github.io/vtuber-vocal-corpus/**
 - `docs/` — interactive comparison site (talent selection, multiple
   metrics, cute/mature percentile scatter). No build step; open
   `docs/index.html` directly, or serve via GitHub Pages.
