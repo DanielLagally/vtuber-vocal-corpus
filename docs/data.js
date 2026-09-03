@@ -1,5 +1,5 @@
 window.SITE_DATA = {
-  "generated_at": "2026-09-03T15:06:37+00:00",
+  "generated_at": "2026-09-03T16:07:56+00:00",
   "talents": {
     "Hiodoshi Ao": {
       "monthly_f0_all": [
@@ -469,9 +469,9 @@ window.SITE_DATA = {
         "total": 57
       },
       "group": [
-        "Unknown"
+        "DEV_IS ReGLOSS"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 8.0,
         "brightness_hz": 44.0,
@@ -1052,9 +1052,9 @@ window.SITE_DATA = {
         "total": 53
       },
       "group": [
-        "Unknown"
+        "English -Justice-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 40.0,
         "brightness_hz": 52.0,
@@ -1581,9 +1581,9 @@ window.SITE_DATA = {
         "total": 66
       },
       "group": [
-        "Unknown"
+        "DEV_IS FLOW GLOW"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 24.0,
         "brightness_hz": 36.0,
@@ -2055,9 +2055,9 @@ window.SITE_DATA = {
         "total": 27
       },
       "group": [
-        "Unknown"
+        "4th Generation (holoForce)"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 100.0,
         "brightness_hz": 20.0,
@@ -2638,9 +2638,9 @@ window.SITE_DATA = {
         "total": 50
       },
       "group": [
-        "Unknown"
+        "English -Justice-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 4.0,
         "brightness_hz": 40.0,
@@ -4312,9 +4312,10 @@ window.SITE_DATA = {
         "total": 159
       },
       "group": [
-        "Unknown"
+        "1st Generation",
+        "GAMERS"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 92.0,
         "brightness_hz": 60.0,
@@ -4895,9 +4896,9 @@ window.SITE_DATA = {
         "total": 53
       },
       "group": [
-        "Unknown"
+        "English -Justice-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 44.0,
         "brightness_hz": 96.0,
@@ -5648,9 +5649,9 @@ window.SITE_DATA = {
         "total": 108
       },
       "group": [
-        "Unknown"
+        "DEV_IS ReGLOSS"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 56.0,
         "brightness_hz": 76.0,
@@ -6397,9 +6398,9 @@ window.SITE_DATA = {
         "total": 105
       },
       "group": [
-        "Unknown"
+        "DEV_IS ReGLOSS"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 88.0,
         "brightness_hz": 56.0,
@@ -7807,9 +7808,9 @@ window.SITE_DATA = {
         "total": 147
       },
       "group": [
-        "Unknown"
+        "GAMERS"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 64.0,
         "brightness_hz": 12.0,
@@ -9163,9 +9164,9 @@ window.SITE_DATA = {
         "total": 138
       },
       "group": [
-        "Unknown"
+        "5th Generation (holoFive)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 68.0,
         "brightness_hz": 4.0,
@@ -10295,9 +10296,9 @@ window.SITE_DATA = {
         "total": 115
       },
       "group": [
-        "Unknown"
+        "6th Generation -holoX-"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 0.0,
         "brightness_hz": 80.0,
@@ -11678,9 +11679,9 @@ window.SITE_DATA = {
         "total": 143
       },
       "group": [
-        "Unknown"
+        "4th Generation (holoForce)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 80.0,
         "brightness_hz": 8.0,
@@ -12199,9 +12200,9 @@ window.SITE_DATA = {
         "total": 56
       },
       "group": [
-        "Unknown"
+        "DEV_IS FLOW GLOW"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 32.0,
         "brightness_hz": 48.0,
@@ -13562,9 +13563,9 @@ window.SITE_DATA = {
         "total": 144
       },
       "group": [
-        "Unknown"
+        "GAMERS"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 16.0,
         "brightness_hz": 0.0,
@@ -14926,9 +14927,9 @@ window.SITE_DATA = {
         "total": 146
       },
       "group": [
-        "Unknown"
+        "5th Generation (holoFive)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 12.0,
         "brightness_hz": 68.0,
@@ -15679,9 +15680,9 @@ window.SITE_DATA = {
         "total": 106
       },
       "group": [
-        "Unknown"
+        "DEV_IS ReGLOSS"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 96.0,
         "brightness_hz": 100.0,
@@ -16254,9 +16255,9 @@ window.SITE_DATA = {
         "total": 52
       },
       "group": [
-        "Unknown"
+        "English -Justice-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 36.0,
         "brightness_hz": 84.0,
@@ -16783,9 +16784,9 @@ window.SITE_DATA = {
         "total": 66
       },
       "group": [
-        "Unknown"
+        "DEV_IS FLOW GLOW"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 28.0,
         "brightness_hz": 72.0,
@@ -17536,9 +17537,9 @@ window.SITE_DATA = {
         "total": 104
       },
       "group": [
-        "Unknown"
+        "DEV_IS ReGLOSS"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 60.0,
         "brightness_hz": 88.0,
@@ -19214,9 +19215,9 @@ window.SITE_DATA = {
         "total": 161
       },
       "group": [
-        "Unknown"
+        "0th Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 48.0,
         "brightness_hz": 24.0,
@@ -21109,9 +21110,9 @@ window.SITE_DATA = {
         "total": 186
       },
       "group": [
-        "Unknown"
+        "0th Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 52.0,
         "brightness_hz": 28.0,
@@ -21638,9 +21639,9 @@ window.SITE_DATA = {
         "total": 66
       },
       "group": [
-        "Unknown"
+        "DEV_IS FLOW GLOW"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 72.0,
         "brightness_hz": 32.0,
@@ -23040,9 +23041,9 @@ window.SITE_DATA = {
         "total": 149
       },
       "group": [
-        "Unknown"
+        "2nd Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 20.0,
         "brightness_hz": 92.0,
@@ -23569,9 +23570,9 @@ window.SITE_DATA = {
         "total": 66
       },
       "group": [
-        "Unknown"
+        "DEV_IS FLOW GLOW"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 84.0,
         "brightness_hz": 64.0,
@@ -24987,9 +24988,9 @@ window.SITE_DATA = {
         "total": 154
       },
       "group": [
-        "Unknown"
+        "4th Generation (holoForce)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 76.0,
         "brightness_hz": 16.0,
@@ -25177,6 +25178,15 @@ window.SITE_DATA = {
     }
   },
   "generation_order": [
-    "Unknown"
+    "0th Generation",
+    "1st Generation",
+    "2nd Generation",
+    "GAMERS",
+    "4th Generation (holoForce)",
+    "5th Generation (holoFive)",
+    "6th Generation -holoX-",
+    "DEV_IS ReGLOSS",
+    "English -Justice-",
+    "DEV_IS FLOW GLOW"
   ]
 };
