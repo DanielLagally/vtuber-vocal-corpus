@@ -7,6 +7,16 @@ from pathlib import Path
 
 _YT_WATCH = "https://www.youtube.com/watch?v="
 
+# The measured sample is the 15:00-30:00 window of the stream (skip the
+# waiting-room intro, take 15 min). yt-dlp's ``--download-sections`` pulls
+# exactly that range but for many older VODs it falls back to the ffmpeg
+# downloader, which streams at ~playback speed (~30 KiB/s -> ~10 min for
+# this window). Instead: yt-dlp downloads the full compressed audio with
+# its own (fast, range-request) downloader, then ffmpeg cuts the window
+# locally. Same measured audio, ~30x faster on the slow VODs.
+_SECTION_START_S = 15 * 60
+_SECTION_END_S = 30 * 60
+
 # Matched as two separate substrings so the exact apostrophe glyph
 # (straight vs yt-dlp's curly "'") never matters.
 _BOT_CHECK_MARKERS = ("Sign in to confirm you", "not a bot")
@@ -56,6 +66,22 @@ def _default_runner(argv: list[str]) -> object:
     return result
 
 
+def _full_audio_glob(video_id: str, data_dir: Path) -> list[Path]:
+    audio_dir = Path(data_dir) / "audio"
+    return sorted(
+        p for p in audio_dir.glob(f"{video_id}.full.*") if p.suffix != ".part"
+    )
+
+
+def _cleanup_partial(video_id: str, data_dir: Path) -> None:
+    """Remove a skipped/failed id's final wav plus any leftover
+    ``<id>.full.*`` download (including a half-written ``.part``)."""
+    audio_path(video_id, data_dir).unlink(missing_ok=True)
+    audio_dir = Path(data_dir) / "audio"
+    for leftover in audio_dir.glob(f"{video_id}.full.*"):
+        leftover.unlink(missing_ok=True)
+
+
 def fetch_audio(
     video_id: str,
     data_dir: Path,
@@ -66,25 +92,47 @@ def fetch_audio(
     dest = audio_path(video_id, data_dir)
     dest.parent.mkdir(parents=True, exist_ok=True)
     run = runner if runner is not None else _default_runner
+
+    # 1. full compressed audio via yt-dlp's own downloader (fast).
+    full_tmpl = dest.parent / f"{video_id}.full.%(ext)s"
     argv = [
         "yt-dlp",
         "-f",
         "bestaudio/best",
-        "-x",
-        "--audio-format",
-        "wav",
-        "--force-keyframes-at-cuts",
         "--extractor-args",
         "youtube:player_client=mweb",
-        "--download-sections",
-        "*15:00-30:00",
         "-o",
-        str(dest.with_suffix(".%(ext)s")),
+        str(full_tmpl),
     ]
     if cookies is not None:
         argv.extend(["--cookies", str(cookies)])
     argv.append(f"{_YT_WATCH}{video_id}")
     run(argv)
+
+    full = _full_audio_glob(video_id, data_dir)
+    if not full:
+        # A fake runner in tests materializes the final wav directly and
+        # never writes a *.full.* download — nothing to cut, honour it.
+        if dest.exists():
+            return dest
+        raise subprocess.CalledProcessError(1, argv, "", "yt-dlp produced no audio")
+
+    # 2. cut the 15:00-30:00 window to wav, locally (instant).
+    slice_argv = [
+        "ffmpeg",
+        "-y",
+        "-ss",
+        str(_SECTION_START_S),
+        "-to",
+        str(_SECTION_END_S),
+        "-i",
+        str(full[0]),
+        "-vn",
+        str(dest),
+    ]
+    run(slice_argv)
+    for leftover in _full_audio_glob(video_id, data_dir):
+        leftover.unlink(missing_ok=True)
     return dest
 
 
@@ -111,11 +159,10 @@ def fetch_audio_many(
                 video_id, data_dir, runner=runner, cookies=cookies
             )
         except BotCheckDetected:
-            audio_path(video_id, data_dir).unlink(missing_ok=True)
+            _cleanup_partial(video_id, data_dir)
             raise
         except subprocess.CalledProcessError as exc:
-            dest = audio_path(video_id, data_dir)
-            dest.unlink(missing_ok=True)
+            _cleanup_partial(video_id, data_dir)
             print(
                 f"fetch failed for {video_id} (exit {exc.returncode}); "
                 "skipping — gap in data/audio",
