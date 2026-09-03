@@ -422,6 +422,30 @@ checkbox). Verified via headless-Chromium: default view, both new radar
 modes, trajectory with axis/size/range changes, and every metric-picker
 option cycled with a `window.onerror` trap — no console errors.
 
+**2026-09-03, owner decision**: stop the veteran-JP batch once the named
+list (Sora through Polka) finishes — all 9 landed, 96-99% QC-pass each —
+and pivot straight to formants instead of continuing to unnamed roster
+members. `praat_features.formants_hz()` shipped (F1-F4 via Praat's
+Burg tracker, tested against a synthetic two-formant vowel since a pure
+sine has no resonance structure) and the entire corpus was backfilled via
+the existing `remeasure-praat` command on the already-local stems (no
+re-fetch) — **all 22 talents now carry f1_hz-f4_hz**. Site work in the
+same arc: radar generalized from 3 fixed presets into a free-form
+metric-checkbox picker (any combination, including F0+formants
+together); a sortable table view (raw values by default, percentile
+toggle); graduated members (Ao, Coco) now show their real generation
+(via a small known-graduated lookup against their own Holodex channel)
+while staying branch="Graduated"; Shirakami Fubuki now correctly shows
+both her generation memberships (1st Generation + GAMERS); the
+generation filter/table now sorts by real debut chronology (fetched
+from Holodex, not alphabetical, which badly scrambled DEV_IS/EN
+ordering). Layout widened (1100px -> 1800px cap) and charts enlarged
+since the page was using a small fraction of typical screen width.
+
+Roster expansion beyond the named list (Coco through Polka) is paused —
+resume only when the owner decides to, same as the earlier Luna-first
+pause.
+
 ---
 
 ## First-batch clip ids (24-clip balanced reference)
