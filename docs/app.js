@@ -201,6 +201,15 @@ let customGroups = []; // [{ name: string, members: Set<talentName> }]
 let editingCustomGroupIndex = 0;
 let groupSortColumn = "name";
 let groupSortAscending = true;
+// Which visualization the Group Comparison view shows — same idea as
+// the per-talent views (Table/Time Series/Radar/Trajectory), just one
+// value per group (groupAggFunc'd across members) instead of one value
+// per talent. Reuses the per-talent views' own metric/axis/year-range
+// state (seriesGranularity, seriesMetricKey, radarSelectedKeys,
+// trajXKey/trajYKey/trajSizeKey/trajFromYear/trajToYear) rather than
+// duplicating a parallel set — "which metric(s)/years" is the same
+// question regardless of whether the chart is per-talent or per-group.
+let groupChartType = "table";
 
 // Short header text for the table (full names are used for chart/radar
 // labels elsewhere, but they make table columns unusably wide) — the
@@ -464,7 +473,8 @@ function render() {
     buildViewControls(metric);
   }
 
-  const usesTableView = metric === "table" || metric === "groups";
+  const usesTableView =
+    metric === "table" || (metric === "groups" && groupChartType === "table");
   chart.style.display = usesTableView ? "none" : "";
   tableView.style.display = usesTableView ? "" : "none";
 
@@ -490,11 +500,12 @@ function render() {
     const groups = derivedGroups(names);
     if (groups.size === 0) {
       tableView.innerHTML = "";
+      Plotly.purge(chart);
       caption.textContent =
         groupingMode === "custom"
           ? "No custom groups yet — use the controls above to create one and assign talents to it."
           : "No groups to show.";
-    } else {
+    } else if (groupChartType === "table") {
       renderGroupTable(groups);
       caption.textContent =
         `Click a column header to sort (click again to reverse). Each cell is the ${groupAggFunc} ` +
@@ -502,6 +513,33 @@ function render() {
         "metric's native unit — not a pooled median/mean of every underlying clip. Members with " +
         `no QC-pass data for a metric are excluded from that group's ${groupAggFunc}, not treated ` +
         `as 0.\n\n${QC_FOOTER}`;
+    } else if (groupChartType === "series") {
+      const keys = presentYearlyKeys();
+      if (seriesMetricKey === null || !keys.includes(seriesMetricKey)) {
+        seriesMetricKey = keys.includes("median_f0") ? "median_f0" : keys[0];
+      }
+      renderGroupSeries(groups, seriesGranularity, seriesMetricKey);
+      caption.textContent =
+        `Each point is the ${groupAggFunc} of that group's members' values in that time bucket ` +
+        `(a member missing a bucket is simply excluded from it, not 0).\n\n${YEARLY_METRICS[seriesMetricKey].caption}\n\n${QC_FOOTER}`;
+    } else if (groupChartType === "radar") {
+      if (radarSelectedKeys === null) radarSelectedKeys = new Set(presentYearlyKeys());
+      if (radarSelectedKeys.size === 0) {
+        Plotly.purge(chart);
+        caption.textContent = "Select at least one metric (see the checkboxes above the chart).";
+        return;
+      }
+      renderGroupRadar(groups, [...radarSelectedKeys]);
+      caption.textContent =
+        `Each axis is that group's ${groupAggFunc} for that metric, min-max scaled 0-100 against ` +
+        "the range across the groups actually shown here (NOT the corpus-wide percentile the " +
+        "per-talent radar uses — with only a handful of groups, a real corpus percentile isn't " +
+        `meaningful). Rescales if you change which groups are shown.\n\n${QC_FOOTER}`;
+    } else if (groupChartType === "trajectory") {
+      renderGroupTrajectory(groups, trajXKey, trajYKey, trajSizeKey, trajFromYear, trajToYear);
+      caption.textContent =
+        `Each group's yearly path (${groupAggFunc} of members' yearly values), arrows show ` +
+        `direction of travel. A year missing either metric for a group is simply skipped.\n\n${QC_FOOTER}`;
     }
   } else if (metric === "series") {
     const keys = presentYearlyKeys();
@@ -665,6 +703,17 @@ function buildViewControls(metric) {
       render();
     });
   } else if (metric === "groups") {
+    const chartTypeOpts = [
+      ["table", "Table"],
+      ["series", "Time Series"],
+      ["radar", "Radar"],
+      ["trajectory", "Trajectory"],
+    ]
+      .map(
+        ([v, label]) =>
+          `<option value="${v}" ${v === groupChartType ? "selected" : ""}>${label}</option>`
+      )
+      .join("");
     const modeOpts = ["generation", "branch", "custom"]
       .map(
         (m) =>
@@ -677,6 +726,64 @@ function buildViewControls(metric) {
           `<option value="${a}" ${a === groupAggFunc ? "selected" : ""}>${a[0].toUpperCase()}${a.slice(1)}</option>`
       )
       .join("");
+
+    const keys = presentYearlyKeys();
+    let chartTypeHtml = "";
+    if (groupChartType === "series") {
+      if (seriesMetricKey === null || !keys.includes(seriesMetricKey)) {
+        seriesMetricKey = keys.includes("median_f0") ? "median_f0" : keys[0];
+      }
+      const granOpts = ["monthly", "quarterly", "yearly"]
+        .map(
+          (g) =>
+            `<option value="${g}" ${g === seriesGranularity ? "selected" : ""}>${g[0].toUpperCase()}${g.slice(1)}</option>`
+        )
+        .join("");
+      const metricOpts = keys
+        .map(
+          (k) =>
+            `<option value="${k}" ${k === seriesMetricKey ? "selected" : ""}>${radarAxisLabel(k)}</option>`
+        )
+        .join("");
+      chartTypeHtml = `
+      <div class="control-group"><label for="group-series-granularity">Time</label><select id="group-series-granularity">${granOpts}</select></div>
+      <div class="control-group"><label for="group-series-metric">Metric</label><select id="group-series-metric">${metricOpts}</select></div>`;
+    } else if (groupChartType === "radar") {
+      if (radarSelectedKeys === null) radarSelectedKeys = new Set(keys);
+      const metricsHtml = keys
+        .map(
+          (k) => `
+        <label>
+          <input type="checkbox" class="group-radar-metric-cb" value="${k}" ${radarSelectedKeys.has(k) ? "checked" : ""} />
+          ${radarAxisLabel(k)}
+        </label>`
+        )
+        .join("");
+      chartTypeHtml = `
+      <div class="metric-checklist-row">
+        <span class="filter-label metric-checklist-label">Axes</span>
+        <button type="button" id="group-radar-metrics-all" class="mini-btn">All</button>
+        <button type="button" id="group-radar-metrics-none" class="mini-btn">None</button>
+        <div class="metric-checklist">${metricsHtml}</div>
+      </div>`;
+    } else if (groupChartType === "trajectory") {
+      const axisOpts = (selected) =>
+        keys
+          .map((k) => `<option value="${k}" ${k === selected ? "selected" : ""}>${radarAxisLabel(k)}</option>`)
+          .join("");
+      const sizeOpts =
+        `<option value="none" ${trajSizeKey === "none" ? "selected" : ""}>None</option>` +
+        axisOpts(trajSizeKey);
+      const yearOpts = (selected) =>
+        ALL_YEARS.map((y) => `<option value="${y}" ${y === selected ? "selected" : ""}>${y}</option>`).join("");
+      chartTypeHtml = `
+      <div class="control-group"><label for="group-traj-x">X</label><select id="group-traj-x">${axisOpts(trajXKey)}</select></div>
+      <div class="control-group"><label for="group-traj-y">Y</label><select id="group-traj-y">${axisOpts(trajYKey)}</select></div>
+      <div class="control-group"><label for="group-traj-size">Size</label><select id="group-traj-size">${sizeOpts}</select></div>
+      <div class="control-group"><label for="group-traj-from">From</label><select id="group-traj-from">${yearOpts(trajFromYear)}</select></div>
+      <div class="control-group"><label for="group-traj-to">To</label><select id="group-traj-to">${yearOpts(trajToYear)}</select></div>`;
+    }
+
     let customHtml = "";
     if (groupingMode === "custom") {
       if (editingCustomGroupIndex >= customGroups.length) editingCustomGroupIndex = 0;
@@ -718,9 +825,63 @@ function buildViewControls(metric) {
       }`;
     }
     el.innerHTML = `
+      <div class="control-group"><label for="group-chart-type">Chart</label><select id="group-chart-type">${chartTypeOpts}</select></div>
       <div class="control-group"><label for="group-mode">Group by</label><select id="group-mode">${modeOpts}</select></div>
       <div class="control-group"><label for="group-agg">Aggregate</label><select id="group-agg">${aggOpts}</select></div>
+      ${chartTypeHtml}
       ${customHtml}`;
+    document.getElementById("group-chart-type").addEventListener("change", (e) => {
+      groupChartType = e.target.value;
+      buildViewControls(metric);
+      render();
+    });
+    if (groupChartType === "series") {
+      document.getElementById("group-series-granularity").addEventListener("change", (e) => {
+        seriesGranularity = e.target.value;
+        render();
+      });
+      document.getElementById("group-series-metric").addEventListener("change", (e) => {
+        seriesMetricKey = e.target.value;
+        render();
+      });
+    } else if (groupChartType === "radar") {
+      el.querySelector(".metric-checklist").addEventListener("change", (e) => {
+        if (e.target.checked) radarSelectedKeys.add(e.target.value);
+        else radarSelectedKeys.delete(e.target.value);
+        render();
+      });
+      document.getElementById("group-radar-metrics-all").addEventListener("click", () => {
+        radarSelectedKeys = new Set(presentYearlyKeys());
+        buildViewControls(metric);
+        render();
+      });
+      document.getElementById("group-radar-metrics-none").addEventListener("click", () => {
+        radarSelectedKeys = new Set();
+        buildViewControls(metric);
+        render();
+      });
+    } else if (groupChartType === "trajectory") {
+      document.getElementById("group-traj-x").addEventListener("change", (e) => {
+        trajXKey = e.target.value;
+        render();
+      });
+      document.getElementById("group-traj-y").addEventListener("change", (e) => {
+        trajYKey = e.target.value;
+        render();
+      });
+      document.getElementById("group-traj-size").addEventListener("change", (e) => {
+        trajSizeKey = e.target.value;
+        render();
+      });
+      document.getElementById("group-traj-from").addEventListener("change", (e) => {
+        trajFromYear = Number(e.target.value);
+        render();
+      });
+      document.getElementById("group-traj-to").addEventListener("change", (e) => {
+        trajToYear = Number(e.target.value);
+        render();
+      });
+    }
     document.getElementById("group-mode").addEventListener("change", (e) => {
       groupingMode = e.target.value;
       buildViewControls(metric);
@@ -1023,6 +1184,154 @@ function renderGroupTable(groups) {
     const th = event.target.closest("th");
     if (th) sortGroupTableBy(th.dataset.col);
   });
+}
+
+// Pools every member's points at one granularity/metric into per-bucket
+// (month/quarter/year label) value arrays, then reduces each bucket with
+// groupAggFunc — shared by the group Time Series and Trajectory charts
+// (trajectory always calls this with granularity="yearly"). A member
+// missing a given bucket simply doesn't contribute a value to it, same
+// "excluded, not 0" rule as every other aggregate in this file.
+function groupSeriesPoints(members, granularity, metricKey) {
+  const byBucket = new Map(); // bucket label -> [values]
+  for (const name of members) {
+    const points = ((DATA.talents[name][granularity] || {})[metricKey]) || [];
+    for (const point of points) {
+      const { x, y } = seriesPoint(granularity, point);
+      if (y == null) continue;
+      if (!byBucket.has(x)) byBucket.set(x, []);
+      byBucket.get(x).push(y);
+    }
+  }
+  const buckets = [...byBucket.keys()].sort();
+  return buckets.map((x) => ({
+    x,
+    y: groupAggFunc === "median" ? median(byBucket.get(x)) : mean(byBucket.get(x)),
+  }));
+}
+
+function renderGroupSeries(groups, granularity, metricKey) {
+  const traces = [...groups.entries()].map(([name, members]) => {
+    const points = groupSeriesPoints(members, granularity, metricKey);
+    return {
+      type: "scatter",
+      mode: "lines+markers",
+      name,
+      x: points.map((p) => p.x),
+      y: points.map((p) => p.y),
+      connectgaps: false,
+    };
+  });
+  Plotly.react(
+    "chart",
+    traces,
+    layout({ yLabel: YEARLY_METRICS[metricKey].unit, xType: "category" })
+  );
+}
+
+// Unlike the per-talent radar (percentile vs. the WHOLE corpus, a fixed
+// scale computed once at load), a group's axis range is recomputed from
+// whatever groups are actually on screen right now — with only a
+// handful of groups (a handful of generations, or 2-3 custom groups), a
+// real corpus-wide percentile isn't a meaningful statistic, so this is
+// deliberately relative to the shown groups, not absolute.
+function renderGroupRadar(groups, keys) {
+  const groupValues = new Map(); // group name -> {metricKey: aggregatedValue}
+  for (const [name, members] of groups) {
+    const values = {};
+    for (const key of keys) {
+      const memberValues = [...members]
+        .map((m) => (DATA.talents[m].raw_means || {})[key])
+        .filter((v) => v != null);
+      if (memberValues.length > 0) {
+        values[key] = groupAggFunc === "median" ? median(memberValues) : mean(memberValues);
+      }
+    }
+    groupValues.set(name, values);
+  }
+  const ranges = {};
+  for (const key of keys) {
+    const allValues = [...groupValues.values()].map((v) => v[key]).filter((v) => v != null);
+    if (allValues.length > 0) {
+      ranges[key] = { min: Math.min(...allValues), max: Math.max(...allValues) };
+    }
+  }
+  const traces = [...groupValues.entries()]
+    .map(([name, values]) => {
+      const axisKeys = keys.filter((key) => values[key] != null && ranges[key]);
+      const r = axisKeys.map((key) => {
+        const { min, max } = ranges[key];
+        return max === min ? 50 : (100 * (values[key] - min)) / (max - min);
+      });
+      return {
+        type: "scatterpolar",
+        name,
+        r,
+        theta: axisKeys.map((key) => radarAxisLabel(key)),
+        fill: "toself",
+        opacity: 0.5,
+      };
+    })
+    .filter((trace) => trace.r.length > 0);
+  Plotly.react("chart", traces, polarLayout());
+}
+
+function renderGroupTrajectory(groups, xKey, yKey, sizeKey, fromYear, toYear) {
+  const traces = [...groups.entries()]
+    .map(([name, members]) => {
+      const xByYear = new Map(
+        groupSeriesPoints(members, "yearly", xKey).map((p) => [Number(p.x), p.y])
+      );
+      const yByYear = new Map(
+        groupSeriesPoints(members, "yearly", yKey).map((p) => [Number(p.x), p.y])
+      );
+      const sizeByYear =
+        sizeKey !== "none"
+          ? new Map(groupSeriesPoints(members, "yearly", sizeKey).map((p) => [Number(p.x), p.y]))
+          : null;
+      const years = ALL_YEARS.filter(
+        (y) =>
+          y >= fromYear &&
+          y <= toYear &&
+          xByYear.has(y) &&
+          yByYear.has(y) &&
+          (!sizeByYear || sizeByYear.has(y))
+      );
+      const sizes = sizeByYear ? years.map((y) => sizeByYear.get(y)) : null;
+      const scaledSizes = sizes
+        ? (() => {
+            const lo = Math.min(...sizes);
+            const hi = Math.max(...sizes);
+            return sizes.map((v) => (hi === lo ? 14 : 8 + (22 * (v - lo)) / (hi - lo)));
+          })()
+        : undefined;
+      return {
+        type: "scatter",
+        mode: "lines+markers+text",
+        name,
+        x: years.map((y) => xByYear.get(y)),
+        y: years.map((y) => yByYear.get(y)),
+        text: years.map((y) => String(y)),
+        textposition: "top center",
+        textfont: { size: 9 },
+        marker: {
+          size: scaledSizes || 10,
+          symbol: "arrow",
+          angleref: "previous",
+          standoff: scaledSizes ? undefined : 4,
+        },
+      };
+    })
+    .filter((trace) => trace.x.length > 0);
+  Plotly.react(
+    "chart",
+    traces,
+    layout({
+      yLabel: YEARLY_METRICS[yKey].unit,
+      xLabel: YEARLY_METRICS[xKey].unit,
+      xType: "linear",
+    })
+  );
 }
 
 // Overall mode: axis value = corpus-wide rank percentile (site_data.py,
