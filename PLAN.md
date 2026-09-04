@@ -448,6 +448,46 @@ pause.
 
 ---
 
+## 2026-09-04: hololive JP roster expansion resumed
+
+Owner decision (`/goal continue with hololive jp`): resume roster
+expansion, hololive JP only (not EN/ID again yet). 26 talents already in
+the corpus at this point (the original 3 + DEV_IS 10 + veteran-JP 9 +
+Justice 4). Remaining hololive-JP roster per `data/catalog/roster.json`
+(`org == "Hololive"`, JP generation groups: 0th–6th Gen, GAMERS,
+mekPark): 24 entries, of which 3 are excluded as out of scope, not a
+judgment call — `Aki Rosenthal (Sub)` / `Akai Haato (Sub)` / `Choco Sub
+Channel` are secondary upload channels for talents already covered by
+their main channel, and `UNIT B [Pre-Debut]` (mekPark) has not debuted
+(no chatting streams exist yet to sample). `ACHRORA` (mekPark) is
+included — active, has a `talk` topic and real video history despite
+being a newer/smaller channel.
+
+**20 talents queued**, arbitrary generation order (owner gave no
+specific order, same as the DEV_IS/veteran-JP precedent): AZKi, Sakura
+Miko, Hoshimachi Suisei (0th Gen) → Akai Haato, Natsuiro Matsuri, Aki
+Rosenthal (1st Gen) → Yuzuki Choco, Nakiri Ayame (2nd Gen) → Shiranui
+Flare, Houshou Marine, Shirogane Noel, Usada Pekora (3rd Gen Fantasy) →
+Tokoyami Towa (4th Gen holoForce) → Shishiro Botan, Momosuzu Nene (5th
+Gen holoFive) → Kazama Iroha, Hakui Koyori, La+ Darknesss (6th Gen
+holoX) → Ookami Mio (GAMERS) → ACHRORA (mekPark).
+
+Reused `scripts/run_veteran_batch.sh` unchanged (already fully generic —
+takes `name:channel_id` pairs, only needed its `DISPLAY_NAMES` map
+extended with the 20 new entries) rather than writing a new orchestrator.
+Same settings as every batch since Luna: `densify --target-n 2
+--cpu-workers 4`, Praat tracker (now default), F1-F4 formants included,
+Drive offload for `data/audio` only (`Google Drive:vanalysis-raw-audio`),
+soft-pause at 40G free / hard-stop at 15G (227G free at launch), bot-check
+(`stopped_early`) aborts the whole batch. Cookies re-exported 2026-09-03,
+still fresh. Launched as a background `nohup` process, logging to
+`data/logs/jp_remaining_batch_<timestamp>.log` plus the usual per-talent
+`<name>_densify_<timestamp>.json`; `vvc plot` + `vvc site-data` run after
+each talent so `docs/data.js` stays current incrementally rather than
+only at the very end.
+
+---
+
 ## First-batch clip ids (24-clip balanced reference)
 
 Luna 2024: `Gz_2EzLyhmQ` `ro0lFIj2MJY` `boy302x08Gg` `qyQzBoMOqXo`  
