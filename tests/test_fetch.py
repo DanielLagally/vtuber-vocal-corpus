@@ -12,8 +12,14 @@ User-visible rules (local, explicit ids only — never the network in tests):
    c. returns exactly ``data_dir / "audio" / f"{video_id}.wav"`` — never a
       path outside ``data_dir``,
    d. accepts keyword-only ``cookies: Path | str | None = None``; when it
-      is None the argv must NOT contain ``--cookies``, and when it is a
-      path the argv must contain ``--cookies`` and that path as a string.
+      is None the argv must NOT contain ``--cookies``. When it is a path,
+      the argv contains ``--cookies`` pointing at a *disposable copy* of
+      that file whose contents match the original — never the caller's
+      own path. yt-dlp rewrites its cookie jar in place after every run
+      (YouTube rotates the session cookies mid-batch), so handing it the
+      user's real export degrades that file to an auth-less stub within
+      ~100 fetches and re-trips the bot-check on long unattended runs;
+      fetch_audio must leave the caller's file byte-for-byte intact.
 3. The default runner would subprocess yt-dlp; these tests always pass a
    fake runner so pytest never hits the network and never requires
    yt-dlp to be installed. The fake only materializes a tiny wav at the
@@ -35,8 +41,15 @@ User-visible rules (local, explicit ids only — never the network in tests):
    not available" (71/74 in one Lamy batch). ``mweb`` hits the same
    experiment notice but still finds a working non-gated format on the
    same videos — confirmed by direct testing on two of the ids that
-   failed on ``web``.). Cookies, the ``15:00-30:00`` section, and
-   sequential one-at-a-time runs stay.
+   failed on ``web``.). Cookies and sequential one-at-a-time runs stay.
+   The ``15:00-30:00`` window is now cut LOCALLY with ffmpeg after
+   yt-dlp downloads the full compressed audio: yt-dlp's
+   ``--download-sections`` falls back to its ffmpeg downloader for many
+   older VODs, which streams at ~playback speed (~10 min for this
+   window vs ~20 s for a full download). So fetch_audio makes two runner
+   calls — ``yt-dlp`` (full audio, no ``--download-sections``) then
+   ``ffmpeg`` (``-ss 900 -to 1800``) — and deletes the ``<id>.full.*``
+   download once the ``<id>.wav`` cut exists.
 6. ``fetch_audio_many(video_ids, data_dir, *, runner=None, cookies=None)``
    fetches the ids in order, one yt-dlp run per id (the CLI ``fetch``
    loop over several ids is a batch of these). If one id's run fails
@@ -69,12 +82,17 @@ VIDEO_ID = "abc123stream"
 
 
 def _make_fake_runner(calls: list[list[str]], wav_path: Path):
-    """A yt-dlp stand-in: records argv, materializes a tiny wav at the
-    expected output path if the implementation did not already create it."""
+    """yt-dlp + ffmpeg stand-in: records argv and mimics the real
+    two-step flow — the ``yt-dlp`` call "downloads" ``<id>.full.wav``,
+    the ``ffmpeg`` call "cuts" that to the final ``<id>.wav``."""
+    full_path = wav_path.with_name(wav_path.stem + ".full.wav")
 
     def runner(argv: list[str]) -> None:
         calls.append(list(argv))
-        if not wav_path.exists():
+        wav_path.parent.mkdir(parents=True, exist_ok=True)
+        if argv[0] == "yt-dlp":
+            full_path.write_bytes(b"")
+        elif argv[0] == "ffmpeg":
             wav_path.write_bytes(b"")
 
     return runner
@@ -102,10 +120,14 @@ def _make_batch_runner(
     def runner(argv: list[str]) -> None:
         calls.append(list(argv))
         joined = " ".join(argv)
-        if failing_id in joined:
-            raise subprocess.CalledProcessError(returncode=1, cmd=argv)
         video_id = next(vid for vid in ids if vid in joined)
-        fetch.audio_path(video_id, data_dir).write_bytes(b"")
+        if argv[0] == "yt-dlp":
+            if video_id == failing_id:
+                raise subprocess.CalledProcessError(returncode=1, cmd=argv)
+            (data_dir / "audio").mkdir(parents=True, exist_ok=True)
+            (data_dir / "audio" / f"{video_id}.full.wav").write_bytes(b"")
+        elif argv[0] == "ffmpeg":
+            fetch.audio_path(video_id, data_dir).write_bytes(b"")
 
     return runner
 
@@ -119,37 +141,47 @@ def test_audio_path_layout(tmp_path: Path) -> None:
 
 
 def test_fetch_audio_calls_runner_with_ytdlp_and_video_id(tmp_path: Path) -> None:
-    """Rule 2b: the runner gets an argv list led by "yt-dlp" that includes
-    the video id (bare id or YouTube URL form)."""
+    """Rule 2b: the first runner call is an argv list led by "yt-dlp" that
+    includes the video id (bare id or YouTube URL form). fetch_audio then
+    makes a second call — ffmpeg, to cut the window locally."""
     calls: list[list[str]] = []
     runner = _make_fake_runner(calls, tmp_path / "audio" / f"{VIDEO_ID}.wav")
 
     fetch.fetch_audio(VIDEO_ID, tmp_path, runner=runner)
 
     assert calls, "fetch_audio must invoke the runner"
-    assert len(calls) == 1, f"runner should be invoked exactly once, got {len(calls)}"
-    argv = calls[0]
-    assert isinstance(argv, list), "runner must receive a list of argv, not a string"
-    assert argv[0] == "yt-dlp", f"argv[0] must be 'yt-dlp', got {argv!r}"
-    assert any(VIDEO_ID in part for part in argv[1:]), (
-        f"video id {VIDEO_ID!r} missing from yt-dlp argv {argv!r}"
+    assert [c[0] for c in calls] == ["yt-dlp", "ffmpeg"], (
+        f"expected a yt-dlp download then an ffmpeg cut, got {[c[0] for c in calls]!r}"
+    )
+    ytdlp = calls[0]
+    assert isinstance(ytdlp, list), "runner must receive a list of argv, not a string"
+    assert any(VIDEO_ID in part for part in ytdlp[1:]), (
+        f"video id {VIDEO_ID!r} missing from yt-dlp argv {ytdlp!r}"
+    )
+    assert "--download-sections" not in ytdlp, (
+        "the full audio is downloaded fast, then cut locally — no yt-dlp "
+        f"--download-sections (its ffmpeg fallback is ~playback speed), got {ytdlp!r}"
     )
 
 
 def test_fetch_audio_skips_waiting_room(tmp_path: Path) -> None:
-    """Waiting-room intro is not the sample: the yt-dlp section must not
-    start at 0:00. Default is 15:00–30:00 (skip first 15 min, take 15)."""
+    """Waiting-room intro is not the sample: the local cut must start at
+    15:00, not 0:00 (skip first 15 min, take 15 -> 15:00-30:00)."""
     calls: list[list[str]] = []
     runner = _make_fake_runner(calls, tmp_path / "audio" / f"{VIDEO_ID}.wav")
 
     fetch.fetch_audio(VIDEO_ID, tmp_path, runner=runner)
 
-    argv = calls[0]
-    joined = " ".join(argv)
-    assert "*0:00-" not in joined and "*0:00:" not in joined, (
-        f"must not sample the intro, got {argv!r}"
+    ffmpeg = next(c for c in calls if c[0] == "ffmpeg")
+    assert "-ss" in ffmpeg, f"ffmpeg cut must seek to the window start, got {ffmpeg!r}"
+    start = ffmpeg[ffmpeg.index("-ss") + 1]
+    assert start not in ("0", "0.0", "00:00:00"), (
+        f"must not sample the intro, cut starts at {start!r}"
     )
-    assert "15:00-30:00" in joined, f"expected 15:00-30:00 slice, got {argv!r}"
+    assert int(float(start)) == 15 * 60, f"expected a 15:00 start, got {start!r}"
+    assert "-to" in ffmpeg and int(float(ffmpeg[ffmpeg.index("-to") + 1])) == 30 * 60, (
+        f"expected a 30:00 end, got {ffmpeg!r}"
+    )
 
 
 def test_fetch_audio_creates_audio_dir_and_returns_wav_path(tmp_path: Path) -> None:
@@ -207,21 +239,71 @@ def test_fetch_audio_without_cookies_omits_cookies_flag(tmp_path: Path) -> None:
     )
 
 
-def test_fetch_audio_with_cookies_passes_flag_and_path(tmp_path: Path) -> None:
-    """Rule 2d (cookies given): a cookie file path becomes ``--cookies
-    <str(path)>`` in the yt-dlp argv."""
+def test_fetch_audio_with_cookies_passes_flag_and_copy(tmp_path: Path) -> None:
+    """Rule 2d (cookies given): yt-dlp is handed ``--cookies <path>`` where
+    <path> is a readable copy of the caller's file (same contents) that
+    exists during the call, not the caller's own path."""
     cookies = tmp_path / "youtube.cookies.txt"
-    cookies.write_bytes(b"")  # empty file; contents are irrelevant here
+    body = "# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tSID\tv\n"
+    cookies.write_text(body)
     calls: list[list[str]] = []
-    runner = _make_fake_runner(calls, tmp_path / "audio" / f"{VIDEO_ID}.wav")
+    seen: dict[str, object] = {}
+
+    def runner(argv: list[str]) -> None:
+        calls.append(list(argv))
+        (tmp_path / "audio").mkdir(parents=True, exist_ok=True)
+        if argv[0] == "yt-dlp":
+            passed = Path(argv[argv.index("--cookies") + 1])
+            seen["path"] = passed
+            seen["contents"] = passed.read_text()  # must exist mid-call
+            (tmp_path / "audio" / f"{VIDEO_ID}.full.wav").write_bytes(b"")
+        elif argv[0] == "ffmpeg":
+            fetch.audio_path(VIDEO_ID, tmp_path).write_bytes(b"")
 
     fetch.fetch_audio(VIDEO_ID, tmp_path, runner=runner, cookies=cookies)
 
-    argv = calls[0]
-    joined = " ".join(argv)
-    assert "--cookies" in joined, f"--cookies missing from yt-dlp argv {argv!r}"
-    assert str(cookies) in argv, (
-        f"cookie path {str(cookies)!r} missing from yt-dlp argv {argv!r}"
+    assert "--cookies" in calls[0], f"--cookies missing from yt-dlp argv {calls[0]!r}"
+    assert seen["path"] != cookies, (
+        f"yt-dlp was handed the caller's real cookie path {cookies!r}, not a copy"
+    )
+    assert seen["contents"] == body, (
+        "the cookie copy handed to yt-dlp does not match the caller's file"
+    )
+
+
+def test_fetch_audio_does_not_mutate_callers_cookie_file(tmp_path: Path) -> None:
+    """Rule 2d: yt-dlp rewrites its cookie jar in place after each run
+    (YouTube rotates the session cookies and yt-dlp saves the ever-smaller
+    jar back over the file it was given). fetch_audio must shield the
+    caller's export — it stays byte-for-byte intact even when the runner
+    truncates the path it received."""
+    cookies = tmp_path / "youtube.cookies.txt"
+    original = (
+        "# Netscape HTTP Cookie File\n"
+        ".youtube.com\tTRUE\t/\tTRUE\t0\tSID\treal\n"
+        ".youtube.com\tTRUE\t/\tTRUE\t0\tHSID\treal\n"
+    )
+    cookies.write_text(original)
+    calls: list[list[str]] = []
+
+    def runner(argv: list[str]) -> None:
+        calls.append(list(argv))
+        (tmp_path / "audio").mkdir(parents=True, exist_ok=True)
+        if argv[0] == "yt-dlp":
+            # mimic yt-dlp's cookie-jar write-back: the file it was handed
+            # comes back rewritten, here truncated to an auth-less stub.
+            Path(argv[argv.index("--cookies") + 1]).write_text(
+                "# Netscape HTTP Cookie File\n"
+            )
+            (tmp_path / "audio" / f"{VIDEO_ID}.full.wav").write_bytes(b"")
+        elif argv[0] == "ffmpeg":
+            fetch.audio_path(VIDEO_ID, tmp_path).write_bytes(b"")
+
+    fetch.fetch_audio(VIDEO_ID, tmp_path, runner=runner, cookies=cookies)
+
+    assert cookies.read_text() == original, (
+        "fetch_audio let yt-dlp rewrite the caller's cookie file; it must "
+        "pass a disposable copy instead"
     )
 
 
@@ -259,9 +341,10 @@ def test_fetch_batch_skips_failed_id_and_continues(
     fetch.fetch_audio_many(ids, tmp_path, runner=runner)  # must not raise
 
     # Every id was attempted exactly once, in order — including the ids
-    # that come after the failing one.
-    assert [argv[0] for argv in calls] == ["yt-dlp"] * len(ids)
-    attempted = [next(vid for vid in ids if vid in " ".join(argv)) for argv in calls]
+    # that come after the failing one. (One yt-dlp call per id; successful
+    # ids get a follow-up ffmpeg cut.)
+    ytdlp = [argv for argv in calls if argv[0] == "yt-dlp"]
+    attempted = [next(vid for vid in ids if vid in " ".join(argv)) for argv in ytdlp]
     assert attempted == ids, f"batch must attempt every id in order, got {attempted}"
 
     # Later ids really got their wavs; the failed id's wav stays absent

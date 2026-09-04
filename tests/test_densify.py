@@ -144,10 +144,12 @@ def silent_wav() -> Path:
 
 
 class _FakeFetch:
-    """Stand-in for yt-dlp: writes a copy of source_wav to the -o
-    destination, recording every call. One id can be configured to fail
-    ordinarily (simulating a yt-dlp non-zero exit), and/or a different
-    id to trigger the bot-check signal."""
+    """Stand-in for fetch_audio's two runner calls: the ``yt-dlp`` call
+    writes ``<id>.full.wav`` (the "full download"), the ``ffmpeg`` call
+    copies that to the final ``<id>.wav`` (the "cut"). Records every
+    call. One id can be configured to fail ordinarily (simulating a
+    yt-dlp non-zero exit), and/or a different id to trigger the
+    bot-check signal."""
 
     def __init__(
         self,
@@ -162,6 +164,9 @@ class _FakeFetch:
 
     def __call__(self, argv: list[str]) -> None:
         self.calls.append(list(argv))
+        if argv[0] == "ffmpeg":
+            shutil.copyfile(self.source, Path(argv[-1]))
+            return
         video_id = argv[-1].rsplit("=", 1)[-1]
         if self.bot_check_for is not None and video_id == self.bot_check_for:
             raise densify_fetch.BotCheckDetected(
@@ -171,8 +176,11 @@ class _FakeFetch:
             import subprocess
 
             raise subprocess.CalledProcessError(1, argv)
-        dest = Path(argv[argv.index("-o") + 1]).with_suffix(".wav")
-        shutil.copyfile(self.source, dest)
+        tmpl = Path(argv[argv.index("-o") + 1])  # <dir>/<id>.full.%(ext)s
+        tmpl.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(
+            self.source, tmpl.with_name(tmpl.name.replace(".%(ext)s", ".wav"))
+        )
 
 
 class _FakeIsolate:
@@ -204,9 +212,17 @@ class _PerIdFetch:
 
     def __call__(self, argv: list[str]) -> None:
         self.calls.append(list(argv))
+        if argv[0] == "ffmpeg":
+            dest = Path(argv[-1])
+            video_id = dest.stem
+            shutil.copyfile(self.sources[video_id], dest)
+            return
         video_id = argv[-1].rsplit("=", 1)[-1]
-        dest = Path(argv[argv.index("-o") + 1]).with_suffix(".wav")
-        shutil.copyfile(self.sources[video_id], dest)
+        tmpl = Path(argv[argv.index("-o") + 1])  # <dir>/<id>.full.%(ext)s
+        tmpl.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(
+            self.sources[video_id], tmpl.with_name(tmpl.name.replace(".%(ext)s", ".wav"))
+        )
 
 
 class _FakeOffloadRunner:
