@@ -12,8 +12,14 @@ User-visible rules (local, explicit ids only — never the network in tests):
    c. returns exactly ``data_dir / "audio" / f"{video_id}.wav"`` — never a
       path outside ``data_dir``,
    d. accepts keyword-only ``cookies: Path | str | None = None``; when it
-      is None the argv must NOT contain ``--cookies``, and when it is a
-      path the argv must contain ``--cookies`` and that path as a string.
+      is None the argv must NOT contain ``--cookies``. When it is a path,
+      the argv contains ``--cookies`` pointing at a *disposable copy* of
+      that file whose contents match the original — never the caller's
+      own path. yt-dlp rewrites its cookie jar in place after every run
+      (YouTube rotates the session cookies mid-batch), so handing it the
+      user's real export degrades that file to an auth-less stub within
+      ~100 fetches and re-trips the bot-check on long unattended runs;
+      fetch_audio must leave the caller's file byte-for-byte intact.
 3. The default runner would subprocess yt-dlp; these tests always pass a
    fake runner so pytest never hits the network and never requires
    yt-dlp to be installed. The fake only materializes a tiny wav at the
@@ -233,21 +239,71 @@ def test_fetch_audio_without_cookies_omits_cookies_flag(tmp_path: Path) -> None:
     )
 
 
-def test_fetch_audio_with_cookies_passes_flag_and_path(tmp_path: Path) -> None:
-    """Rule 2d (cookies given): a cookie file path becomes ``--cookies
-    <str(path)>`` in the yt-dlp argv."""
+def test_fetch_audio_with_cookies_passes_flag_and_copy(tmp_path: Path) -> None:
+    """Rule 2d (cookies given): yt-dlp is handed ``--cookies <path>`` where
+    <path> is a readable copy of the caller's file (same contents) that
+    exists during the call, not the caller's own path."""
     cookies = tmp_path / "youtube.cookies.txt"
-    cookies.write_bytes(b"")  # empty file; contents are irrelevant here
+    body = "# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tSID\tv\n"
+    cookies.write_text(body)
     calls: list[list[str]] = []
-    runner = _make_fake_runner(calls, tmp_path / "audio" / f"{VIDEO_ID}.wav")
+    seen: dict[str, object] = {}
+
+    def runner(argv: list[str]) -> None:
+        calls.append(list(argv))
+        (tmp_path / "audio").mkdir(parents=True, exist_ok=True)
+        if argv[0] == "yt-dlp":
+            passed = Path(argv[argv.index("--cookies") + 1])
+            seen["path"] = passed
+            seen["contents"] = passed.read_text()  # must exist mid-call
+            (tmp_path / "audio" / f"{VIDEO_ID}.full.wav").write_bytes(b"")
+        elif argv[0] == "ffmpeg":
+            fetch.audio_path(VIDEO_ID, tmp_path).write_bytes(b"")
 
     fetch.fetch_audio(VIDEO_ID, tmp_path, runner=runner, cookies=cookies)
 
-    argv = calls[0]
-    joined = " ".join(argv)
-    assert "--cookies" in joined, f"--cookies missing from yt-dlp argv {argv!r}"
-    assert str(cookies) in argv, (
-        f"cookie path {str(cookies)!r} missing from yt-dlp argv {argv!r}"
+    assert "--cookies" in calls[0], f"--cookies missing from yt-dlp argv {calls[0]!r}"
+    assert seen["path"] != cookies, (
+        f"yt-dlp was handed the caller's real cookie path {cookies!r}, not a copy"
+    )
+    assert seen["contents"] == body, (
+        "the cookie copy handed to yt-dlp does not match the caller's file"
+    )
+
+
+def test_fetch_audio_does_not_mutate_callers_cookie_file(tmp_path: Path) -> None:
+    """Rule 2d: yt-dlp rewrites its cookie jar in place after each run
+    (YouTube rotates the session cookies and yt-dlp saves the ever-smaller
+    jar back over the file it was given). fetch_audio must shield the
+    caller's export — it stays byte-for-byte intact even when the runner
+    truncates the path it received."""
+    cookies = tmp_path / "youtube.cookies.txt"
+    original = (
+        "# Netscape HTTP Cookie File\n"
+        ".youtube.com\tTRUE\t/\tTRUE\t0\tSID\treal\n"
+        ".youtube.com\tTRUE\t/\tTRUE\t0\tHSID\treal\n"
+    )
+    cookies.write_text(original)
+    calls: list[list[str]] = []
+
+    def runner(argv: list[str]) -> None:
+        calls.append(list(argv))
+        (tmp_path / "audio").mkdir(parents=True, exist_ok=True)
+        if argv[0] == "yt-dlp":
+            # mimic yt-dlp's cookie-jar write-back: the file it was handed
+            # comes back rewritten, here truncated to an auth-less stub.
+            Path(argv[argv.index("--cookies") + 1]).write_text(
+                "# Netscape HTTP Cookie File\n"
+            )
+            (tmp_path / "audio" / f"{VIDEO_ID}.full.wav").write_bytes(b"")
+        elif argv[0] == "ffmpeg":
+            fetch.audio_path(VIDEO_ID, tmp_path).write_bytes(b"")
+
+    fetch.fetch_audio(VIDEO_ID, tmp_path, runner=runner, cookies=cookies)
+
+    assert cookies.read_text() == original, (
+        "fetch_audio let yt-dlp rewrite the caller's cookie file; it must "
+        "pass a disposable copy instead"
     )
 
 

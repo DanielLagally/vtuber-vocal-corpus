@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
@@ -104,36 +107,55 @@ def fetch_audio(
         "-o",
         str(full_tmpl),
     ]
+    cookies_copy: Path | None = None
     if cookies is not None:
-        argv.extend(["--cookies", str(cookies)])
+        # yt-dlp rewrites its cookie jar in place after every run (YouTube
+        # rotates the session cookies mid-batch and yt-dlp saves the
+        # ever-smaller jar back over the file it was handed). Give it a
+        # disposable copy each call so the caller's export — the thing a
+        # human has to keep re-exporting — stays byte-for-byte intact.
+        fd, tmp = tempfile.mkstemp(
+            prefix=f"{video_id}.", suffix=".cookies", dir=str(data_dir)
+        )
+        os.close(fd)
+        cookies_copy = Path(tmp)
+        shutil.copyfile(cookies, cookies_copy)
+        argv.extend(["--cookies", str(cookies_copy)])
     argv.append(f"{_YT_WATCH}{video_id}")
-    run(argv)
+    try:
+        run(argv)
 
-    full = _full_audio_glob(video_id, data_dir)
-    if not full:
-        # A fake runner in tests materializes the final wav directly and
-        # never writes a *.full.* download — nothing to cut, honour it.
-        if dest.exists():
-            return dest
-        raise subprocess.CalledProcessError(1, argv, "", "yt-dlp produced no audio")
+        full = _full_audio_glob(video_id, data_dir)
+        if not full:
+            # A fake runner in tests materializes the final wav directly
+            # and never writes a *.full.* download — nothing to cut,
+            # honour it.
+            if dest.exists():
+                return dest
+            raise subprocess.CalledProcessError(
+                1, argv, "", "yt-dlp produced no audio"
+            )
 
-    # 2. cut the 15:00-30:00 window to wav, locally (instant).
-    slice_argv = [
-        "ffmpeg",
-        "-y",
-        "-ss",
-        str(_SECTION_START_S),
-        "-to",
-        str(_SECTION_END_S),
-        "-i",
-        str(full[0]),
-        "-vn",
-        str(dest),
-    ]
-    run(slice_argv)
-    for leftover in _full_audio_glob(video_id, data_dir):
-        leftover.unlink(missing_ok=True)
-    return dest
+        # 2. cut the 15:00-30:00 window to wav, locally (instant).
+        slice_argv = [
+            "ffmpeg",
+            "-y",
+            "-ss",
+            str(_SECTION_START_S),
+            "-to",
+            str(_SECTION_END_S),
+            "-i",
+            str(full[0]),
+            "-vn",
+            str(dest),
+        ]
+        run(slice_argv)
+        for leftover in _full_audio_glob(video_id, data_dir):
+            leftover.unlink(missing_ok=True)
+        return dest
+    finally:
+        if cookies_copy is not None:
+            cookies_copy.unlink(missing_ok=True)
 
 
 def fetch_audio_many(
