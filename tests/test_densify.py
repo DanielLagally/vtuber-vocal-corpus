@@ -92,6 +92,44 @@ def test_candidate_ids_absent_when_no_further_eligible_video() -> None:
     assert buckets == {}
 
 
+def test_candidate_ids_excludes_ids_tried_and_failed_this_run() -> None:
+    """A fetch failure never becomes a record (candidate_ids' only
+    exclusion source before this), so re-scoring the same month with no
+    excluded_ids would return the exact same top-scored (and already
+    known-failing) video forever. excluded_ids lets a caller (run_densify,
+    across cascade rounds) rule out ids it already tried and knows fail,
+    so the NEXT-best real candidate in that month gets offered instead —
+    this is the actual fix for the 2026-09-06 finding that months with
+    10+ real eligible candidates were getting stuck at 0 records because
+    only the top target_n scored ones (which happened to be privated)
+    were ever considered, never falling through to the rest."""
+    records: list[dict] = []
+    cached = [
+        _video("topscored01", "2024-08"),  # score_boost=0.0 -> lower duration/score tiebreak
+        _video("secondbest1", "2024-08", score_boost=1.0),
+    ]
+    # Without exclusion, the higher-scored video wins regardless of order.
+    baseline = densify.candidate_ids(records, cached, target_n=1)
+    assert [v["id"] for v in baseline["2024-08"]] == ["secondbest1"]
+
+    buckets = densify.candidate_ids(
+        records, cached, target_n=1, excluded_ids={"secondbest1"}
+    )
+    assert [v["id"] for v in buckets["2024-08"]] == ["topscored01"], (
+        "excluding the top candidate must fall through to the next-best "
+        "one, not return nothing for the month"
+    )
+
+
+def test_candidate_ids_absent_when_all_eligible_excluded() -> None:
+    records: list[dict] = []
+    cached = [_video("onlyid00002", "2024-09")]
+    buckets = densify.candidate_ids(
+        records, cached, target_n=1, excluded_ids={"onlyid00002"}
+    )
+    assert buckets == {}
+
+
 # ---------------------------------------------------------------- fixtures
 
 
@@ -348,6 +386,48 @@ def test_run_densify_fetch_failure_is_skipped_batch_continues(
     assert summary["ids"]["failid00001"] == "skipped_fetch_failed"
     assert summary["ids"]["okid0000001"] == "added"
     assert summary["counts"]["added"] == 1
+
+
+def test_run_densify_cascades_to_next_candidate_after_fetch_failure(
+    tmp_path: Path, source_wav: Path
+) -> None:
+    """The 2026-09-06 finding: a month can have many real eligible
+    candidates, but candidate_ids always offered the same top-scored
+    one(s) — a genuinely-unavailable top pick permanently stuck that
+    month at 0 records, even with 10+ real alternatives sitting in the
+    cache, because nothing ever excluded a FAILED id from being
+    re-offered. run_densify must fall through to the next-highest-scored
+    candidate in the same month, in the same run, when the top one
+    fails — not just mark the month as exhausted after one loss."""
+    records: list[dict] = []
+    cached = [
+        _video("failstop001", "2024-08", score_boost=1.0),  # scores highest, will fail
+        _video("realone0001", "2024-08"),  # next-best; genuinely fetchable
+    ]
+    tree = _tree(tmp_path, records, cached)
+    fetch = _FakeFetch(source_wav, fail_for="failstop001")
+
+    summary = densify.run_densify(
+        tree["data_dir"],
+        measurements_path=tree["measurements_path"],
+        video_cache_path=tree["video_cache_path"],
+        windows_path=tree["windows_path"],
+        stems_dir=tree["stems_dir"],
+        model_filename=MODEL_CKPT,
+        target_n=1,
+        fetch_runner=fetch,
+        isolate_runner=_FakeIsolate(),
+    )
+
+    assert summary["ids"]["failstop001"] == "skipped_fetch_failed"
+    assert summary["ids"]["realone0001"] == "added", (
+        "the next-best real candidate in the same month must be tried "
+        "and succeed within the same run, not left for a future "
+        "re-invocation that would just re-offer the same failing id"
+    )
+    assert summary["counts"]["added"] == 1
+    out = json.loads(tree["measurements_path"].read_text(encoding="utf-8"))
+    assert [r["id"] for r in out] == ["realone0001"]
 
 
 def test_run_densify_stops_immediately_on_bot_check(

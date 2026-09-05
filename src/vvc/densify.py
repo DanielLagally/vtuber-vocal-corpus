@@ -78,20 +78,34 @@ _OUTCOME_BOT_CHECK = "skipped_bot_check"
 
 
 def candidate_ids(
-    records: list[dict], cached_videos: list[dict], target_n: int
+    records: list[dict],
+    cached_videos: list[dict],
+    target_n: int,
+    excluded_ids: set[str] | None = None,
 ) -> dict[str, list[dict]]:
     """``{month: [video dicts to add]}`` for every month whose current
     record count is below ``target_n``: the next-highest-scored eligible
     videos (``pick_monthly_n`` order, i.e. score desc then newest first)
-    that are NOT already present as a record for that month, capped so
-    the month reaches (but never exceeds) ``target_n``. A month the
-    cached catalog has no further eligible video for is simply absent
-    (never padded, never an error)."""
+    that are NOT already present as a record for that month and NOT in
+    ``excluded_ids``, capped so the month reaches (but never exceeds)
+    ``target_n``. A month the cached catalog has no further eligible
+    video for is simply absent (never padded, never an error).
+
+    ``excluded_ids`` (default none) additionally rules out ids a caller
+    already tried and knows fail this run — a fetch failure never
+    becomes a record, so without this, re-scoring the same month would
+    offer the exact same (already known-failing) top candidate forever.
+    Every eligible video per month is considered here (not just the top
+    ``target_n``), so there's a deep enough ranked pool to fall through
+    into when the top pick(s) are excluded — see ``run_densify``'s
+    cascade loop, which is the actual caller of this parameter."""
+    excluded_ids = excluded_ids or set()
     have_by_month: dict[str, set[str]] = {}
     for record in records:
         have_by_month.setdefault(record["month"], set()).add(record["id"])
 
-    eligible = pick_monthly_n(filter_videos(cached_videos), n=target_n)
+    filtered = filter_videos(cached_videos)
+    eligible = pick_monthly_n(filtered, n=len(filtered)) if filtered else []
     by_month: dict[str, list[dict]] = {}
     for video in eligible:
         when = _available_dt(video)
@@ -106,7 +120,11 @@ def candidate_ids(
         need = target_n - len(have)
         if need <= 0:
             continue
-        fresh = [v for v in videos if v["id"] not in have][:need]
+        fresh = [
+            v
+            for v in videos
+            if v["id"] not in have and v["id"] not in excluded_ids
+        ][:need]
         if fresh:
             out[month] = fresh
     return out
@@ -163,13 +181,10 @@ def run_densify(
         else {}
     )
 
-    buckets = candidate_ids(records, cached_videos, target_n)
-    todo = [
-        (month, video) for month in sorted(buckets) for video in buckets[month]
-    ]
-
     outcomes: dict[str, str] = {}
     stopped_early: str | None = None
+    snapshot_written = False
+    all_months_targeted: set[str] = set()
 
     outcomes_lock = threading.Lock()
     windows_lock = threading.Lock()
@@ -188,14 +203,6 @@ def run_densify(
         # Caller holds windows_lock.
         windows_path.parent.mkdir(parents=True, exist_ok=True)
         windows_path.write_text(json.dumps(windows, indent=2) + "\n", encoding="utf-8")
-
-    # Eager, unconditional snapshot (rather than lazily on first success)
-    # so it's trivially race-free under concurrent drivers.
-    snapshot_written = bool(todo) and not dry_run
-    if snapshot_written:
-        snapshot = _snapshot_path(measurements_path)
-        if not snapshot.exists():
-            shutil.copyfile(measurements_path, snapshot)
 
     def _fetch_stage(video_id: str) -> Path | None:
         """Ensure raw audio exists locally if it's still needed. Returns
@@ -304,69 +311,108 @@ def run_densify(
                 runner=offload_runner,
             )
 
-    work_queue: queue.Queue[tuple[str, dict, Path] | None] = queue.Queue(
-        maxsize=_FETCH_AHEAD
-    )
-
-    def _consume(gpu_pool: ThreadPoolExecutor, offload_pool: ThreadPoolExecutor) -> None:
-        while True:
-            item = work_queue.get()
-            if item is None:
-                return
-            month, video, raw_wav = item
-            try:
-                _process_one(month, video, raw_wav, gpu_pool, offload_pool)
-            except Exception as exc:  # noqa: BLE001 — ordinary failures never abort
-                _emit(video["id"], "error", f"{type(exc).__name__}: {exc}")
-
-    with (
-        ThreadPoolExecutor(max_workers=n_workers) as driver_pool,
-        ThreadPoolExecutor(max_workers=1) as gpu_pool,
-        ThreadPoolExecutor(max_workers=2) as offload_pool,
-    ):
-        consumer_futures = [
-            driver_pool.submit(_consume, gpu_pool, offload_pool)
-            for _ in range(n_workers)
+    # Cascade loop: a month's top-scored candidate(s) can be genuinely
+    # unavailable (private/deleted/region-locked). Without this, a
+    # month with 10+ real eligible candidates could get permanently
+    # stuck at 0 records forever, re-offering the same known-failing
+    # top pick(s) on every future re-invocation, since a fetch failure
+    # never becomes a record and candidate_ids had no other way to
+    # exclude it (found 2026-09-06 auditing true month coverage —
+    # confirmed on Suisei/Haato/Ayame/Coco/Ao, all of which have far
+    # more real available content than their pre-fix coverage showed).
+    # Each round excludes every id that already has ANY outcome this
+    # run (success or failure) and re-asks candidate_ids for whatever's
+    # next in the ranked list; a round with an empty todo means the
+    # ranked list is genuinely exhausted for every still-under-target
+    # month, which terminates the loop (excluded_ids only grows, so
+    # this is bounded by the size of the cached catalog).
+    while True:
+        excluded_ids = set(outcomes)
+        buckets = candidate_ids(records, cached_videos, target_n, excluded_ids=excluded_ids)
+        todo = [
+            (month, video) for month in sorted(buckets) for video in buckets[month]
         ]
+        all_months_targeted.update(buckets)
+        if not todo:
+            break
 
-        # Fetch stays a single sequential loop, in order — the risky,
-        # rate-limited resource — feeding the bounded queue that the
-        # driver threads above consume concurrently.
-        for month, video in todo:
-            video_id = video["id"]
-            try:
-                raw_wav = _fetch_stage(video_id)
-            except BotCheckDetected as exc:
-                # Session/IP-level signal, not a per-video gap: stop
-                # issuing any NEW fetch — every further fetch would
-                # likely hit the same wall and only raise more suspicion
-                # (PLAN "how we can improve further"). Clips already
-                # queued/in-flight involve no further network activity,
-                # so they're allowed to drain rather than be discarded.
-                _emit(video_id, _OUTCOME_BOT_CHECK, str(exc))
-                stopped_early = video_id
-                break
-            except Exception as exc:  # noqa: BLE001 — ordinary failures never abort
-                _emit(video_id, "error", f"{type(exc).__name__}: {exc}")
-                continue
-            if raw_wav is not None:
-                work_queue.put((month, video, raw_wav))
+        # Eager, unconditional snapshot (rather than lazily on first
+        # success) so it's trivially race-free under concurrent drivers.
+        # Only taken once, before the first round's first write.
+        if not snapshot_written and not dry_run:
+            snapshot = _snapshot_path(measurements_path)
+            if not snapshot.exists():
+                shutil.copyfile(measurements_path, snapshot)
+            snapshot_written = True
 
-        for _ in consumer_futures:
-            work_queue.put(None)
-        for future in consumer_futures:
-            future.result()
+        work_queue: queue.Queue[tuple[str, dict, Path] | None] = queue.Queue(
+            maxsize=_FETCH_AHEAD
+        )
+
+        def _consume(
+            gpu_pool: ThreadPoolExecutor, offload_pool: ThreadPoolExecutor
+        ) -> None:
+            while True:
+                item = work_queue.get()
+                if item is None:
+                    return
+                month, video, raw_wav = item
+                try:
+                    _process_one(month, video, raw_wav, gpu_pool, offload_pool)
+                except Exception as exc:  # noqa: BLE001 — ordinary failures never abort
+                    _emit(video["id"], "error", f"{type(exc).__name__}: {exc}")
+
+        with (
+            ThreadPoolExecutor(max_workers=n_workers) as driver_pool,
+            ThreadPoolExecutor(max_workers=1) as gpu_pool,
+            ThreadPoolExecutor(max_workers=2) as offload_pool,
+        ):
+            consumer_futures = [
+                driver_pool.submit(_consume, gpu_pool, offload_pool)
+                for _ in range(n_workers)
+            ]
+
+            # Fetch stays a single sequential loop, in order — the risky,
+            # rate-limited resource — feeding the bounded queue that the
+            # driver threads above consume concurrently.
+            for month, video in todo:
+                video_id = video["id"]
+                try:
+                    raw_wav = _fetch_stage(video_id)
+                except BotCheckDetected as exc:
+                    # Session/IP-level signal, not a per-video gap: stop
+                    # issuing any NEW fetch — every further fetch would
+                    # likely hit the same wall and only raise more suspicion
+                    # (PLAN "how we can improve further"). Clips already
+                    # queued/in-flight involve no further network activity,
+                    # so they're allowed to drain rather than be discarded.
+                    _emit(video_id, _OUTCOME_BOT_CHECK, str(exc))
+                    stopped_early = video_id
+                    break
+                except Exception as exc:  # noqa: BLE001 — ordinary failures never abort
+                    _emit(video_id, "error", f"{type(exc).__name__}: {exc}")
+                    continue
+                if raw_wav is not None:
+                    work_queue.put((month, video, raw_wav))
+
+            for _ in consumer_futures:
+                work_queue.put(None)
+            for future in consumer_futures:
+                future.result()
+
+        if dry_run or stopped_early is not None:
+            break
 
     counts = {
         "added": sum(1 for o in outcomes.values() if o == _OUTCOME_ADDED),
         "skipped": sum(1 for o in outcomes.values() if o.startswith("skipped_")),
         "error": sum(1 for o in outcomes.values() if o == "error"),
-        "total": len(todo),
+        "total": len(outcomes),
     }
     return {
         "ids": outcomes,
         "counts": counts,
-        "months_targeted": sorted(buckets),
+        "months_targeted": sorted(all_months_targeted),
         "snapshot": str(_snapshot_path(measurements_path)) if snapshot_written else None,
         "stopped_early": stopped_early,
         "dry_run": dry_run,
