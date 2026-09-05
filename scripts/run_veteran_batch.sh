@@ -73,6 +73,13 @@ declare -A DISPLAY_NAMES=(
   [laplus]="La+ Darknesss"
   [mio]="Ookami Mio"
   [achrora]="ACHRORA"
+  [ao]="Hiodoshi Ao"
+  [niko]="Koganei Niko"
+  [su]="Mizumiya Su"
+  [luna]="Himemori Luna"
+  [sora]="Tokino Sora"
+  [raora]="Raora Panthera"
+  [kanade]="Otonose Kanade"
 )
 
 for pair in "$@"; do
