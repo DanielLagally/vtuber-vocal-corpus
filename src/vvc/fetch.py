@@ -20,6 +20,14 @@ _YT_WATCH = "https://www.youtube.com/watch?v="
 _SECTION_START_S = 15 * 60
 _SECTION_END_S = 30 * 60
 
+# If a bgutil-ytdlp-pot-provider plugin install is present (see CLAUDE.md
+# "PO-token provider"), point yt-dlp at it via PYTHONPATH — this nixpkgs
+# yt-dlp ignores --plugin-dirs entirely, PYTHONPATH is the only way it
+# picks up a plugin. Absent on a machine with no provider set up; that's
+# fine, --extractor-args "fetch_pot=always" then just logs a warning and
+# falls back to a token-less format instead of erroring.
+_POT_PLUGIN_DIR = Path.home() / ".config" / "yt-dlp" / "plugins"
+
 # Matched as two separate substrings so the exact apostrophe glyph
 # (straight vs yt-dlp's curly "'") never matters.
 _BOT_CHECK_MARKERS = ("Sign in to confirm you", "not a bot")
@@ -54,7 +62,13 @@ def _video_id_from_argv(argv: list[str]) -> str:
 
 
 def _default_runner(argv: list[str]) -> object:
-    result = subprocess.run(argv, capture_output=True, text=True)
+    env = os.environ.copy()
+    if _POT_PLUGIN_DIR.is_dir():
+        existing = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            f"{_POT_PLUGIN_DIR}{os.pathsep}{existing}" if existing else str(_POT_PLUGIN_DIR)
+        )
+    result = subprocess.run(argv, capture_output=True, text=True, env=env)
     if result.stdout:
         sys.stdout.write(result.stdout)
     if result.stderr:
@@ -85,6 +99,13 @@ def _cleanup_partial(video_id: str, data_dir: Path) -> None:
         leftover.unlink(missing_ok=True)
 
 
+_FETCH_ATTEMPTS = 2  # the PO-token gate is probabilistic per-request, not a
+# fixed per-video denylist — the same id can fail then succeed moments
+# later with the identical client/token/cookie combo (confirmed 2026-09-05
+# on hololive JP veteran talents). One retry recovers a real chunk of
+# these without the complexity of juggling multiple client strategies.
+
+
 def fetch_audio(
     video_id: str,
     data_dir: Path,
@@ -96,14 +117,40 @@ def fetch_audio(
     dest.parent.mkdir(parents=True, exist_ok=True)
     run = runner if runner is not None else _default_runner
 
-    # 1. full compressed audio via yt-dlp's own downloader (fast).
+    last_error: subprocess.CalledProcessError | None = None
+    for attempt in range(_FETCH_ATTEMPTS):
+        try:
+            return _fetch_audio_once(video_id, data_dir, dest, run, cookies)
+        except subprocess.CalledProcessError as exc:
+            last_error = exc
+    assert last_error is not None
+    raise last_error
+
+
+def _fetch_audio_once(
+    video_id: str,
+    data_dir: Path,
+    dest: Path,
+    run: Callable[[list[str]], object],
+    cookies: Path | str | None,
+) -> Path:
+    # full compressed audio via yt-dlp's own downloader (fast). mweb +
+    # fetch_pot=always: cookies alone dodge the classic bot-check but
+    # yt-dlp's default policy never bothers requesting a PO token for an
+    # authenticated session, so a video caught by YouTube's per-video GVS
+    # PO-token experiment (see CLAUDE.md) has no fallback and just fails.
+    # Forcing the token fetch — paired with cookies, not instead of them —
+    # recovered ids that failed under every other combination tested
+    # (plain cookies, cookieless, web_embedded, mweb+token without
+    # cookies). Safe when no PO-token provider is installed: yt-dlp just
+    # warns and falls back to a token-less format, per _POT_PLUGIN_DIR.
     full_tmpl = dest.parent / f"{video_id}.full.%(ext)s"
     argv = [
         "yt-dlp",
         "-f",
         "bestaudio/best",
         "--extractor-args",
-        "youtube:player_client=web_embedded",
+        "youtube:player_client=mweb;fetch_pot=always",
         "-o",
         str(full_tmpl),
     ]

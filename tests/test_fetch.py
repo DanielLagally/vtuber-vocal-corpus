@@ -76,6 +76,8 @@ User-visible rules (local, explicit ids only — never the network in tests):
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from vvc import fetch
 
 VIDEO_ID = "abc123stream"
@@ -310,21 +312,27 @@ def test_fetch_audio_does_not_mutate_callers_cookie_file(tmp_path: Path) -> None
     )
 
 
-def test_fetch_audio_uses_web_embedded_player_client(tmp_path: Path) -> None:
+def test_fetch_audio_uses_mweb_with_forced_pot(tmp_path: Path) -> None:
     """Rule 5: the yt-dlp extractor must be pinned to
-    player_client=web_embedded. android/android_vr are skipped by
-    yt-dlp whenever --cookies is passed ("does not support cookies") —
-    silently dropping our cookies and still hitting the bot-check; tv
-    fails with "The page needs to be reloaded"; web and then mweb each
-    worked only until YouTube's per-video GVS PO Token experiment
-    expanded to cover them too (2026-09-05: mweb started failing
-    "Video unavailable" on ~89% of a Flare densify run, confirmed via
-    yt-dlp -v: "Detected experiment to bind GVS PO Token to video ID
-    for mweb client" — 134/151 of the failed ids were confirmed
-    non-private via Holodex's own "past" status, spanning 2021-2026,
-    so this was never real unavailability). web_embedded resolves a
-    real, non-PO-token-gated format on both the ids that failed under
-    mweb and ids that already worked under mweb (no regression)."""
+    player_client=mweb;fetch_pot=always. android/android_vr are skipped
+    by yt-dlp whenever --cookies is passed ("does not support cookies")
+    — silently dropping our cookies and still hitting the bot-check; tv
+    fails with "The page needs to be reloaded"; web, then mweb, then
+    web_embedded each worked only until YouTube's per-video GVS PO
+    Token experiment expanded to cover them too. Root cause found
+    2026-09-05: yt-dlp only requests a PO token when its internal
+    per-client policy says one is "required" — an authenticated
+    (cookie'd) session never trips that, so a video caught by the
+    experiment just fails with no fallback. --extractor-args
+    "fetch_pot=always" forces the request regardless of policy;
+    combined with cookies (not instead of them — a self-hosted
+    bgutil-ytdlp-pot-provider server, see CLAUDE.md) it recovered ids
+    that failed under every other combination tried (plain cookies,
+    cookieless, web_embedded, mweb+token without cookies). Still only
+    a partial mitigation (see test_fetch_audio_retries_once_before_giving_up):
+    the same id can fail then succeed moments later with the identical
+    combo, so this is a probabilistic per-request gate, not a fixed
+    per-video denylist."""
     calls: list[list[str]] = []
     runner = _make_fake_runner(calls, tmp_path / "audio" / f"{VIDEO_ID}.wav")
 
@@ -334,9 +342,58 @@ def test_fetch_audio_uses_web_embedded_player_client(tmp_path: Path) -> None:
     assert "--extractor-args" in argv, (
         f"--extractor-args missing from yt-dlp argv {argv!r}"
     )
-    assert "youtube:player_client=web_embedded" in argv, (
-        f"expected youtube:player_client=web_embedded in yt-dlp argv, got {argv!r}"
+    assert "youtube:player_client=mweb;fetch_pot=always" in argv, (
+        f"expected youtube:player_client=mweb;fetch_pot=always in yt-dlp argv, got {argv!r}"
     )
+
+
+def test_fetch_audio_retries_once_before_giving_up(tmp_path: Path) -> None:
+    """Rule 5 (retry): the PO-token gate is probabilistic per-request —
+    confirmed 2026-09-05 by re-testing the exact same id/client/cookie
+    combo moments apart and getting a different result each time. A
+    single retry recovers a real share of these without the complexity
+    of juggling multiple client strategies. fetch_audio must attempt up
+    to fetch._FETCH_ATTEMPTS times, returning success as soon as one
+    attempt works."""
+    calls: list[list[str]] = []
+    wav_path = tmp_path / "audio" / f"{VIDEO_ID}.wav"
+    full_path = wav_path.with_name(wav_path.stem + ".full.wav")
+    attempts = {"n": 0}
+
+    def runner(argv: list[str]) -> None:
+        calls.append(list(argv))
+        if argv[0] == "yt-dlp":
+            attempts["n"] += 1
+            if attempts["n"] == 1:
+                raise subprocess.CalledProcessError(returncode=1, cmd=argv)
+            wav_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_bytes(b"")
+        elif argv[0] == "ffmpeg":
+            wav_path.write_bytes(b"")
+
+    result = fetch.fetch_audio(VIDEO_ID, tmp_path, runner=runner)
+
+    assert result == wav_path
+    assert attempts["n"] == 2, "must retry exactly once after the first failure"
+
+
+def test_fetch_audio_raises_after_exhausting_retries(tmp_path: Path) -> None:
+    """Rule 5 (retry budget): a video that fails every attempt is still
+    a real failure, not retried forever — fetch_audio must raise the
+    same CalledProcessError fetch_audio_many already knows how to catch
+    and skip, after exactly fetch._FETCH_ATTEMPTS tries."""
+    calls: list[list[str]] = []
+
+    def runner(argv: list[str]) -> None:
+        calls.append(list(argv))
+        if argv[0] == "yt-dlp":
+            raise subprocess.CalledProcessError(returncode=1, cmd=argv)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        fetch.fetch_audio(VIDEO_ID, tmp_path, runner=runner)
+
+    ytdlp_calls = [argv for argv in calls if argv[0] == "yt-dlp"]
+    assert len(ytdlp_calls) == fetch._FETCH_ATTEMPTS
 
 
 def test_fetch_batch_skips_failed_id_and_continues(
@@ -350,12 +407,16 @@ def test_fetch_batch_skips_failed_id_and_continues(
 
     fetch.fetch_audio_many(ids, tmp_path, runner=runner)  # must not raise
 
-    # Every id was attempted exactly once, in order — including the ids
-    # that come after the failing one. (One yt-dlp call per id; successful
-    # ids get a follow-up ffmpeg cut.)
+    # Every id was attempted, in order, including the ids that come after
+    # the failing one — but a failing id gets fetch_audio's full retry
+    # budget (the PO-token gate is probabilistic per-request, so a second
+    # attempt has real odds of succeeding; see fetch.py's _FETCH_ATTEMPTS)
+    # before it's finally counted as a gap. One yt-dlp call per successful
+    # id; successful ids get a follow-up ffmpeg cut.
     ytdlp = [argv for argv in calls if argv[0] == "yt-dlp"]
     attempted = [next(vid for vid in ids if vid in " ".join(argv)) for argv in ytdlp]
-    assert attempted == ids, f"batch must attempt every id in order, got {attempted}"
+    expected = ["month1clip"] + ["month2fail"] * fetch._FETCH_ATTEMPTS + ["month3clip"]
+    assert attempted == expected, f"batch must attempt every id in order, got {attempted}"
 
     # Later ids really got their wavs; the failed id's wav stays absent
     # (the gap downstream commands already treat as "missing").
