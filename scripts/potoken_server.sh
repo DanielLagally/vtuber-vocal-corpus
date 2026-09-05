@@ -15,10 +15,19 @@ export DENO_DIR="${DENO_DIR:-$HOME/.cache/deno}"
 FLAKE="${FLAKE:-$HOME/Dev/vtuber-vocal-corpus}"   # for `nix develop` to find deno
 SERVER_DIR="$HOME/bgutil-ytdlp-pot-provider/server"
 PORT=4416
+# The underlying Botguard IntegrityToken the server mints its per-video
+# POTs from has an ~12h TTL (`estimatedTtlSecs` in its own log). Recovery
+# rate measurably degraded toward that boundary on a real backfill run
+# (2026-09-06) and a plain restart (fresh integrity token, no code
+# change) recovered several ids that had just failed under the stale
+# one. Force a restart well before the TTL rather than wait for it to
+# actually expire — same effect as the crash-restart loop below, just
+# proactive.
+MAX_UPTIME_S=36000  # 10h
 
 while true; do
-  echo "=== $(date '+%F %T') starting POT server on :$PORT ==="
-  nix develop "$FLAKE" --command bash -c \
+  echo "=== $(date '+%F %T') starting POT server on :$PORT (max ${MAX_UPTIME_S}s) ==="
+  timeout "$MAX_UPTIME_S" nix develop "$FLAKE" --command bash -c \
     "cd '$SERVER_DIR' && exec deno run \
        --allow-env --allow-net --allow-read --allow-write --allow-sys --allow-run --allow-ffi \
        src/main.ts --port $PORT"
