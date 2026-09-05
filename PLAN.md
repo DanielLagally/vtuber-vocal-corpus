@@ -759,34 +759,73 @@ exists in the registry) so no follow-up site_data fix is needed once
 they're fetched.
 
 **Backfill batch paused ~00:15 (past midnight), not completed.** Progress
-so far, worst-first: Coco (19.5%→23.2%, content ceiling — 0 further
-eligible candidates), Nene (41.9%→81.1%), Flare (45.3%→46.5%, near-total
-"Video unavailable" failure despite 72 real candidate months — the gate
-was unusually strict for her specifically that hour), Marine
-(50.0%→68.6%), Pekora (50.6%→82.8%), Ao (51.4%→51.4%, content ceiling —
-`months_targeted: 0`), Botan (51.4%→83.8%), Towa (51.9%→74.1%), Haato
-(64.0%→64.0%, 0/29 real candidates recovered), Ayame (64.9%→64.9%,
-0/21 recovered), Noel (65.1%→65.1%, only 5/70 recovered). Suisei was
-mid-densify when stopped; her file is untouched (no partial write made
-it in before the kill).
+so far, worst-first: Coco (19.5%→23.2%), Nene (41.9%→81.1%), Flare
+(45.3%→46.5%), Marine (50.0%→68.6%), Pekora (50.6%→82.8%), Ao
+(51.4%→51.4%), Botan (51.4%→83.8%), Towa (51.9%→74.1%), Haato
+(64.0%→64.0%), Ayame (64.9%→64.9%), Noel (65.1%→65.1% at the time,
+see correction below). Suisei was mid-densify when stopped, untouched.
 
-The recovery rate visibly degraded talent-over-talent as the session
-went past midnight — Haato/Ayame/Noel each had real, unconsumed
-candidate months and still failed almost completely, which rules out
-"these three just have worse catalogs" and points at the PO-token
-gate's strictness fluctuating with time/session rather than being a
-fixed property of any one channel. **Stopped rather than grind through
-the remaining ~21 talents (Suisei, Mio, Miko, AZKi, Choco, Laplus,
-Subaru, Okayu, Robocosan, Aki, Fubuki, Iroha, Korone, Matsuri, Koyori,
-Niko, Luna, Su, Sora, Raora, Kanade) at near-zero yield.** Four of
-those (Iroha, Koyori, Laplus, Mio) already hit 89-100% earlier today
-under the same fixed code before midnight, so they may not need
-another pass at all — worth re-checking their true-coverage numbers
-before re-queueing them. Resume with `scripts/run_veteran_batch.sh`
-using the same `name:channel_id` pairs (all already in `DISPLAY_NAMES`)
-once there's reason to think the gate has loosened again — later today,
-or after observing a clean run on a single talent first rather than
-committing to the whole remaining list blind.
+**Correction, made after the owner pushed back on a batch of "failed"
+video ids that turned out to be genuinely privated, not gate-blocked**:
+the initial write-up above claimed the PO-token gate got stricter
+talent-over-talent as the session went past midnight, using
+Haato/Ayame/Noel's zero-to-near-zero recovery as evidence. That
+diagnosis was wrong for two of the three — checked properly now via
+Holodex's own per-id `status` on every failed id, not assumed:
+
+| Talent | Failed ids | Status breakdown | Real diagnosis |
+|---|---|---|---|
+| Suisei | 38 | 38 `missing` | **content ceiling** — her earliest content predates joining hololive (individual streaming from 2018); genuinely gone, not fetch-recoverable |
+| Ayame | 40 | 40 `missing` | **content ceiling** |
+| Haato | 45 | 44 `missing`, 1 `past` | **content ceiling** (essentially) |
+| Noel | 94 | 4 `missing`, 90 `past` | **genuinely gate-blocked** — the one case that actually supports the original claim |
+| Marine | 62 | 4 `missing`, 58 `past` | gate-blocked (consistent with her real 50%→69% improvement) |
+| Pekora | 65 | 20 `missing`, 45 `past` | gate-blocked |
+| Botan | 46 | 3 `missing`, 43 `past` | gate-blocked |
+| Towa | 75 | 10 `missing`, 65 `past` | gate-blocked |
+| Nene | 22 | 0 `missing`, 22 `past` | gate-blocked |
+
+**Lesson: check the Holodex `status` breakdown of a talent's failed ids
+before concluding anything about the gate's behavior, every time — a
+talent with a genuinely privated-heavy early career (Suisei especially)
+looks identical to a gate-blocked talent from the raw pass/fail numbers
+alone.** Coco and Ao were already correctly identified as content
+ceilings (`months_targeted: 0`, an even cleaner signal than checking
+status by hand). Suisei, Ayame, and (mostly) Haato belong in that same
+bucket — **their remaining coverage gap is likely not
+fetch-recoverable at all**, regardless of client, cookies, account, or
+IP, and shouldn't be expected to move much on a re-run. Flare, Marine,
+Pekora, Botan, Towa, Nene, and Noel are the ones where another pass
+under better gate conditions is actually worth doing.
+
+Also tested and ruled out as fixes for the genuinely gate-blocked
+talents: a fresh cookie export (0/15 recovered on a — later found to be
+mis-selected, see above — sample; the auth itself works fine, gate
+result unchanged) and restarting the PO-token server mid-session
+(helped marginally on a tiny 5-id manual sample, didn't hold up at real
+batch scale on Suisei — which, per the correction above, was mostly
+testing against privated content anyway, so that result is now suspect
+too and shouldn't be read as "the restart doesn't help," just as
+"inconclusive on a contaminated sample"). IP rotation (owner's router
+change) also showed no effect. See the "anything we can do" discussion
+in the session transcript for the fuller reasoning: the working theory
+is that the gate keys on the *behavioral/technical fingerprint* of the
+scripted fetch process itself (still the same machine, same scripted
+Botguard attestation) rather than on IP or account identity, which
+would explain why swapping either alone doesn't reset it.
+
+**Stopped rather than grind through the remaining ~21 talents (Suisei,
+Mio, Miko, AZKi, Choco, Laplus, Subaru, Okayu, Robocosan, Aki, Fubuki,
+Iroha, Korone, Matsuri, Koyori, Niko, Luna, Su, Sora, Raora, Kanade).**
+Four of those (Iroha, Koyori, Laplus, Mio) already hit 89-100% earlier
+today under the same fixed code before midnight, so they may not need
+another pass at all. **Before re-queueing any paused talent, check its
+failed-id status breakdown first (content ceiling vs. gate-blocked) —
+don't assume either way from the raw numbers.** Resume with
+`scripts/run_veteran_batch.sh` using the same `name:channel_id` pairs
+(all already in `DISPLAY_NAMES`) once there's reason to think the gate
+has loosened, ideally verified on one gate-blocked talent first rather
+than committing to the whole remaining list blind.
 
 ---
 
