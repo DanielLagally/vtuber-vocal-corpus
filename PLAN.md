@@ -486,6 +486,51 @@ still fresh. Launched as a background `nohup` process, logging to
 each talent so `docs/data.js` stays current incrementally rather than
 only at the very end.
 
+**Batch complete, 2026-09-05. Owner decision mid-run: drop mekPark
+entirely** ("we don't need mekpark") — `ACHRORA` was killed 1 record
+into her densify (negligible waste, she was last in the queue anyway)
+and her stub measurements file removed; not committed, not in the
+registry. Final roster addition from this arc is **19 talents**, not
+20. mekPark (`ACHRORA`, `UNIT B [Pre-Debut]`) is out of scope for
+hololive-JP going forward, not just skipped this run.
+
+Final per-talent numbers (`records / QC-pass / months-with-pass /
+months-attempted`) — the first 8 (0th/1st/2nd Gen) fetched clean before
+the mweb PO-token gate hit; the next 7 (Flare through Nene) were
+fetched degraded, under the old pin, before the fix in the next
+section shipped; the last 4 (Iroha through Mio) are back near the
+historical baseline under the fixed pipeline:
+
+| Talent | Records | QC-pass | Months | Note |
+|---|---|---|---|---|
+| AZKi | 130 | 121 | 73/73 | clean |
+| Sakura Miko | 144 | 138 | 73/74 | clean |
+| Hoshimachi Suisei | 146 | 140 | 75/76 | clean |
+| Akai Haato | 115 | 111 | 64/64 | clean |
+| Natsuiro Matsuri | 160 | 157 | 88/88 | clean |
+| Aki Rosenthal | 154 | 149 | 84/84 | clean |
+| Yuzuki Choco | 143 | 140 | 75/75 | clean |
+| Nakiri Ayame | 112 | 109 | 63/63 | clean |
+| Shiranui Flare | 53 | 51 | 39/40 | **degraded, see below** |
+| Houshou Marine | 54 | 54 | 43/43 | degraded |
+| Shirogane Noel | 71 | 71 | 56/56 | degraded |
+| Usada Pekora | 56 | 53 | 44/46 | degraded |
+| Tokoyami Towa | 54 | 53 | 42/43 | degraded |
+| Shishiro Botan | 50 | 49 | 38/39 | degraded |
+| Momosuzu Nene | 39 | 35 | 31/34 | degraded |
+| Kazama Iroha | 75 | 72 | 50/50 | fixed pipeline |
+| Hakui Koyori | 85 | 84 | 53/54 | fixed pipeline |
+| La+ Darknesss | 78 | 75 | 46/47 | fixed pipeline |
+| Ookami Mio | 135 | 132 | 69/69 | fixed pipeline |
+
+**Not yet committed as of this writing**: Flare through Mio (11
+talents) are fetched but sitting uncommitted — Flare specifically is
+still not fully backfilled even after a retry pass (see the mweb
+PO-token section below), and the owner hasn't yet decided whether to
+accept Marine/Noel/Pekora/Towa/Botan/Nene's degraded coverage as-is or
+re-run them under the fixed pipeline first. AZKi through Ayame (the
+first 8) are already committed and pushed.
+
 ---
 
 ## 2026-09-05: YouTube's GVS PO-token gate expanded to mweb — cross-machine writeup
