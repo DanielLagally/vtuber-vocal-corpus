@@ -78,6 +78,18 @@ _ROSTER_NAME_ALIASES = {
 _KNOWN_GRADUATED_GROUPS = {
     "Hiodoshi Ao": "DEV_IS ReGLOSS",
     "Kiryu Coco": "4th Generation (holoForce)",
+    "Yozora Mel": "1st Generation",
+    "Minato Aqua": "2nd Generation",
+    "Murasaki Shion": "2nd Generation",
+    "Uruha Rushia": "3rd Generation (Fantasy)",
+    "Amane Kanata": "4th Generation (holoForce)",
+    "Mano Aloe": "5th Generation (holoFive)",
+    "Sakamata Chloe": "6th Generation -holoX-",
+    "Gawr Gura": "English -Myth-",
+    "Watson Amelia": "English -Myth-",
+    "Ceres Fauna": "English -Promise-",
+    "Nanashi Mumei": "English -Promise-",
+    "Tsukumo Sana": "English -Promise-",
 }
 
 # Talents holding more than one generation membership — Holodex's own

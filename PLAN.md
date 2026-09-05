@@ -671,6 +671,95 @@ Iroha onward uses the new code from the start.
 
 ---
 
+## 2026-09-05/06: corpus-wide >95% QC backfill, then graduated members
+
+**Owner decision**: re-run `densify` toward >95% QC coverage corpus-wide,
+not just the mweb-affected talents. Audited every registered talent
+against the *real* denominator — total calendar months since Holodex's
+earliest cataloged video for that channel — not "months present in the
+measurements file" (misleadingly generous: a month where every candidate
+failed to fetch never gets a record at all, so it silently drops out of
+that ratio). **32 talents were below 95% true coverage**, including ones
+finished days ago, unrelated to the mweb incident — Kiryu Coco 19.5%
+(16/82), Sakura Miko 75%, AZKi 77%, Robocosan 84%, Shirakami Fubuki 84%,
+even Luna 91% and Sora 92%. Backfilling worst-first via
+`scripts/run_veteran_batch.sh` (already-registered talents, so
+`new-talent` is a no-op "already exist, left untouched" and it goes
+straight to `densify --target-n 2`), same fixed pipeline as the mweb
+section above.
+
+**Not every talent will reach 95% — two genuinely different outcomes
+found so far, both expected, neither a bug:**
+- **Fetch-recoverable** (the majority): Nene 42%→81%, Marine 50%→69%,
+  Pekora 51%→83%. `months_targeted` in the densify summary is large
+  (real eligible candidates existed, previously blocked by the mweb
+  gate) and the retry recovers most of them.
+- **Genuine content ceiling**: Coco 19.5%→23.2%, Ao unchanged at 51.4%
+  with `months_targeted: 0`. These talents' catalogs simply don't have
+  enough eligible chatting-stream candidates in most months per this
+  project's product rules (no singing/shorts/collabs/members-only) —
+  re-running densify correctly finds nothing to add. Same category as
+  the already-documented genuinely-privated debut videos: a real,
+  permanent data-availability wall, not something to keep chasing.
+  **Pushing these higher would mean loosening the product rules
+  (allowing collabs/singing into the corpus) — a scope decision, not a
+  data-quality fix, and not made here.**
+
+Recovery rate also varies by *when* the backfill ran, not just which
+talent: Flare (first in the backfill queue) recovered almost nothing
+(46.5%→46.5%, 115/117 fresh attempts still "Video unavailable") despite
+using the exact same fixed code that got Iroha to 89% and Koyori to 98%
+hours earlier. Marine/Pekora, run right after Flare, recovered
+partially (50%→69%, 51%→83%) — worse than this morning's talents but
+better than Flare. This looks like the PO-token gate itself fluctuating
+in strictness over the course of a long session, not a per-talent
+property — worth keeping in mind if a backfilled talent still falls
+short: **a later re-run, not a different technique, may be what closes
+the remaining gap.**
+
+**Bug found and fixed mid-backfill (commit `a10f0d6`)**: the laptop
+caught that `75b7b6a` (the original 1st/2nd-Gen JP commit) registered
+`flare_monthly.json` in `talents.json` without committing the file
+itself — `talents.json` gets its entry automatically the moment `plot
+--talent` runs, which happened for Flare even though her measurements
+file was deliberately held back. A fresh clone or pull would crash
+`vvc site-data` on the dangling reference (the laptop's own fix,
+`fe97c22`, made `site_data.py` skip-and-warn instead of crash — a good
+defensive fix regardless, now merged, but doesn't replace actually
+committing the files). Lesson for future partial-data holds: **the
+registry write is automatic and not something a `git add` selection
+can prevent — either commit the file too, or strip its `talents.json`
+line back out before committing, every time.**
+
+**Next, once the backfill queue finishes**: owner decision to also
+cover **graduated members**, correctly attributed to their real prior
+generation rather than a bare "Graduated" bucket. Live Holodex query
+(`fetch_channels` unfiltered by `inactive`, same group-exclusion rule as
+`roster.json`'s D13 filter) found **16 graduated hololive-org channels**
+still carrying their *original* generation in the `group` field (Cover
+does not reassign it to "Graduated" on graduation) — confirming the
+existing `_KNOWN_GRADUATED_GROUPS` hand-maintained-dict approach
+(`site_data.py`) is the right mechanism, just needed more entries, not
+a different one. Of the 16: Hiodoshi Ao and Kiryu Coco are already in
+the corpus. Two are out of scope under the existing JP/EN/ID/DEV_IS
+roster rule, same call as excluding mekPark — Civia (`CN 1st
+Generation`, the discontinued Hololive China branch) and Blue Journey
+(`holo-n`, an unfamiliar newer sub-brand, not one of the established
+generations). **The remaining 12 are queued for the next batch**:
+Yozora Mel (1st Gen), Minato Aqua (2nd Gen), Murasaki Shion (2nd Gen),
+Uruha Rushia (3rd Gen Fantasy), Amane Kanata (4th Gen holoForce), Mano
+Aloe (5th Gen holoFive — graduated within days of debut in real life;
+expect a near-empty catalog, same as Ao's short-career case, not a bug
+if `months_targeted` comes back tiny), Sakamata Chloe (6th Gen holoX),
+Gawr Gura (English -Myth-), Watson Amelia (English -Myth-), Ceres Fauna
+(English -Promise-), Nanashi Mumei (English -Promise-), Tsukumo Sana
+(English -Promise-). `_KNOWN_GRADUATED_GROUPS` already updated with all
+12 ahead of the data landing (a safe no-op until each talent actually
+exists in the registry) so no follow-up site_data fix is needed once
+they're fetched.
+
+---
+
 ## First-batch clip ids (24-clip balanced reference)
 
 Luna 2024: `Gz_2EzLyhmQ` `ro0lFIj2MJY` `boy302x08Gg` `qyQzBoMOqXo`  
