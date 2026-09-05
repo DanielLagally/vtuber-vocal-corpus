@@ -488,6 +488,144 @@ only at the very end.
 
 ---
 
+## 2026-09-05: YouTube's GVS PO-token gate expanded to mweb — cross-machine writeup
+
+**For whoever's running the laptop instance:** this section is written for you.
+Desktop (this session) hit a new failure mode mid-batch; the laptop
+apparently hasn't hit the same symptom despite being on the same home
+network. Both machines' current state, what was tried, what shipped, and
+what's still an open call are below.
+
+### What happened, in order
+- **2026-09-04 14:24** — desktop merged the laptop's `mweb` pin + cookie
+  write-back shield (commit `78da9da`).
+- **14:24 → 2026-09-05 07:41** (~17h) — desktop ran **8 talents, 600+
+  fetches, clean** on that exact code: AZKi, Sakura Miko, Hoshimachi
+  Suisei, Akai Haato, Natsuiro Matsuri, Aki Rosenthal, Yuzuki Choco,
+  Nakiri Ayame. All committed (`4e5fc73`, `75b7b6a`).
+- **07:41** — Shiranui Flare's densify starts. `mweb` suddenly fails 89%
+  of attempts (151/170) with `Video unavailable`. Not caught by
+  `stopped_early` — that error string doesn't match
+  `fetch.BotCheckDetected`'s markers, so the batch quietly kept going.
+- Root cause (confirmed via `yt-dlp -v`): **YouTube's per-video GVS
+  PO-Token experiment expanded from `web` to also bind `mweb`.** This is
+  a known, ongoing, *automated* YouTube-side anti-scraping rollout
+  documented across the yt-dlp tracker for months (not something aimed
+  at us, not a fluke) — see [PR #14471](https://github.com/yt-dlp/yt-dlp/pull/14471)
+  (detection added for `web`), [issue #16144](https://github.com/yt-dlp/yt-dlp/issues/16144)
+  (`web_creator` caught later, "silent undetected enforcement"),
+  [issue #14421](https://github.com/yt-dlp/yt-dlp/issues/14421) (someone
+  else hitting `mweb` + real PO token + still-403). Cross-checked against
+  Holodex: 134/151 of Flare's failed ids carried `status: "past"` (a
+  normal, public stream, spanning 2021-01 to 2026-08-26) — this was never
+  real unavailability.
+- Same day, independently: the laptop pushed `scripts/enid_pipeline.sh` /
+  `enid_autoresume.sh` / `potoken_server.sh` (commit `5a4fb48`) — real
+  self-hosted PO-token-provider infrastructure, evidently built for the
+  same underlying wall hit on the laptop's own EN/ID work.
+
+### Why the laptop didn't see "Video unavailable" — structural, not luck
+`scripts/enid_pipeline.sh`'s own header says **"Cookieless — the bgutil
+PO-token server must be up."** The laptop deliberately fetches without
+`data/youtube.cookies.txt` in play at all, relying purely on the
+PO-token server. Desktop has always fetched **with** real cookies. Same
+network, same shared `fetch.py`, genuinely different auth strategy —
+and that difference routes you into a different YouTube-side check:
+
+- **Cookies present (desktop):** dodges the classic "prove you're
+  human" bot-check almost entirely (that exact string never appeared in
+  this session's logs, ~30+ hours of fetching). But reading yt-dlp's own
+  extractor source (`yt_dlp/extractor/youtube/_video.py`,
+  `fetch_po_token`/`_fetch_po_token`) shows it only actually calls a
+  PO-token provider when its internal per-client `PLAYER_PO_TOKEN_POLICY`
+  says a token is `required` — the per-video experiment flag it *logs*
+  does **not** itself flip that policy, and an authenticated session
+  essentially never trips "required" by default. So a video caught by
+  the experiment just fails outright, no fallback attempted, regardless
+  of client.
+- **Cookieless + PO-token (laptop):** reproduced here deliberately
+  (cookieless `mweb`, no forced token) — instantly got the exact
+  symptom you described, `Sign in to confirm you're not a bot`. Same
+  root mechanism, different failure signature, because an unauthenticated
+  request without a proactively-forced token hits YouTube's classic
+  anti-bot gate before it ever gets near the newer per-video one.
+  **Open question for you:** your `enid_autoresume.sh` treats any
+  bot-check-shaped failure as "wait 30 min, relaunch the whole pipeline"
+  — worth checking whether any of your own `_densify.json` runs have an
+  unusually low `added` count relative to `months_targeted` even after a
+  successful relaunch. That's the same signature this desktop's problem
+  had before anyone noticed it (see the fetch-pin gotcha in `CLAUDE.md`)
+  — the retry-the-whole-pipeline strategy could be masking a similar
+  per-video gap rather than genuinely clearing it.
+
+### What was tested (commands + real numbers), all on a 20-id sample of
+still-failing Flare videos, `--simulate` unless noted:
+| Combination | Recovery |
+|---|---|
+| plain cookies, no PO token | ~0% |
+| `web_embedded` client alone (no token needed per the [PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/Po-Token-Guide) — confirmed, never even shows the experiment debug line) | ~10% |
+| `mweb` + forced token (`fetch_pot=always`), no cookies | ~25% |
+| `mweb` + forced token **+ cookies together** | ~35%, recovered ids that failed under every other combo |
+| same-day router IP change (owner rotated the home IP) | no measurable difference on the next talent (Pekora) vs. the pre-change baseline — not primarily IP-reputation-based |
+
+Re-testing the *exact same* id/combo minutes apart gave a **different**
+pass/fail result each time — this is a probabilistic per-request gate,
+not a fixed per-video denylist. No client swap or token strategy tried
+reliably clears it. The `--simulate` numbers above also only exercise
+yt-dlp's **player**-context token path (metadata/format listing) — the
+PO Token Guide distinguishes that from a separate **GVS**-context token
+needed for the actual media fetch, so those numbers alone don't prove a
+real download succeeds.
+
+### What shipped (commit `86aced0`, pushed)
+`fetch.py`: pin changed to `youtube:player_client=mweb;fetch_pot=always`
+(cookies still attached when available), plus `fetch._FETCH_ATTEMPTS = 2`
+— one retry on a `CalledProcessError`, cheap insurance against the
+per-request randomness. `_default_runner` now auto-detects a local
+`~/.config/yt-dlp/plugins` bgutil install and injects it into the
+subprocess `PYTHONPATH` itself (no external `PYTHONPATH` export needed
+on whichever machine has the plugin installed — safe no-op on one that
+doesn't; verified `fetch_pot=always` degrades to a warning + token-less
+fallback format when no provider is present, never a hard error).
+**This is shared code — the laptop gets `fetch_pot=always` and the
+retry automatically on its next pull, no laptop-side change needed for
+that part.**
+
+**Validated with real (non-`--simulate`) production downloads**, not
+just synthetic tests: Kazama Iroha, the first hololive-JP talent
+densified under the new code, landed around **63% fetch success**
+(complete QC-pass measurement records, meaning real audio made it all
+the way through isolate + Praat measurement) — up from the ~33–35% seen
+on Marine/Noel/Pekora/Towa/Botan/Nene under the old `web_embedded` pin,
+but still well under the historical 95%+ baseline.
+
+### Still an open decision, not yet made
+Desktop's own PO-token-provider setup (bgutil-ytdlp-pot-provider 1.3.2)
+is now installed here too — see the CLAUDE.md "PO-token provider" gotcha
+for the exact desktop setup and the `$FLAKE` override note (the tracked
+`scripts/potoken_server.sh` default path is the laptop's, not desktop's).
+**Whether the laptop should switch from cookieless to cookie-authenticated
+fetching (pairing cookies with its already-running PO-token server,
+since that combination clearly outperformed either alone here) is the
+laptop owner/session's call, not something this desktop session can or
+should decide for it** — it may have been deliberately cookieless for a
+reason not visible from here (e.g. avoiding the cookie-degradation bug,
+which is now separately fixed by the disposable-copy shield already
+merged both ways).
+
+### Data left in a pending state on desktop
+Shiranui Flare (partial, `_stopped_early` never fired but her file is
+not representative — only backfilled to ~53/~170 records), Houshou
+Marine, Shirogane Noel, Usada Pekora, Tokoyami Towa, Shishiro Botan,
+Momosuzu Nene (all completed under the old `web_embedded` pin, 33–65%
+month coverage instead of the usual 95%+) are fetched but **not yet
+committed** — pending the owner's decision on whether to accept them
+as-is (documented gap, same as the existing privated-debut-era
+precedent) or run a backfill pass under the new code first. Kazama
+Iroha onward uses the new code from the start.
+
+---
+
 ## First-batch clip ids (24-clip balanced reference)
 
 Luna 2024: `Gz_2EzLyhmQ` `ro0lFIj2MJY` `boy302x08Gg` `qyQzBoMOqXo`  
