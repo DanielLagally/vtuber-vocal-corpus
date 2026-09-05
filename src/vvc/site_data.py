@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import statistics
+import sys
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -286,9 +287,19 @@ def build_site_data(
         if entry.get("english_name") and entry.get("group")
     }
 
-    talents_entries: dict[str, list[dict]] = {
-        display_name: load(path) for path, display_name in registry.items()
-    }
+    # A registry entry can land in a commit before its measurements file
+    # (plot --talent registers the moment a run is plotted; two machines
+    # sharing talents.json). Skip-and-warn rather than fail the whole
+    # export — mirrors _load_registered_talents on the plot path.
+    talents_entries: dict[str, list[dict]] = {}
+    for path, display_name in registry.items():
+        try:
+            talents_entries[display_name] = load(path)
+        except FileNotFoundError:
+            print(
+                f"warning: registered talent {display_name!r} missing {path}, skipping",
+                file=sys.stderr,
+            )
     yearly_keys = _present_yearly_keys(list(talents_entries.values()))
     axis_means = {key: _axis_means(talents_entries, key) for key in yearly_keys}
     axis_percentiles = {

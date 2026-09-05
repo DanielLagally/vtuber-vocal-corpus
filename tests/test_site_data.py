@@ -92,6 +92,13 @@ never Cover/hololive audio, never downloads):
     "percentiles", this needs no comparison talent, so it's present even
     when only ONE talent corpus-wide has that axis (n=1 has no
     percentile, per rule 11, but does have a raw mean).
+13. A registry entry whose measurements file is absent (loader raises
+    FileNotFoundError) is skipped with a stderr warning, not a crash —
+    talents.json legitimately gets an entry the moment `plot --talent`
+    registers a run, which can land in a commit before the measurements
+    file itself (two machines, one adds the entry while the other is yet
+    to pull the data). site-data must still build for every talent that
+    DOES have data rather than the whole export failing.
 
 Entry shape matches vvc.measure's persisted record: id / month /
 score / window / features{median_f0, f0_iqr, voiced_fraction,
@@ -165,6 +172,24 @@ def test_talent_display_names_and_series_pass_through() -> None:
     talent = result["talents"]["Talent A"]
     assert talent["monthly"]["median_f0"] == [("2024-01", 200.0), ("2024-02", 210.0)]
     assert talent["qc_summary"] == {"qc_pass": 2, "total": 2}
+
+
+def test_registry_entry_with_missing_file_is_skipped_not_fatal(capsys) -> None:
+    """Rule 13: a registry row whose loader raises FileNotFoundError is
+    dropped (with a stderr warning); every other talent still builds."""
+    store = {"a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)]}
+
+    def load(path: str) -> list[dict]:
+        if path not in store:
+            raise FileNotFoundError(path)
+        return store[path]
+
+    result = site_data.build_site_data(
+        {"a.json": "Talent A", "gone.json": "Ghost Talent"}, loader=load
+    )
+
+    assert set(result["talents"]) == {"Talent A"}
+    assert "Ghost Talent" in capsys.readouterr().err
 
 
 def test_yearly_feature_keys_gated_on_registry_wide_presence() -> None:
