@@ -758,6 +758,36 @@ Gawr Gura (English -Myth-), Watson Amelia (English -Myth-), Ceres Fauna
 exists in the registry) so no follow-up site_data fix is needed once
 they're fetched.
 
+**Backfill batch paused ~00:15 (past midnight), not completed.** Progress
+so far, worst-first: Coco (19.5%→23.2%, content ceiling — 0 further
+eligible candidates), Nene (41.9%→81.1%), Flare (45.3%→46.5%, near-total
+"Video unavailable" failure despite 72 real candidate months — the gate
+was unusually strict for her specifically that hour), Marine
+(50.0%→68.6%), Pekora (50.6%→82.8%), Ao (51.4%→51.4%, content ceiling —
+`months_targeted: 0`), Botan (51.4%→83.8%), Towa (51.9%→74.1%), Haato
+(64.0%→64.0%, 0/29 real candidates recovered), Ayame (64.9%→64.9%,
+0/21 recovered), Noel (65.1%→65.1%, only 5/70 recovered). Suisei was
+mid-densify when stopped; her file is untouched (no partial write made
+it in before the kill).
+
+The recovery rate visibly degraded talent-over-talent as the session
+went past midnight — Haato/Ayame/Noel each had real, unconsumed
+candidate months and still failed almost completely, which rules out
+"these three just have worse catalogs" and points at the PO-token
+gate's strictness fluctuating with time/session rather than being a
+fixed property of any one channel. **Stopped rather than grind through
+the remaining ~21 talents (Suisei, Mio, Miko, AZKi, Choco, Laplus,
+Subaru, Okayu, Robocosan, Aki, Fubuki, Iroha, Korone, Matsuri, Koyori,
+Niko, Luna, Su, Sora, Raora, Kanade) at near-zero yield.** Four of
+those (Iroha, Koyori, Laplus, Mio) already hit 89-100% earlier today
+under the same fixed code before midnight, so they may not need
+another pass at all — worth re-checking their true-coverage numbers
+before re-queueing them. Resume with `scripts/run_veteran_batch.sh`
+using the same `name:channel_id` pairs (all already in `DISPLAY_NAMES`)
+once there's reason to think the gate has loosened again — later today,
+or after observing a clean run on a single talent first rather than
+committing to the whole remaining list blind.
+
 ---
 
 ## First-batch clip ids (24-clip balanced reference)
