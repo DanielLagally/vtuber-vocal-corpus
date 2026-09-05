@@ -829,6 +829,72 @@ than committing to the whole remaining list blind.
 
 ---
 
+## 2026-09-06: the real bug — `candidate_ids` never fell through past its top pick (commit `71cefd8`)
+
+**The owner manually checked several talents' channels directly and
+found substantially more real available content than the corpus's
+"content ceiling" diagnosis accounted for** — Haato (debut 2018-06-02,
+"decently sized body of available streams"), Ayame (debut 2018-09-29,
+"has a lot of streams"), Coco and Ao ("also have a lot of streams
+available"). That pushback surfaced the actual root cause behind most
+of tonight's "unfixable" gaps, and it long predates the mweb PO-token
+incident:
+
+**`candidate_ids` always scored and offered the same top-`target_n`
+video(s) per month, forever, with no way to fall through to the next-
+ranked one when they failed.** A fetch failure never becomes a
+measurement record, so the only exclusion mechanism (`have_by_month`,
+built from records) never grew from a failure — re-running `densify`
+on a month whose top pick(s) are genuinely privated just re-offers the
+exact same known-failing id(s) every time, regardless of how many other
+real, available candidates exist further down that month's ranked
+list. This has been true since `candidate_ids` was first written; it
+predates and is entirely independent of the mweb gate.
+
+**Fixed** (test-first, `tests/test_densify.py`): `candidate_ids` gained
+`excluded_ids` and now considers every eligible video per month (not
+just the top `target_n`), so there's a deep pool to fall through into.
+`run_densify` wraps its fetch/process pass in a cascade loop — each
+round excludes every id that already has any outcome this run (success
+or failure) and re-asks for whatever's next, terminating when a round
+finds nothing left to try. `dry_run` and bot-check still stop after
+their current round, unchanged. Full suite (291 tests) passes,
+including every existing pipelining/offload/bot-check test with no
+changes needed to them. Verified against real cached data: Coco's
+2021-02 (stuck at 1/2 because her top-2 remaining candidates are both
+genuinely privated) now reaches a 3rd, Holodex-confirmed-public
+candidate that was never attempted before.
+
+**Correction to tonight's "content ceiling" calls**: Ao and Coco are
+NOT actually near a real ceiling in the way the earlier write-up
+claimed — checking their per-month record counts directly, both
+already have `target_n` (or very close to it) for essentially every
+month of their *real* active career (Coco: Dec 2019–Jun 2021, matching
+the owner's manual check exactly; Ao: Sep 2023–Mar 2025). Their
+"19.5%"/"51.4%" true-coverage figures earlier tonight came from **a bug
+in this session's own throwaway audit script**, not the corpus: it
+computed "months since debut" by extending to *today's* date instead of
+stopping at each talent's actual graduation/last-active-stream date, so
+a graduated talent's necessarily-empty months-after-graduation counted
+as "gap" the same as a genuinely missing month during her active
+career. Suisei/Haato/Ayame (currently active, no graduation to bound
+the denominator) are where the real `candidate_ids` bug actually
+mattered — their calendar legitimately extends to now, and real
+eligible candidates were sitting unreached the whole time.
+
+**Next step: re-run `densify` corpus-wide, not just the 32 originally-
+flagged talents.** This bug predates the mweb incident entirely and has
+been suppressing true coverage since the very first `candidate_ids` run
+(Luna's original densify pass). Every talent in the registry — not just
+ones already flagged as sub-95% — may have real, reachable candidates
+sitting excluded by the old bug's ranked-list truncation. A full
+corpus-wide re-run (or at least a `--dry-run` sweep first to see which
+talents' `candidate_ids` output actually changes under the fix, before
+spending real fetch time) is worth doing before trusting any coverage
+number in this file, including the ones already marked "clean" above.
+
+---
+
 ## First-batch clip ids (24-clip balanced reference)
 
 Luna 2024: `Gz_2EzLyhmQ` `ro0lFIj2MJY` `boy302x08Gg` `qyQzBoMOqXo`  
