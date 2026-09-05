@@ -28,20 +28,23 @@ User-visible rules (local, explicit ids only — never the network in tests):
 4. data_dir is always pytest's tmp_path — nothing is written into the
    repo root, and no Cover/hololive audio is involved.
 5. The yt-dlp argv must pin the extractor with ``--extractor-args
-   youtube:player_client=mweb`` (2026-09: ``android``/``android_vr`` are
-   skipped by yt-dlp entirely whenever ``--cookies`` is passed — "does
+   youtube:player_client=web_embedded`` (2026-09: ``android``/``android_vr``
+   are skipped by yt-dlp entirely whenever ``--cookies`` is passed — "does
    not support cookies" — so pairing either with our cookies file
    silently drops the cookies and the request still hits YouTube's
    bot-check; ``tv`` still fails with "The page needs to be reloaded".
-   ``web`` worked at first but YouTube is experimentally binding a GVS
-   PO Token requirement to specific video ids for the ``web`` client —
-   confirmed via yt-dlp's own debug log, "Detected experiment to bind
-   GVS PO Token to video ID for web client" — and we have no PO token
-   provider, so those specific videos fail with "Requested format is
-   not available" (71/74 in one Lamy batch). ``mweb`` hits the same
-   experiment notice but still finds a working non-gated format on the
-   same videos — confirmed by direct testing on two of the ids that
-   failed on ``web``.). Cookies and sequential one-at-a-time runs stay.
+   ``web``, then ``mweb``, each worked at first but YouTube's GVS PO
+   Token experiment (binding a PO Token requirement to specific video
+   ids) expanded to cover each client in turn — ``web`` first (71/74
+   lost in one Lamy batch), then ``mweb`` (2026-09-05: 89% lost in a
+   Flare batch, confirmed via yt-dlp's own debug log, "Detected
+   experiment to bind GVS PO Token to video ID for mweb client"; the
+   failed ids were confirmed genuinely public via Holodex's own "past"
+   status, not really unavailable). ``web_embedded`` resolves a real
+   format on ids gated under both ``web`` and ``mweb`` with no PO
+   token provider needed — if it starts failing the same way too, the
+   durable fix is a self-hosted PO token provider, not another client
+   swap.). Cookies and sequential one-at-a-time runs stay.
    The ``15:00-30:00`` window is now cut LOCALLY with ffmpeg after
    yt-dlp downloads the full compressed audio: yt-dlp's
    ``--download-sections`` falls back to its ffmpeg downloader for many
@@ -307,14 +310,21 @@ def test_fetch_audio_does_not_mutate_callers_cookie_file(tmp_path: Path) -> None
     )
 
 
-def test_fetch_audio_uses_mweb_player_client(tmp_path: Path) -> None:
-    """Rule 5: the yt-dlp extractor must be pinned to player_client=mweb.
-    android/android_vr are skipped by yt-dlp whenever --cookies is
-    passed ("does not support cookies") — silently dropping our
-    cookies and still hitting the bot-check; tv fails with "The page
-    needs to be reloaded"; web works only until YouTube's per-video GVS
-    PO Token experiment catches a given id, then mweb is the one that
-    still finds a working format."""
+def test_fetch_audio_uses_web_embedded_player_client(tmp_path: Path) -> None:
+    """Rule 5: the yt-dlp extractor must be pinned to
+    player_client=web_embedded. android/android_vr are skipped by
+    yt-dlp whenever --cookies is passed ("does not support cookies") —
+    silently dropping our cookies and still hitting the bot-check; tv
+    fails with "The page needs to be reloaded"; web and then mweb each
+    worked only until YouTube's per-video GVS PO Token experiment
+    expanded to cover them too (2026-09-05: mweb started failing
+    "Video unavailable" on ~89% of a Flare densify run, confirmed via
+    yt-dlp -v: "Detected experiment to bind GVS PO Token to video ID
+    for mweb client" — 134/151 of the failed ids were confirmed
+    non-private via Holodex's own "past" status, spanning 2021-2026,
+    so this was never real unavailability). web_embedded resolves a
+    real, non-PO-token-gated format on both the ids that failed under
+    mweb and ids that already worked under mweb (no regression)."""
     calls: list[list[str]] = []
     runner = _make_fake_runner(calls, tmp_path / "audio" / f"{VIDEO_ID}.wav")
 
@@ -324,8 +334,8 @@ def test_fetch_audio_uses_mweb_player_client(tmp_path: Path) -> None:
     assert "--extractor-args" in argv, (
         f"--extractor-args missing from yt-dlp argv {argv!r}"
     )
-    assert "youtube:player_client=mweb" in argv, (
-        f"expected youtube:player_client=mweb in yt-dlp argv, got {argv!r}"
+    assert "youtube:player_client=web_embedded" in argv, (
+        f"expected youtube:player_client=web_embedded in yt-dlp argv, got {argv!r}"
     )
 
 

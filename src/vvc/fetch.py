@@ -103,7 +103,7 @@ def fetch_audio(
         "-f",
         "bestaudio/best",
         "--extractor-args",
-        "youtube:player_client=mweb",
+        "youtube:player_client=web_embedded",
         "-o",
         str(full_tmpl),
     ]
