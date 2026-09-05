@@ -80,6 +80,14 @@ declare -A DISPLAY_NAMES=(
   [sora]="Tokino Sora"
   [raora]="Raora Panthera"
   [kanade]="Otonose Kanade"
+  [lamy]="Yukihana Lamy"
+  [mori]="Mori Calliope"
+  [kiara]="Takanashi Kiara"
+  [irys]="IRyS"
+  [ririka]="Ichijou Ririka"
+  [elizabeth]="Elizabeth Rose Bloodflame"
+  [gigi]="Gigi Murin"
+  [lui]="Takane Lui"
 )
 
 for pair in "$@"; do
