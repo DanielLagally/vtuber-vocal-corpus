@@ -84,12 +84,13 @@ def candidate_ids(
     excluded_ids: set[str] | None = None,
 ) -> dict[str, list[dict]]:
     """``{month: [video dicts to add]}`` for every month whose current
-    record count is below ``target_n``: the next-highest-scored eligible
-    videos (``pick_monthly_n`` order, i.e. score desc then newest first)
-    that are NOT already present as a record for that month and NOT in
-    ``excluded_ids``, capped so the month reaches (but never exceeds)
-    ``target_n``. A month the cached catalog has no further eligible
-    video for is simply absent (never padded, never an error).
+    record count is below ``target_n``: one next-highest-scored eligible
+    video (``pick_monthly_n`` order, i.e. score desc then newest first)
+    that is NOT already present as a record for that month and NOT in
+    ``excluded_ids``. One clip per month per round prioritizes calendar
+    breadth; repeated rounds fill each month toward ``target_n``. A month
+    the cached catalog has no further eligible video for is simply absent
+    (never padded, never an error).
 
     ``excluded_ids`` (default none) additionally rules out ids a caller
     already tried and knows fail this run — a fetch failure never
@@ -124,7 +125,7 @@ def candidate_ids(
             v
             for v in videos
             if v["id"] not in have and v["id"] not in excluded_ids
-        ][:need]
+        ][:1]
         if fresh:
             out[month] = fresh
     return out

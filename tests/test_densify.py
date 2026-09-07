@@ -71,6 +71,21 @@ def test_candidate_ids_returns_missing_video_for_undersized_month() -> None:
     assert [v["id"] for v in buckets["2024-05"]] == ["newid000001"]
 
 
+def test_candidate_ids_prioritizes_breadth_over_multiple_clips_in_one_month() -> None:
+    records: list[dict] = []
+    cached = [
+        _video("a0000000001", "2024-05"),
+        _video("b0000000002", "2024-05"),
+        _video("c0000000003", "2024-06"),
+        _video("d0000000004", "2024-06"),
+    ]
+    buckets = densify.candidate_ids(records, cached, target_n=2)
+    assert {month: [v["id"] for v in videos] for month, videos in buckets.items()} == {
+        "2024-05": ["a0000000001"],
+        "2024-06": ["c0000000003"],
+    }
+
+
 def test_candidate_ids_skips_month_already_at_target() -> None:
     records = [
         {"id": "haveid00001", "month": "2024-06"},

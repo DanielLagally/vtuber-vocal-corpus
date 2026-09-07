@@ -23,6 +23,8 @@ def filter_videos(videos: list[dict]) -> list[dict]:
     for video in videos:
         if video.get("type") != "stream":
             continue
+        if video.get("status") in {"missing", "upcoming"}:
+            continue
         if video.get("topic_id") == "singing":
             continue
         mentions = video.get("mentions")

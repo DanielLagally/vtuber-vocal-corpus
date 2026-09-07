@@ -26,7 +26,7 @@
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-TARGET_N=2
+TARGET_N="${TARGET_N:-2}"
 CPU_WORKERS=4
 OFFLOAD_REMOTE="Google Drive:vanalysis-raw-audio"
 SOFT_FREE_G=40
