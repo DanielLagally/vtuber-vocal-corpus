@@ -3448,5 +3448,35 @@
     },
     "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
     "tracker": "praat_ac"
+  },
+  {
+    "id": "_hzYsTNlMBs",
+    "month": "2024-08",
+    "score": 70.0,
+    "window": {
+      "start_s": 225.0,
+      "end_s": 315.0
+    },
+    "features": {
+      "median_f0": 211.4538231192035,
+      "f0_iqr": 99.2067681062168,
+      "voiced_fraction": 0.37675038897532787,
+      "brightness_hz": 2347.5320280152832,
+      "dynamism_semitones": 0.6875980709424675,
+      "jitter_local": 0.015431013303513702,
+      "shimmer_local": 0.07478714646320085,
+      "hnr_db": 12.758025586336496,
+      "loudness_dynamics_db": 25.21065812042368,
+      "f1_hz": 754.422537220015,
+      "f2_hz": 1812.3607820679692,
+      "f3_hz": 2924.992345377937,
+      "f4_hz": 3985.277605712699
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
   }
 ]

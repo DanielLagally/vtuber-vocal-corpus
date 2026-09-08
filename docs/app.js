@@ -24,30 +24,45 @@ const RADAR_CAPTION =
 // known. A talent NOT in this map falls back to Plotly's default
 // categorical palette (assignTalentColor below) rather than a guessed
 // hex value — colors are identity, worth getting right or not at all.
-// Values below (Himemori Luna through Omaru Polka) are the official
-// hololive schedule color, provided directly (2026-09-03) — the same
-// source also has an official "subtitle" color per talent, not used
-// here yet, see [[future: subtitle color]] if a lighter/alt variant is
-// ever wanted. DEV_IS (ReGLOSS/FLOW GLOW), Hiodoshi Ao (graduated), and
-// Takane Lui aren't in that source at all — STILL NEEDS VERIFICATION:
-// Takane Lui, Rindo Chihaya, Isaki Riona, Kikirara Vivi, Todoroki
-// Hajime, Otonose Kanade, Juufuutei Raden, Ichijou Ririka, Hiodoshi Ao,
-// Koganei Niko, Mizumiya Su (fill in real values here once confirmed).
+// Values are official hololive schedule ring colors; the map was refreshed
+// 2026-09-07. The schedule only reveals colors for members with a listed
+// stream, so unmapped names deliberately retain the stable fallback.
 const TALENT_COLORS = {
+  "Aki Rosenthal": "#4E7FFC",
+  "AZKi": "#FC3488",
+  "Hakos Baelz": "#D72517",
+  "Koseki Bijou": "#6E5BF4",
+  "Yuzuki Choco": "#FE739E",
+  "Elizabeth Rose Bloodflame": "#C7383B",
+  "Gigi Murin": "#FDB440",
   "Himemori Luna": "#F7ABD5",
+  "Hakui Koyori": "#F09CC0",
+  "Inugami Korone": "#FEE039",
+  "Ninomae Ina'nis": "#62567E",
+  "IRyS": "#8C1236",
+  "Kikirara Vivi": "#FF90CC",
+  "Natsuiro Matsuri": "#FDAB45",
+  "Nerissa Ravencroft": "#2233FB",
+  "Ookami Mio": "#C71E3E",
+  "Ouro Kronii": "#20318B",
+  "Shirogane Noel": "#ACBDC5",
+  "Usada Pekora": "#7EC2FE",
+  "Juufuutei Raden": "#3C7C71",
+  "Isaki Riona": "#FE3480",
+  "Takanashi Kiara": "#FF511C",
+  "Takane Lui": "#B84A67",
+  "Todoroki Hajime": "#B6B9FF",
+  "Tokoyami Towa": "#BA92CA",
   "Yukihana Lamy": "#6ABADF",
   "Tokino Sora": "#266AFF",
   "Robocosan": "#D192FE",
   "Shirakami Fubuki": "#43BFEF",
   "Oozora Subaru": "#E5FB67",
   "Nekomata Okayu": "#B190FC",
-  "Inugami Korone": "#FEE039",
   "Kiryu Coco": "#F38514",
   "Tsunomaki Watame": "#F9AFB2",
   "Omaru Polka": "#B92731",
-  "Hiodoshi Ao": "#3A7CA5",
-  "Koganei Niko": "#E8973D",
-  "Mizumiya Su": "#3AA6B9",
+  "Mizumiya Su": "#71E5FF",
 };
 
 // Plotly's default categorical palette (d3.schemeCategory10-derived),

@@ -7,7 +7,8 @@ User-visible rules (streams only — chatting, not singing, not collabs):
    b. ``topic_id`` is not ``"singing"`` (a missing/None topic is still
       kept — chatting streams often carry no topic),
    c. ``mentions`` is missing, None, or an empty list (any non-empty
-      mentions = collab, dropped).
+      mentions = collab, dropped),
+   d. Holodex status is neither ``"missing"`` nor ``"upcoming"``.
 2. Filter, don't rewrite: kept rows keep their field values untouched
    and still include at least id, channel_id, available_at, topic_id.
 3. Empty list in -> empty list out.
@@ -155,6 +156,15 @@ def test_filter_videos_drops_any_nonempty_mentions() -> None:
     even when type/topic would otherwise be fine."""
     row = _video(id="one-mention", topic_id=None, mentions=[{"id": "UCx"}])
     assert catalog.filter_videos([row]) == []
+
+
+def test_filter_videos_drops_known_unavailable_statuses() -> None:
+    """A cached Holodex row marked missing/upcoming cannot yield audio."""
+    rows = [
+        _video(id="missing", status="missing"),
+        _video(id="upcoming", status="upcoming"),
+    ]
+    assert catalog.filter_videos(rows) == []
 
 
 # ------------------------------------------------- pick_monthly helpers

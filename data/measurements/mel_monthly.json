@@ -1,0 +1,32 @@
+[
+  {
+    "id": "Xt1znPFtDUg",
+    "month": "2020-09",
+    "score": 50.0,
+    "window": {
+      "start_s": 15.0,
+      "end_s": 105.0
+    },
+    "features": {
+      "median_f0": 306.61389390999466,
+      "f0_iqr": 124.60498094919473,
+      "voiced_fraction": 0.598132918426317,
+      "brightness_hz": 2052.738209388302,
+      "dynamism_semitones": 0.7672072117433477,
+      "jitter_local": 0.015420048608985637,
+      "shimmer_local": 0.09029183333847964,
+      "hnr_db": 14.345330882742033,
+      "loudness_dynamics_db": 17.081628974417768,
+      "f1_hz": 766.3085651625144,
+      "f2_hz": 1702.3180531789646,
+      "f3_hz": 2903.5088067068878,
+      "f4_hz": 4104.232700862532
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  }
+]

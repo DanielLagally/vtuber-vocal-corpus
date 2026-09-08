@@ -1,0 +1,2882 @@
+[
+  {
+    "id": "Nw-zERkXZRk",
+    "month": "2020-09",
+    "score": 40.0,
+    "window": {
+      "start_s": 510.0,
+      "end_s": 600.0
+    },
+    "features": {
+      "median_f0": 242.34024757578516,
+      "f0_iqr": 60.788331606731134,
+      "voiced_fraction": 0.5316737052678373,
+      "brightness_hz": 2864.6175053763186,
+      "dynamism_semitones": 0.43702812972677424,
+      "jitter_local": 0.01062884673363034,
+      "shimmer_local": 0.07846312096786011,
+      "hnr_db": 13.414457913722982,
+      "loudness_dynamics_db": 23.915657581145425,
+      "f1_hz": 946.0606703664719,
+      "f2_hz": 2039.204974009836,
+      "f3_hz": 3056.4906082158154,
+      "f4_hz": 3969.6331715509045
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "HIXK42hLg3I",
+    "month": "2020-10",
+    "score": 50.0,
+    "window": {
+      "start_s": 720.0,
+      "end_s": 810.0
+    },
+    "features": {
+      "median_f0": 309.7760449045627,
+      "f0_iqr": 114.89923982943725,
+      "voiced_fraction": 0.2600577906201378,
+      "brightness_hz": 2219.900666240413,
+      "dynamism_semitones": 0.6115216943173875,
+      "jitter_local": 0.012870408135449962,
+      "shimmer_local": 0.09810361826083826,
+      "hnr_db": 10.597281921494263,
+      "loudness_dynamics_db": 20.78171420552505,
+      "f1_hz": 886.4476358400002,
+      "f2_hz": 1933.5566949669576,
+      "f3_hz": 2901.3440560611466,
+      "f4_hz": 3883.935165592309
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "DKrM4_hc70Y",
+    "month": "2020-11",
+    "score": 50.0,
+    "window": {
+      "start_s": 240.0,
+      "end_s": 330.0
+    },
+    "features": {
+      "median_f0": 296.344336447145,
+      "f0_iqr": 84.8858180482489,
+      "voiced_fraction": 0.5510113358524117,
+      "brightness_hz": 2575.628999165358,
+      "dynamism_semitones": 0.5818198523987834,
+      "jitter_local": 0.010992728976977834,
+      "shimmer_local": 0.06778312082252974,
+      "hnr_db": 14.450684101048122,
+      "loudness_dynamics_db": 18.418123983146813,
+      "f1_hz": 870.634400676466,
+      "f2_hz": 2008.4898268741717,
+      "f3_hz": 3069.1239243268324,
+      "f4_hz": 4010.2988243232226
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "FWVMKxLkoSU",
+    "month": "2020-12",
+    "score": 70.0,
+    "window": {
+      "start_s": 495.0,
+      "end_s": 585.0
+    },
+    "features": {
+      "median_f0": 274.34055284360875,
+      "f0_iqr": 87.22801494814615,
+      "voiced_fraction": 0.47077128250722383,
+      "brightness_hz": 2828.9199331112764,
+      "dynamism_semitones": 0.7075170578241198,
+      "jitter_local": 0.013541126076178165,
+      "shimmer_local": 0.08325817432300982,
+      "hnr_db": 12.85036142811708,
+      "loudness_dynamics_db": 28.129614489376202,
+      "f1_hz": 937.477385184751,
+      "f2_hz": 2069.091001088237,
+      "f3_hz": 3056.4025742713943,
+      "f4_hz": 4040.7886820005647
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "Fwx9HyfJoSw",
+    "month": "2021-01",
+    "score": 40.0,
+    "window": {
+      "start_s": 0.0,
+      "end_s": 90.0
+    },
+    "features": {
+      "median_f0": 284.89779224893704,
+      "f0_iqr": 84.98079417564736,
+      "voiced_fraction": 0.34474327628361856,
+      "brightness_hz": 3118.790363489751,
+      "dynamism_semitones": 0.760729393108182,
+      "jitter_local": 0.01427584212937482,
+      "shimmer_local": 0.07860784367149548,
+      "hnr_db": 13.335436876640568,
+      "loudness_dynamics_db": 38.06158878095112,
+      "f1_hz": 970.1174346527197,
+      "f2_hz": 2015.5296870117213,
+      "f3_hz": 3024.659818041539,
+      "f4_hz": 4045.9658172901713
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "Ww8HYMWdA3E",
+    "month": "2021-02",
+    "score": 50.0,
+    "window": {
+      "start_s": 585.0,
+      "end_s": 675.0
+    },
+    "features": {
+      "median_f0": 279.51872025396835,
+      "f0_iqr": 97.36998735581844,
+      "voiced_fraction": 0.425872416092465,
+      "brightness_hz": 2776.8114394805334,
+      "dynamism_semitones": 0.4966362905135502,
+      "jitter_local": 0.010097539273463924,
+      "shimmer_local": 0.06404214309231204,
+      "hnr_db": 16.058150095614295,
+      "loudness_dynamics_db": 22.035499005159558,
+      "f1_hz": 979.74694121649,
+      "f2_hz": 2043.9091652419477,
+      "f3_hz": 3242.693283196663,
+      "f4_hz": 4101.858075374469
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "AvFdDk4aFQ4",
+    "month": "2021-03",
+    "score": 50.0,
+    "window": {
+      "start_s": 660.0,
+      "end_s": 750.0
+    },
+    "features": {
+      "median_f0": 332.5083118361015,
+      "f0_iqr": 183.98319579881218,
+      "voiced_fraction": 0.5210046677039342,
+      "brightness_hz": 2176.8603102000543,
+      "dynamism_semitones": 1.0586393913143701,
+      "jitter_local": 0.020165106960078245,
+      "shimmer_local": 0.11715074357044372,
+      "hnr_db": 7.47104241619517,
+      "loudness_dynamics_db": 14.95143216142931,
+      "f1_hz": 826.9474384911812,
+      "f2_hz": 1770.7663010651227,
+      "f3_hz": 2755.265794258515,
+      "f4_hz": 3919.9396028090036
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "-OIP3bS2x_g",
+    "month": "2021-04",
+    "score": 50.0,
+    "window": {
+      "start_s": 255.0,
+      "end_s": 345.0
+    },
+    "features": {
+      "median_f0": 275.58505842489524,
+      "f0_iqr": 100.09152753534843,
+      "voiced_fraction": 0.4581018004000889,
+      "brightness_hz": 2545.152256720087,
+      "dynamism_semitones": 0.6943944315885247,
+      "jitter_local": 0.014918401857658355,
+      "shimmer_local": 0.09544835653305664,
+      "hnr_db": 11.300117238988287,
+      "loudness_dynamics_db": 17.614609487421035,
+      "f1_hz": 861.7495905164648,
+      "f2_hz": 1999.3666721437103,
+      "f3_hz": 3086.0387597879235,
+      "f4_hz": 3895.82043699016
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "ccRBmjw7DW8",
+    "month": "2021-05",
+    "score": 50.0,
+    "window": {
+      "start_s": 585.0,
+      "end_s": 675.0
+    },
+    "features": {
+      "median_f0": 231.74173620663413,
+      "f0_iqr": 160.69847638399054,
+      "voiced_fraction": 0.5596799288730829,
+      "brightness_hz": 2220.931061220298,
+      "dynamism_semitones": 0.954462450096867,
+      "jitter_local": 0.01990056424477241,
+      "shimmer_local": 0.09975396990851834,
+      "hnr_db": 11.697191854374939,
+      "loudness_dynamics_db": 13.860311573323008,
+      "f1_hz": 771.682676746481,
+      "f2_hz": 1839.0441489294356,
+      "f3_hz": 2870.5822973016093,
+      "f4_hz": 3939.0882577200964
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "OT3O2SG2TBk",
+    "month": "2021-06",
+    "score": 60.0,
+    "window": {
+      "start_s": 660.0,
+      "end_s": 750.0
+    },
+    "features": {
+      "median_f0": 235.92211845391617,
+      "f0_iqr": 58.98181552432911,
+      "voiced_fraction": 0.5185596799288731,
+      "brightness_hz": 2419.7935819108657,
+      "dynamism_semitones": 0.4875685948782642,
+      "jitter_local": 0.013159589822095077,
+      "shimmer_local": 0.08918366781290993,
+      "hnr_db": 13.043060107880862,
+      "loudness_dynamics_db": 26.981820994455195,
+      "f1_hz": 876.1901057312433,
+      "f2_hz": 1985.1616323207993,
+      "f3_hz": 3065.2855067821265,
+      "f4_hz": 4078.361263038864
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "3qjHreL-ViA",
+    "month": "2021-07",
+    "score": 50.0,
+    "window": {
+      "start_s": 420.0,
+      "end_s": 510.0
+    },
+    "features": {
+      "median_f0": 307.14475512611443,
+      "f0_iqr": 160.97560946628894,
+      "voiced_fraction": 0.2709490997999556,
+      "brightness_hz": 2386.2858627380074,
+      "dynamism_semitones": 0.5701742373881522,
+      "jitter_local": 0.013426727328038686,
+      "shimmer_local": 0.07775633175305632,
+      "hnr_db": 13.715785079904748,
+      "loudness_dynamics_db": 20.53593548225718,
+      "f1_hz": 885.686974934243,
+      "f2_hz": 1922.5913244055425,
+      "f3_hz": 2987.660029207161,
+      "f4_hz": 3979.9026887286964
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "q1fipTr_OsI",
+    "month": "2021-08",
+    "score": 50.0,
+    "window": {
+      "start_s": 345.0,
+      "end_s": 435.0
+    },
+    "features": {
+      "median_f0": 275.0162760908708,
+      "f0_iqr": 109.07238124294588,
+      "voiced_fraction": 0.2973994220937986,
+      "brightness_hz": 2499.784975007692,
+      "dynamism_semitones": 0.7804390577047366,
+      "jitter_local": 0.01463019020906401,
+      "shimmer_local": 0.11295794878724245,
+      "hnr_db": 9.990809227260744,
+      "loudness_dynamics_db": 22.038036535123307,
+      "f1_hz": 1190.7960396565993,
+      "f2_hz": 2281.299190346105,
+      "f3_hz": 3739.2583692856224,
+      "f4_hz": 4020.4117291920866
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "kcrr1IwaY8s",
+    "month": "2021-09",
+    "score": 50.0,
+    "window": {
+      "start_s": 600.0,
+      "end_s": 690.0
+    },
+    "features": {
+      "median_f0": 265.4588438086392,
+      "f0_iqr": 78.20364108933737,
+      "voiced_fraction": 0.42520560124472107,
+      "brightness_hz": 2152.10299452,
+      "dynamism_semitones": 0.8247441814440915,
+      "jitter_local": 0.018941574304710985,
+      "shimmer_local": 0.1245564568335624,
+      "hnr_db": 10.966704904687102,
+      "loudness_dynamics_db": 14.229475922092966,
+      "f1_hz": 846.4360794285722,
+      "f2_hz": 1872.4040706881303,
+      "f3_hz": 2930.4306484234344,
+      "f4_hz": 3972.3045594320206
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "E0GkIuLwaYQ",
+    "month": "2021-10",
+    "score": 50.0,
+    "window": {
+      "start_s": 450.0,
+      "end_s": 540.0
+    },
+    "features": {
+      "median_f0": 278.14713135602136,
+      "f0_iqr": 110.02869186234543,
+      "voiced_fraction": 0.3585241164703267,
+      "brightness_hz": 1912.8952377376856,
+      "dynamism_semitones": 0.7376736096639438,
+      "jitter_local": 0.01579304612614198,
+      "shimmer_local": 0.08311460780489884,
+      "hnr_db": 13.110257206006564,
+      "loudness_dynamics_db": 21.987216753585333,
+      "f1_hz": 1091.4362407251035,
+      "f2_hz": 2219.5458177051887,
+      "f3_hz": 3695.0537690176493,
+      "f4_hz": 4101.938511989048
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "vYz-9lb2-co",
+    "month": "2021-11",
+    "score": 50.0,
+    "window": {
+      "start_s": 0.0,
+      "end_s": 90.0
+    },
+    "features": {
+      "median_f0": 247.8633543879733,
+      "f0_iqr": 97.99323465362627,
+      "voiced_fraction": 0.3140697932873972,
+      "brightness_hz": 2277.715336716673,
+      "dynamism_semitones": 0.7137179584674259,
+      "jitter_local": 0.014252412326607122,
+      "shimmer_local": 0.08142468953274358,
+      "hnr_db": 15.54978156681779,
+      "loudness_dynamics_db": 23.13268945021981,
+      "f1_hz": 1137.496665410548,
+      "f2_hz": 2249.7931521499168,
+      "f3_hz": 3741.8999428900297,
+      "f4_hz": 4021.4374393802927
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "IepDIOKlXKc",
+    "month": "2021-12",
+    "score": 70.0,
+    "window": {
+      "start_s": 30.0,
+      "end_s": 120.0
+    },
+    "features": {
+      "median_f0": 224.0685801495933,
+      "f0_iqr": 74.0446867407646,
+      "voiced_fraction": 0.27161591464769946,
+      "brightness_hz": 2164.118400380225,
+      "dynamism_semitones": 0.7342795531762473,
+      "jitter_local": 0.01784193604148754,
+      "shimmer_local": 0.08962255519424984,
+      "hnr_db": 12.572585424563478,
+      "loudness_dynamics_db": 23.355219799242086,
+      "f1_hz": 1255.7417941204935,
+      "f2_hz": 2413.173795783277,
+      "f3_hz": 4126.390566469332,
+      "f4_hz": 4112.330625581202
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "eXQK45AcMoU",
+    "month": "2022-01",
+    "score": 70.0,
+    "window": {
+      "start_s": 105.0,
+      "end_s": 195.0
+    },
+    "features": {
+      "median_f0": 240.97388608045077,
+      "f0_iqr": 97.02248330510261,
+      "voiced_fraction": 0.550789064236497,
+      "brightness_hz": 1967.6228320807395,
+      "dynamism_semitones": 0.6862284199031512,
+      "jitter_local": 0.015541580495984924,
+      "shimmer_local": 0.0734594913771341,
+      "hnr_db": 15.234314076695684,
+      "loudness_dynamics_db": 21.61311366654901,
+      "f1_hz": 738.6899753259222,
+      "f2_hz": 1918.3828385528554,
+      "f3_hz": 3017.874007694497,
+      "f4_hz": 4156.741867045281
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "acVWFbVrpN0",
+    "month": "2022-02",
+    "score": 70.0,
+    "window": {
+      "start_s": 150.0,
+      "end_s": 240.0
+    },
+    "features": {
+      "median_f0": 241.67269254382015,
+      "f0_iqr": 98.30780659060184,
+      "voiced_fraction": 0.5341186930428984,
+      "brightness_hz": 2076.126046304448,
+      "dynamism_semitones": 0.7839172187800332,
+      "jitter_local": 0.018434908669204986,
+      "shimmer_local": 0.06676846526535986,
+      "hnr_db": 13.29802451687477,
+      "loudness_dynamics_db": 18.029837545199253,
+      "f1_hz": 874.9876498454754,
+      "f2_hz": 2003.1387191654678,
+      "f3_hz": 3076.6372784691453,
+      "f4_hz": 4180.299449491062
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "AFDKegTb6Js",
+    "month": "2022-03",
+    "score": 70.0,
+    "window": {
+      "start_s": 375.0,
+      "end_s": 465.0
+    },
+    "features": {
+      "median_f0": 246.4102216503716,
+      "f0_iqr": 91.66676971556709,
+      "voiced_fraction": 0.50789064236497,
+      "brightness_hz": 3035.6475865698994,
+      "dynamism_semitones": 0.5724285918386836,
+      "jitter_local": 0.01253349115763766,
+      "shimmer_local": 0.06908930453201555,
+      "hnr_db": 14.924371818486815,
+      "loudness_dynamics_db": 29.328430749337738,
+      "f1_hz": 800.048363837645,
+      "f2_hz": 2141.514813978364,
+      "f3_hz": 3388.1027686469556,
+      "f4_hz": 4306.340388782084
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "960G9ISXkj8",
+    "month": "2022-04",
+    "score": 70.0,
+    "window": {
+      "start_s": 360.0,
+      "end_s": 450.0
+    },
+    "features": {
+      "median_f0": 222.63538562536695,
+      "f0_iqr": 69.08899004899416,
+      "voiced_fraction": 0.5045565681262503,
+      "brightness_hz": 2347.5716486747797,
+      "dynamism_semitones": 0.5035157948923497,
+      "jitter_local": 0.013285852045203397,
+      "shimmer_local": 0.07795206434528472,
+      "hnr_db": 14.622027093931683,
+      "loudness_dynamics_db": 20.95236882382829,
+      "f1_hz": 793.80888819906,
+      "f2_hz": 1856.5110818399141,
+      "f3_hz": 2977.3331601719924,
+      "f4_hz": 4041.024667617171
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "oEP9SJOf9B4",
+    "month": "2022-05",
+    "score": 60.0,
+    "window": {
+      "start_s": 135.0,
+      "end_s": 225.0
+    },
+    "features": {
+      "median_f0": 230.86746554310793,
+      "f0_iqr": 52.799635900560645,
+      "voiced_fraction": 0.5214492109357635,
+      "brightness_hz": 2086.468401711305,
+      "dynamism_semitones": 0.5490887724997336,
+      "jitter_local": 0.01352118997515257,
+      "shimmer_local": 0.07527184441832543,
+      "hnr_db": 15.79464290290595,
+      "loudness_dynamics_db": 21.347939467859373,
+      "f1_hz": 857.5512993792811,
+      "f2_hz": 1916.5474317513576,
+      "f3_hz": 3145.052281111994,
+      "f4_hz": 4159.18285025547
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "BTCy_B3g3KM",
+    "month": "2022-06",
+    "score": 70.0,
+    "window": {
+      "start_s": 720.0,
+      "end_s": 810.0
+    },
+    "features": {
+      "median_f0": 248.28005044415255,
+      "f0_iqr": 87.75551421563708,
+      "voiced_fraction": 0.506557012669482,
+      "brightness_hz": 1924.261727401908,
+      "dynamism_semitones": 0.4782038836425524,
+      "jitter_local": 0.012411689219474994,
+      "shimmer_local": 0.06646066860605877,
+      "hnr_db": 16.677983630777273,
+      "loudness_dynamics_db": 22.436181422995315,
+      "f1_hz": 855.7214714415321,
+      "f2_hz": 1875.4609364522191,
+      "f3_hz": 3028.488903278333,
+      "f4_hz": 3907.150156709299
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "paAa2rVX-LY",
+    "month": "2022-07",
+    "score": 60.0,
+    "window": {
+      "start_s": 690.0,
+      "end_s": 780.0
+    },
+    "features": {
+      "median_f0": 237.46238743801368,
+      "f0_iqr": 81.01711302000538,
+      "voiced_fraction": 0.43943098466325853,
+      "brightness_hz": 2093.931421231695,
+      "dynamism_semitones": 0.44677061735956464,
+      "jitter_local": 0.012475525486526801,
+      "shimmer_local": 0.07979098562012332,
+      "hnr_db": 14.954214149191303,
+      "loudness_dynamics_db": 21.416678091274356,
+      "f1_hz": 929.5665263011917,
+      "f2_hz": 1992.2364218509324,
+      "f3_hz": 3252.7554910989575,
+      "f4_hz": 4051.530671016953
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "vFEp0oO6uQM",
+    "month": "2022-08",
+    "score": 70.0,
+    "window": {
+      "start_s": 405.0,
+      "end_s": 495.0
+    },
+    "features": {
+      "median_f0": 218.84969912708328,
+      "f0_iqr": 49.05461257356359,
+      "voiced_fraction": 0.4963325183374083,
+      "brightness_hz": 1945.2616189002138,
+      "dynamism_semitones": 0.481288664428304,
+      "jitter_local": 0.017438149975465975,
+      "shimmer_local": 0.09676021860045407,
+      "hnr_db": 12.23936906285297,
+      "loudness_dynamics_db": 18.228935125596728,
+      "f1_hz": 803.9692293146371,
+      "f2_hz": 1800.0064367119517,
+      "f3_hz": 2902.1307147079256,
+      "f4_hz": 4060.9076039797264
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "qNzz9ZlwzcM",
+    "month": "2022-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 705.0,
+      "end_s": 795.0
+    },
+    "features": {
+      "median_f0": 231.24590981124925,
+      "f0_iqr": 73.88293722673359,
+      "voiced_fraction": 0.5136697043787508,
+      "brightness_hz": 2401.447650129901,
+      "dynamism_semitones": 0.5713297218609414,
+      "jitter_local": 0.013773407096984427,
+      "shimmer_local": 0.07975031310928433,
+      "hnr_db": 14.459561480004455,
+      "loudness_dynamics_db": 22.367828144342358,
+      "f1_hz": 855.0691868371822,
+      "f2_hz": 1972.1051236937942,
+      "f3_hz": 3164.8897647341014,
+      "f4_hz": 4118.380473495961
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "LU67RBrCF4I",
+    "month": "2022-10",
+    "score": 50.0,
+    "window": {
+      "start_s": 660.0,
+      "end_s": 750.0
+    },
+    "features": {
+      "median_f0": 240.17529142441748,
+      "f0_iqr": 85.93292820709317,
+      "voiced_fraction": 0.6510335630140031,
+      "brightness_hz": 2214.967902980339,
+      "dynamism_semitones": 0.6859449520401006,
+      "jitter_local": 0.01933540995298948,
+      "shimmer_local": 0.1097299048484501,
+      "hnr_db": 10.902453564757064,
+      "loudness_dynamics_db": 17.03675747982513,
+      "f1_hz": 723.8620332874306,
+      "f2_hz": 1844.2119045746192,
+      "f3_hz": 2851.055362722724,
+      "f4_hz": 4081.3804020100724
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "Mz_zrIpQ1fA",
+    "month": "2022-11",
+    "score": 40.0,
+    "window": {
+      "start_s": 795.0,
+      "end_s": 885.0
+    },
+    "features": {
+      "median_f0": 299.831750107003,
+      "f0_iqr": 143.58894350480978,
+      "voiced_fraction": 0.324294287619471,
+      "brightness_hz": 1784.5942300339016,
+      "dynamism_semitones": 0.7812521489436454,
+      "jitter_local": 0.016860096919207947,
+      "shimmer_local": 0.0996118954954704,
+      "hnr_db": 12.803125023720069,
+      "loudness_dynamics_db": 11.054236501349276,
+      "f1_hz": 1079.9407646652332,
+      "f2_hz": 2083.3245891689553,
+      "f3_hz": 3290.4905054847686,
+      "f4_hz": 4389.040523931283
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "tlJ8qPAEGFA",
+    "month": "2022-12",
+    "score": 70.0,
+    "window": {
+      "start_s": 810.0,
+      "end_s": 900.0
+    },
+    "features": {
+      "median_f0": 257.09871105853097,
+      "f0_iqr": 92.93856496412317,
+      "voiced_fraction": 0.43854189819959993,
+      "brightness_hz": 2002.5929723280417,
+      "dynamism_semitones": 0.4804522665890666,
+      "jitter_local": 0.012812103645080003,
+      "shimmer_local": 0.08511201593143394,
+      "hnr_db": 14.104094837519092,
+      "loudness_dynamics_db": 23.231394104689777,
+      "f1_hz": 1023.9748439856222,
+      "f2_hz": 2154.4853714103547,
+      "f3_hz": 3169.4890521480747,
+      "f4_hz": 4150.842451262411
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "wCe_9UVM3Is",
+    "month": "2023-01",
+    "score": 70.0,
+    "window": {
+      "start_s": 525.0,
+      "end_s": 615.0
+    },
+    "features": {
+      "median_f0": 249.31113661467583,
+      "f0_iqr": 100.34255272211172,
+      "voiced_fraction": 0.5532340520115582,
+      "brightness_hz": 1768.1195434954382,
+      "dynamism_semitones": 0.5317587962349162,
+      "jitter_local": 0.013378876221226417,
+      "shimmer_local": 0.07466891817860369,
+      "hnr_db": 15.778913274792519,
+      "loudness_dynamics_db": 17.179830899923584,
+      "f1_hz": 784.4612861270076,
+      "f2_hz": 1852.432133394363,
+      "f3_hz": 2883.754333291009,
+      "f4_hz": 3955.8706054611307
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "kLa2mWKAhbY",
+    "month": "2023-02",
+    "score": 50.0,
+    "window": {
+      "start_s": 525.0,
+      "end_s": 615.0
+    },
+    "features": {
+      "median_f0": 268.92594779853835,
+      "f0_iqr": 83.73132397366538,
+      "voiced_fraction": 0.18559679928873082,
+      "brightness_hz": 1435.2546150797045,
+      "dynamism_semitones": 0.5245964152694343,
+      "jitter_local": 0.011618283422640338,
+      "shimmer_local": 0.08439082606507244,
+      "hnr_db": 16.228889871032724,
+      "loudness_dynamics_db": 24.404317937105436,
+      "f1_hz": 1240.276231800803,
+      "f2_hz": 2295.363433575096,
+      "f3_hz": 3922.318756656073,
+      "f4_hz": 3868.4968222719535
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "2bpbmDYOr8s",
+    "month": "2023-03",
+    "score": 70.0,
+    "window": {
+      "start_s": 420.0,
+      "end_s": 510.0
+    },
+    "features": {
+      "median_f0": 221.57672514941962,
+      "f0_iqr": 47.43540119863354,
+      "voiced_fraction": 0.586130251166926,
+      "brightness_hz": 2260.3520650163828,
+      "dynamism_semitones": 0.48924007077320747,
+      "jitter_local": 0.014609492676039068,
+      "shimmer_local": 0.07908967464622473,
+      "hnr_db": 15.227928113006682,
+      "loudness_dynamics_db": 18.450982481965585,
+      "f1_hz": 731.5207121428165,
+      "f2_hz": 1925.306873561359,
+      "f3_hz": 3101.1665405495414,
+      "f4_hz": 4065.1512615306337
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "PuRdiDDJ2Ec",
+    "month": "2023-04",
+    "score": 40.0,
+    "window": {
+      "start_s": 480.0,
+      "end_s": 570.0
+    },
+    "features": {
+      "median_f0": 224.03421965940566,
+      "f0_iqr": 82.16366326149188,
+      "voiced_fraction": 0.29539897755056677,
+      "brightness_hz": 2529.747517550485,
+      "dynamism_semitones": 0.7091098271920275,
+      "jitter_local": 0.013767091595795469,
+      "shimmer_local": 0.08705773118019464,
+      "hnr_db": 14.17229070744542,
+      "loudness_dynamics_db": 16.14863649870766,
+      "f1_hz": 871.0459813346384,
+      "f2_hz": 1927.6774942997413,
+      "f3_hz": 2990.5351802715904,
+      "f4_hz": 4064.6445452523053
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "8LwJRk9WO7Y",
+    "month": "2023-05",
+    "score": 40.0,
+    "window": {
+      "start_s": 75.0,
+      "end_s": 165.0
+    },
+    "features": {
+      "median_f0": 247.821187994213,
+      "f0_iqr": 72.07786741347209,
+      "voiced_fraction": 0.3149588797510558,
+      "brightness_hz": 2192.6023576173884,
+      "dynamism_semitones": 0.7253894570266142,
+      "jitter_local": 0.016300334767250284,
+      "shimmer_local": 0.08806767427616362,
+      "hnr_db": 14.249251660580567,
+      "loudness_dynamics_db": 24.58314073720783,
+      "f1_hz": 737.8005658738115,
+      "f2_hz": 1903.6412848141,
+      "f3_hz": 3076.462553163065,
+      "f4_hz": 4187.705451368755
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "8RkTvN0RGsY",
+    "month": "2023-06",
+    "score": 60.0,
+    "window": {
+      "start_s": 90.0,
+      "end_s": 180.0
+    },
+    "features": {
+      "median_f0": 262.18215965330364,
+      "f0_iqr": 109.68045264790405,
+      "voiced_fraction": 0.37252722827294954,
+      "brightness_hz": 2354.875268589206,
+      "dynamism_semitones": 0.6574387256057662,
+      "jitter_local": 0.014541897667636805,
+      "shimmer_local": 0.08145047578409971,
+      "hnr_db": 14.693353085050328,
+      "loudness_dynamics_db": 24.085109200468718,
+      "f1_hz": 965.6792420448269,
+      "f2_hz": 2184.1192264607616,
+      "f3_hz": 3585.4517299010445,
+      "f4_hz": 4230.914968914206
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "eNlGkPYN_ww",
+    "month": "2023-07",
+    "score": 70.0,
+    "window": {
+      "start_s": 210.0,
+      "end_s": 300.0
+    },
+    "features": {
+      "median_f0": 228.99038636690443,
+      "f0_iqr": 56.39597055084434,
+      "voiced_fraction": 0.43943098466325853,
+      "brightness_hz": 2246.83118563921,
+      "dynamism_semitones": 0.521839669190914,
+      "jitter_local": 0.013513363597648627,
+      "shimmer_local": 0.07136619963245507,
+      "hnr_db": 14.92878321689421,
+      "loudness_dynamics_db": 22.01719623481307,
+      "f1_hz": 785.1868553499951,
+      "f2_hz": 2008.5408386086292,
+      "f3_hz": 3289.709235845443,
+      "f4_hz": 4238.964477594078
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "aS5MtVQnLGw",
+    "month": "2023-08",
+    "score": 40.0,
+    "window": {
+      "start_s": 750.0,
+      "end_s": 840.0
+    },
+    "features": {
+      "median_f0": 346.5113090129965,
+      "f0_iqr": 109.80485530229163,
+      "voiced_fraction": 0.8095132251611469,
+      "brightness_hz": 2517.509888068677,
+      "dynamism_semitones": 0.31705839943833086,
+      "jitter_local": 0.0064164688793056195,
+      "shimmer_local": 0.05275010698796447,
+      "hnr_db": 15.29647096707506,
+      "loudness_dynamics_db": 13.386863566275482,
+      "f1_hz": 854.6109750115747,
+      "f2_hz": 1810.4925685037513,
+      "f3_hz": 2897.897291247715,
+      "f4_hz": 4174.844650607215
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "N23cGjwhIpQ",
+    "month": "2023-09",
+    "score": 40.0,
+    "window": {
+      "start_s": 0.0,
+      "end_s": 90.0
+    },
+    "features": {
+      "median_f0": 269.7612795658549,
+      "f0_iqr": 91.40096680753268,
+      "voiced_fraction": 0.6163591909313181,
+      "brightness_hz": 2201.3031538586065,
+      "dynamism_semitones": 0.6172733795633606,
+      "jitter_local": 0.013048412869552932,
+      "shimmer_local": 0.068634897679482,
+      "hnr_db": 15.895319993504222,
+      "loudness_dynamics_db": 16.529883062184716,
+      "f1_hz": 756.7512448193385,
+      "f2_hz": 1943.1493273177414,
+      "f3_hz": 2996.5535231713015,
+      "f4_hz": 4013.1403318978237
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "oNdm_ewA4B0",
+    "month": "2023-10",
+    "score": 40.0,
+    "window": {
+      "start_s": 450.0,
+      "end_s": 540.0
+    },
+    "features": {
+      "median_f0": 226.16264726172207,
+      "f0_iqr": 79.58223574916843,
+      "voiced_fraction": 0.41431429206490333,
+      "brightness_hz": 2514.086835202655,
+      "dynamism_semitones": 0.5914606500238299,
+      "jitter_local": 0.0131726127452098,
+      "shimmer_local": 0.07753336306863592,
+      "hnr_db": 14.172150605548882,
+      "loudness_dynamics_db": 22.801868588442364,
+      "f1_hz": 949.8023802074841,
+      "f2_hz": 2175.313303327199,
+      "f3_hz": 3646.2183900013442,
+      "f4_hz": 4190.301142856567
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "YSW1OWFmBT4",
+    "month": "2023-11",
+    "score": 70.0,
+    "window": {
+      "start_s": 360.0,
+      "end_s": 450.0
+    },
+    "features": {
+      "median_f0": 235.27215437749777,
+      "f0_iqr": 67.73426841974012,
+      "voiced_fraction": 0.48299622138252946,
+      "brightness_hz": 2061.550116493057,
+      "dynamism_semitones": 0.553182739384515,
+      "jitter_local": 0.012870988065009822,
+      "shimmer_local": 0.08040576928526547,
+      "hnr_db": 14.131679701493757,
+      "loudness_dynamics_db": 18.658594086800417,
+      "f1_hz": 803.8248723796692,
+      "f2_hz": 2022.8695797989847,
+      "f3_hz": 3280.922863229095,
+      "f4_hz": 4126.112982388441
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "ZSCc57ZkRs8",
+    "month": "2023-12",
+    "score": 40.0,
+    "window": {
+      "start_s": 120.0,
+      "end_s": 210.0
+    },
+    "features": {
+      "median_f0": 260.7338594346484,
+      "f0_iqr": 134.26237943833078,
+      "voiced_fraction": 0.4445432318292954,
+      "brightness_hz": 2206.0635152643526,
+      "dynamism_semitones": 0.48533432977347557,
+      "jitter_local": 0.010645083316446941,
+      "shimmer_local": 0.0674808281207916,
+      "hnr_db": 16.914177387083104,
+      "loudness_dynamics_db": 16.09132691388288,
+      "f1_hz": 777.4083317346061,
+      "f2_hz": 1940.438457908805,
+      "f3_hz": 3070.9712048726856,
+      "f4_hz": 4154.529626335093
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "KquIl-nZaHI",
+    "month": "2024-01",
+    "score": 40.0,
+    "window": {
+      "start_s": 0.0,
+      "end_s": 90.0
+    },
+    "features": {
+      "median_f0": 270.8096939227015,
+      "f0_iqr": 113.11536213358721,
+      "voiced_fraction": 0.4167592798399644,
+      "brightness_hz": 2152.4064860859257,
+      "dynamism_semitones": 0.6810236242961397,
+      "jitter_local": 0.012092872742490317,
+      "shimmer_local": 0.0772658017344415,
+      "hnr_db": 16.303018925701174,
+      "loudness_dynamics_db": 23.525249510231212,
+      "f1_hz": 961.3944505015371,
+      "f2_hz": 2168.99254714389,
+      "f3_hz": 3616.1175166915136,
+      "f4_hz": 4128.793499943387
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "BvAciU_iUpU",
+    "month": "2024-02",
+    "score": 30.0,
+    "window": {
+      "start_s": 750.0,
+      "end_s": 840.0
+    },
+    "features": {
+      "median_f0": 260.2909029256669,
+      "f0_iqr": 77.39679036996898,
+      "voiced_fraction": 0.3289619915536786,
+      "brightness_hz": 1976.7193965556337,
+      "dynamism_semitones": 0.5394334793848724,
+      "jitter_local": 0.011816208366767469,
+      "shimmer_local": 0.07805206020300966,
+      "hnr_db": 16.728985252962104,
+      "loudness_dynamics_db": 23.837969341678754,
+      "f1_hz": 902.2587157233878,
+      "f2_hz": 2001.5442793580387,
+      "f3_hz": 3311.9087576358997,
+      "f4_hz": 4034.8830318277387
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "4NFnYmf4ar0",
+    "month": "2024-03",
+    "score": 70.0,
+    "window": {
+      "start_s": 555.0,
+      "end_s": 645.0
+    },
+    "features": {
+      "median_f0": 271.0583494531293,
+      "f0_iqr": 87.56013364846564,
+      "voiced_fraction": 0.5819070904645477,
+      "brightness_hz": 2418.256012586494,
+      "dynamism_semitones": 0.6370578062128316,
+      "jitter_local": 0.013453342833138442,
+      "shimmer_local": 0.07364437256224639,
+      "hnr_db": 15.140496697249151,
+      "loudness_dynamics_db": 22.758199891472906,
+      "f1_hz": 742.5784251381816,
+      "f2_hz": 2026.6629236663782,
+      "f3_hz": 3173.366622649589,
+      "f4_hz": 4163.647570290538
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "x9oWb4bROcQ",
+    "month": "2024-05",
+    "score": 40.0,
+    "window": {
+      "start_s": 255.0,
+      "end_s": 345.0
+    },
+    "features": {
+      "median_f0": 334.46055669486316,
+      "f0_iqr": 111.61907571746173,
+      "voiced_fraction": 0.36852633918648586,
+      "brightness_hz": 2207.6841270507243,
+      "dynamism_semitones": 0.6814807344427635,
+      "jitter_local": 0.015882761609528832,
+      "shimmer_local": 0.07877112970953941,
+      "hnr_db": 15.595343679802726,
+      "loudness_dynamics_db": 14.171077804262845,
+      "f1_hz": 793.2613381772695,
+      "f2_hz": 1818.8509557829927,
+      "f3_hz": 2895.888895812517,
+      "f4_hz": 3880.6746258291164
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "J64XZrfQ-vY",
+    "month": "2024-06",
+    "score": 40.0,
+    "window": {
+      "start_s": 0.0,
+      "end_s": 90.0
+    },
+    "features": {
+      "median_f0": 256.5040236228606,
+      "f0_iqr": 128.68579994507118,
+      "voiced_fraction": 0.3665258946432541,
+      "brightness_hz": 1950.1650488481182,
+      "dynamism_semitones": 0.5945014462235875,
+      "jitter_local": 0.01614353831953303,
+      "shimmer_local": 0.09475916610040971,
+      "hnr_db": 12.492770371401145,
+      "loudness_dynamics_db": 13.665668334858358,
+      "f1_hz": 776.195747735504,
+      "f2_hz": 1837.577295621698,
+      "f3_hz": 2875.8858027325878,
+      "f4_hz": 3868.0825322611986
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "UujeFlNpDr4",
+    "month": "2024-07",
+    "score": 70.0,
+    "window": {
+      "start_s": 675.0,
+      "end_s": 765.0
+    },
+    "features": {
+      "median_f0": 261.32534080620735,
+      "f0_iqr": 87.15141719635841,
+      "voiced_fraction": 0.597466103578573,
+      "brightness_hz": 2030.3311240538428,
+      "dynamism_semitones": 0.6189845993767619,
+      "jitter_local": 0.013139254240652315,
+      "shimmer_local": 0.07803698405950657,
+      "hnr_db": 14.43995287294666,
+      "loudness_dynamics_db": 14.54370906299817,
+      "f1_hz": 761.4161019922823,
+      "f2_hz": 1853.6874111801917,
+      "f3_hz": 2852.682386218474,
+      "f4_hz": 3821.556325527067
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "sgfit9r6A1I",
+    "month": "2024-08",
+    "score": 40.0,
+    "window": {
+      "start_s": 255.0,
+      "end_s": 345.0
+    },
+    "features": {
+      "median_f0": 229.50881952042315,
+      "f0_iqr": 44.082551307002575,
+      "voiced_fraction": 0.5234496554789954,
+      "brightness_hz": 1951.4741497870182,
+      "dynamism_semitones": 0.46952112379999184,
+      "jitter_local": 0.012219714830837492,
+      "shimmer_local": 0.06957994850028174,
+      "hnr_db": 16.269663441117817,
+      "loudness_dynamics_db": 13.792860131309316,
+      "f1_hz": 702.7321898320234,
+      "f2_hz": 1885.2616166838252,
+      "f3_hz": 2825.25599829405,
+      "f4_hz": 3917.2964811248803
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "oRrebnLHy9U",
+    "month": "2024-09",
+    "score": 60.0,
+    "window": {
+      "start_s": 60.0,
+      "end_s": 150.0
+    },
+    "features": {
+      "median_f0": 240.55774417531623,
+      "f0_iqr": 62.493936600487416,
+      "voiced_fraction": 0.41298066236941544,
+      "brightness_hz": 2414.1654722534654,
+      "dynamism_semitones": 0.5481339361567952,
+      "jitter_local": 0.01222339356237596,
+      "shimmer_local": 0.06598943212420172,
+      "hnr_db": 15.759533177340513,
+      "loudness_dynamics_db": 26.0525855415089,
+      "f1_hz": 919.2755568486534,
+      "f2_hz": 2094.203927170656,
+      "f3_hz": 3378.658787506139,
+      "f4_hz": 4014.5798107767446
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "HbsG-0_zA-s",
+    "month": "2024-10",
+    "score": 40.0,
+    "window": {
+      "start_s": 210.0,
+      "end_s": 300.0
+    },
+    "features": {
+      "median_f0": 302.87534511558283,
+      "f0_iqr": 137.73913683020842,
+      "voiced_fraction": 0.35919093131807067,
+      "brightness_hz": 2480.515493922209,
+      "dynamism_semitones": 0.5562272318676944,
+      "jitter_local": 0.011518559415197971,
+      "shimmer_local": 0.062491534466135666,
+      "hnr_db": 17.310330670208856,
+      "loudness_dynamics_db": 21.66697834532714,
+      "f1_hz": 1087.5361832333658,
+      "f2_hz": 2237.4172944364705,
+      "f3_hz": 3699.2919758190324,
+      "f4_hz": 4040.0173042946653
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "0XY9IwOFfhs",
+    "month": "2020-09",
+    "score": 40.0,
+    "window": {
+      "start_s": 660.0,
+      "end_s": 750.0
+    },
+    "features": {
+      "median_f0": 221.2216944137997,
+      "f0_iqr": 68.56977117623657,
+      "voiced_fraction": 0.5176705934652145,
+      "brightness_hz": 2398.3924871678782,
+      "dynamism_semitones": 0.6698147005093932,
+      "jitter_local": 0.017187163761242193,
+      "shimmer_local": 0.11333891316331003,
+      "hnr_db": 9.015884444171371,
+      "loudness_dynamics_db": 13.5820230915702,
+      "f1_hz": 864.8529397232448,
+      "f2_hz": 1895.2979758725774,
+      "f3_hz": 3008.566937975857,
+      "f4_hz": 3995.605037004916
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "FmTrF1dT12I",
+    "month": "2020-10",
+    "score": 50.0,
+    "window": {
+      "start_s": 135.0,
+      "end_s": 225.0
+    },
+    "features": {
+      "median_f0": 308.7040549750024,
+      "f0_iqr": 122.87943184311649,
+      "voiced_fraction": 0.5772393865303401,
+      "brightness_hz": 2634.8331434549673,
+      "dynamism_semitones": 0.5315642888076243,
+      "jitter_local": 0.017278729458548275,
+      "shimmer_local": 0.09624798616646166,
+      "hnr_db": 12.98264064092443,
+      "loudness_dynamics_db": 17.265032335347808,
+      "f1_hz": 939.86729682545,
+      "f2_hz": 1934.3482357838077,
+      "f3_hz": 3049.6640890397243,
+      "f4_hz": 4010.06238865832
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "rH8uCzwHoRU",
+    "month": "2020-11",
+    "score": 50.0,
+    "window": {
+      "start_s": 240.0,
+      "end_s": 330.0
+    },
+    "features": {
+      "median_f0": 294.03516582735665,
+      "f0_iqr": 119.4474055936312,
+      "voiced_fraction": 0.2525005556790398,
+      "brightness_hz": 3223.0382479867844,
+      "dynamism_semitones": 0.5252189977920805,
+      "jitter_local": 0.01177173845849974,
+      "shimmer_local": 0.082984762137075,
+      "hnr_db": 12.135967935025691,
+      "loudness_dynamics_db": 23.77307837672491,
+      "f1_hz": 1224.0342133245813,
+      "f2_hz": 2305.856183336113,
+      "f3_hz": 3511.962379597923,
+      "f4_hz": 4103.073201199861
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "KH30_VHmEfw",
+    "month": "2020-12",
+    "score": 50.0,
+    "window": {
+      "start_s": 45.0,
+      "end_s": 135.0
+    },
+    "features": {
+      "median_f0": 271.0196077822808,
+      "f0_iqr": 87.76982125228153,
+      "voiced_fraction": 0.511002444987775,
+      "brightness_hz": 2750.3177072315943,
+      "dynamism_semitones": 0.7216975109102128,
+      "jitter_local": 0.013744771299798703,
+      "shimmer_local": 0.08536526528746546,
+      "hnr_db": 12.582934788374969,
+      "loudness_dynamics_db": 19.781756684389837,
+      "f1_hz": 908.22623767132,
+      "f2_hz": 2063.118720427873,
+      "f3_hz": 3073.2980098274156,
+      "f4_hz": 4051.360356045748
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "9PTgx7yBhwY",
+    "month": "2021-01",
+    "score": 40.0,
+    "window": {
+      "start_s": 180.0,
+      "end_s": 270.0
+    },
+    "features": {
+      "median_f0": 278.03494578180954,
+      "f0_iqr": 141.08340743309205,
+      "voiced_fraction": 0.2431651478106246,
+      "brightness_hz": 2489.7114093319205,
+      "dynamism_semitones": 0.5972346513603275,
+      "jitter_local": 0.014503266860863919,
+      "shimmer_local": 0.09616699930497105,
+      "hnr_db": 11.289959675664708,
+      "loudness_dynamics_db": 14.488443508547721,
+      "f1_hz": 978.8937329839507,
+      "f2_hz": 2050.397680041911,
+      "f3_hz": 3198.841889999821,
+      "f4_hz": 3940.3086403817306
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "tEz9DXN57XE",
+    "month": "2021-02",
+    "score": 40.0,
+    "window": {
+      "start_s": 735.0,
+      "end_s": 825.0
+    },
+    "features": {
+      "median_f0": 269.78886431093264,
+      "f0_iqr": 66.97852427214744,
+      "voiced_fraction": 0.12647254945543454,
+      "brightness_hz": 3031.8620326705554,
+      "dynamism_semitones": 0.5423831424397382,
+      "jitter_local": 0.010384313632985124,
+      "shimmer_local": 0.08743348676043736,
+      "hnr_db": 11.95229369620039,
+      "loudness_dynamics_db": 24.862429527212324,
+      "f1_hz": 1509.7511042639262,
+      "f2_hz": 2733.9420098615583,
+      "f3_hz": 4788.542064612394,
+      "f4_hz": 4182.215524520346
+    },
+    "qc": {
+      "pass": false,
+      "reason": "voiced_fraction"
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "_4Amh-4sXRc",
+    "month": "2021-03",
+    "score": 40.0,
+    "window": {
+      "start_s": 810.0,
+      "end_s": 900.0
+    },
+    "features": {
+      "median_f0": 250.24751905159602,
+      "f0_iqr": 61.90124334001786,
+      "voiced_fraction": 0.47454989997777286,
+      "brightness_hz": 2518.076078007846,
+      "dynamism_semitones": 0.5181503732262547,
+      "jitter_local": 0.011573191284172517,
+      "shimmer_local": 0.07081077661799229,
+      "hnr_db": 14.980796019232516,
+      "loudness_dynamics_db": 23.830030167310042,
+      "f1_hz": 932.4321115355203,
+      "f2_hz": 2103.0605510033715,
+      "f3_hz": 3283.482531358028,
+      "f4_hz": 3969.737799310037
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "pSQytMc4d5s",
+    "month": "2021-04",
+    "score": 40.0,
+    "window": {
+      "start_s": 270.0,
+      "end_s": 360.0
+    },
+    "features": {
+      "median_f0": 287.79783414444347,
+      "f0_iqr": 104.33279919312363,
+      "voiced_fraction": 0.28206268059568795,
+      "brightness_hz": 2371.1862657195375,
+      "dynamism_semitones": 0.9990019467045976,
+      "jitter_local": 0.017859804926221887,
+      "shimmer_local": 0.11221451511073773,
+      "hnr_db": 10.35767453743918,
+      "loudness_dynamics_db": 22.569487505079,
+      "f1_hz": 933.6699182488131,
+      "f2_hz": 2020.8049645613733,
+      "f3_hz": 3154.0498462384335,
+      "f4_hz": 4051.18695474536
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "RNlRAvY-8ZA",
+    "month": "2021-05",
+    "score": 50.0,
+    "window": {
+      "start_s": 735.0,
+      "end_s": 825.0
+    },
+    "features": {
+      "median_f0": 271.57622776119956,
+      "f0_iqr": 96.84758187471544,
+      "voiced_fraction": 0.44609913314069793,
+      "brightness_hz": 2736.2960134920186,
+      "dynamism_semitones": 0.44540882788525804,
+      "jitter_local": 0.00972224777844999,
+      "shimmer_local": 0.08552212224590434,
+      "hnr_db": 13.204284529025315,
+      "loudness_dynamics_db": 22.539824756799575,
+      "f1_hz": 968.4294642634726,
+      "f2_hz": 1926.7632993267084,
+      "f3_hz": 3034.0510971643425,
+      "f4_hz": 4063.4262384845333
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "nELfxuOWjBQ",
+    "month": "2021-06",
+    "score": 40.0,
+    "window": {
+      "start_s": 0.0,
+      "end_s": 90.0
+    },
+    "features": {
+      "median_f0": 335.3532945767387,
+      "f0_iqr": 96.90321296161028,
+      "voiced_fraction": 0.13425205601244722,
+      "brightness_hz": 2159.5955126458452,
+      "dynamism_semitones": 0.42256777527857153,
+      "jitter_local": 0.010158109100876936,
+      "shimmer_local": 0.08119169318129506,
+      "hnr_db": 13.477963485704672,
+      "loudness_dynamics_db": 27.80810466827229,
+      "f1_hz": 1518.3269944966962,
+      "f2_hz": 2690.3750031835048,
+      "f3_hz": 4752.829701879099,
+      "f4_hz": 4118.536013328287
+    },
+    "qc": {
+      "pass": false,
+      "reason": "voiced_fraction"
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "z5WCQJJtKFs",
+    "month": "2021-07",
+    "score": 40.0,
+    "window": {
+      "start_s": 270.0,
+      "end_s": 360.0
+    },
+    "features": {
+      "median_f0": 379.79091945590517,
+      "f0_iqr": 130.77962386834912,
+      "voiced_fraction": 0.2942876194709936,
+      "brightness_hz": 2104.74761191329,
+      "dynamism_semitones": 0.3973616095220322,
+      "jitter_local": 0.014028833476882037,
+      "shimmer_local": 0.09069287985600799,
+      "hnr_db": 12.912140599025594,
+      "loudness_dynamics_db": 14.435775357958866,
+      "f1_hz": 1145.423286344437,
+      "f2_hz": 2312.4306458001147,
+      "f3_hz": 3897.573478893657,
+      "f4_hz": 4132.098060319278
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "0iSKEkdDAKA",
+    "month": "2021-08",
+    "score": 50.0,
+    "window": {
+      "start_s": 705.0,
+      "end_s": 795.0
+    },
+    "features": {
+      "median_f0": 246.00558154213732,
+      "f0_iqr": 73.42033140246542,
+      "voiced_fraction": 0.5492331629250945,
+      "brightness_hz": 2335.1793869554513,
+      "dynamism_semitones": 0.6275451469525926,
+      "jitter_local": 0.01561430049606,
+      "shimmer_local": 0.09488768734914595,
+      "hnr_db": 11.570601918078488,
+      "loudness_dynamics_db": 15.57307536546736,
+      "f1_hz": 941.5877888963503,
+      "f2_hz": 2043.9952292348084,
+      "f3_hz": 3094.6763804005886,
+      "f4_hz": 4127.756432117955
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "95jYNgLg_yQ",
+    "month": "2021-09",
+    "score": 40.0,
+    "window": {
+      "start_s": 150.0,
+      "end_s": 240.0
+    },
+    "features": {
+      "median_f0": 240.38203735362765,
+      "f0_iqr": 75.85249069278268,
+      "voiced_fraction": 0.2538341853745277,
+      "brightness_hz": 1905.6505615384267,
+      "dynamism_semitones": 0.5743598792187193,
+      "jitter_local": 0.015883630664817155,
+      "shimmer_local": 0.07864416543270306,
+      "hnr_db": 15.940207881674155,
+      "loudness_dynamics_db": 22.704332183026285,
+      "f1_hz": 1070.693086328908,
+      "f2_hz": 2239.2442525706147,
+      "f3_hz": 3634.9338261331777,
+      "f4_hz": 4051.2509925166905
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "jiOMr4Kx7oQ",
+    "month": "2021-10",
+    "score": 40.0,
+    "window": {
+      "start_s": 45.0,
+      "end_s": 135.0
+    },
+    "features": {
+      "median_f0": 157.8998331576123,
+      "f0_iqr": 92.4710776696096,
+      "voiced_fraction": 0.4167592798399644,
+      "brightness_hz": 1821.1376008835528,
+      "dynamism_semitones": 0.7532575854345991,
+      "jitter_local": 0.022718837100929538,
+      "shimmer_local": 0.10729341811665558,
+      "hnr_db": 10.830148806606081,
+      "loudness_dynamics_db": 16.346150417756416,
+      "f1_hz": 797.5248187407304,
+      "f2_hz": 1891.0383327688041,
+      "f3_hz": 2945.28614063006,
+      "f4_hz": 3976.93037817173
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "GaM46Jp6jdg",
+    "month": "2021-11",
+    "score": 40.0,
+    "window": {
+      "start_s": 270.0,
+      "end_s": 360.0
+    },
+    "features": {
+      "median_f0": 235.82905986519046,
+      "f0_iqr": 82.47567159169509,
+      "voiced_fraction": 0.22938430762391643,
+      "brightness_hz": 2062.0342771871897,
+      "dynamism_semitones": 0.7323207589208783,
+      "jitter_local": 0.01705509368583778,
+      "shimmer_local": 0.08327040714180563,
+      "hnr_db": 12.953490310116072,
+      "loudness_dynamics_db": 17.65057652364442,
+      "f1_hz": 834.5277613461135,
+      "f2_hz": 1845.2160709199195,
+      "f3_hz": 3131.873239519735,
+      "f4_hz": 3977.4937276637816
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "-ICVxiPrbtk",
+    "month": "2021-12",
+    "score": 40.0,
+    "window": {
+      "start_s": 795.0,
+      "end_s": 885.0
+    },
+    "features": {
+      "median_f0": 235.33497888704122,
+      "f0_iqr": 132.47909615840408,
+      "voiced_fraction": 0.22449433207379418,
+      "brightness_hz": 1904.361842059378,
+      "dynamism_semitones": 0.6176850381813778,
+      "jitter_local": 0.018091397683387973,
+      "shimmer_local": 0.08952722629248389,
+      "hnr_db": 14.48421839642665,
+      "loudness_dynamics_db": 21.241808282222607,
+      "f1_hz": 1017.876732494005,
+      "f2_hz": 2100.768518342165,
+      "f3_hz": 3429.6201598185535,
+      "f4_hz": 4028.963923437973
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "CqCEa0nuUxg",
+    "month": "2022-01",
+    "score": 40.0,
+    "window": {
+      "start_s": 690.0,
+      "end_s": 780.0
+    },
+    "features": {
+      "median_f0": 245.79455691514593,
+      "f0_iqr": 69.65437821320134,
+      "voiced_fraction": 0.3816403645254501,
+      "brightness_hz": 2076.7589289359616,
+      "dynamism_semitones": 0.4791959066703606,
+      "jitter_local": 0.016590102937139247,
+      "shimmer_local": 0.08087807005149399,
+      "hnr_db": 16.52999475483133,
+      "loudness_dynamics_db": 24.50036869478931,
+      "f1_hz": 811.6355090718853,
+      "f2_hz": 1896.3385398791181,
+      "f3_hz": 2996.5554596694205,
+      "f4_hz": 4006.2313249393264
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "lcj9lF53VvA",
+    "month": "2022-02",
+    "score": 50.0,
+    "window": {
+      "start_s": 780.0,
+      "end_s": 870.0
+    },
+    "features": {
+      "median_f0": 243.81937173271652,
+      "f0_iqr": 122.93285044444437,
+      "voiced_fraction": 0.4647699488775283,
+      "brightness_hz": 1896.5235300505583,
+      "dynamism_semitones": 0.5597808060056628,
+      "jitter_local": 0.013507393841621043,
+      "shimmer_local": 0.05837828582150577,
+      "hnr_db": 17.166387574896316,
+      "loudness_dynamics_db": 23.143819766876806,
+      "f1_hz": 708.4107763860442,
+      "f2_hz": 1825.474162731954,
+      "f3_hz": 2773.2908804223675,
+      "f4_hz": 4082.2779598996162
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "-7LQkOlcbig",
+    "month": "2022-03",
+    "score": 50.0,
+    "window": {
+      "start_s": 285.0,
+      "end_s": 375.0
+    },
+    "features": {
+      "median_f0": 357.87914368883787,
+      "f0_iqr": 121.50045546311031,
+      "voiced_fraction": 0.2842853967548344,
+      "brightness_hz": 2181.426059804804,
+      "dynamism_semitones": 0.5433526023545566,
+      "jitter_local": 0.01365505711730374,
+      "shimmer_local": 0.08730390818209191,
+      "hnr_db": 17.800249599761635,
+      "loudness_dynamics_db": 17.45498589343296,
+      "f1_hz": 994.2838688594583,
+      "f2_hz": 1980.7266942576177,
+      "f3_hz": 3000.679457364726,
+      "f4_hz": 3816.136883074892
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "S1d8DqYje2A",
+    "month": "2022-04",
+    "score": 50.0,
+    "window": {
+      "start_s": 705.0,
+      "end_s": 795.0
+    },
+    "features": {
+      "median_f0": 310.07058186252686,
+      "f0_iqr": 166.73841034508337,
+      "voiced_fraction": 0.4212047121582574,
+      "brightness_hz": 1775.003086967625,
+      "dynamism_semitones": 0.6975036200684721,
+      "jitter_local": 0.015240375239575702,
+      "shimmer_local": 0.06863823231305903,
+      "hnr_db": 16.060375411497667,
+      "loudness_dynamics_db": 21.650729035409295,
+      "f1_hz": 978.3919654064487,
+      "f2_hz": 2061.171545081908,
+      "f3_hz": 3251.7210060187126,
+      "f4_hz": 4051.645010982543
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "vGTEUNxIP3w",
+    "month": "2022-05",
+    "score": 50.0,
+    "window": {
+      "start_s": 105.0,
+      "end_s": 195.0
+    },
+    "features": {
+      "median_f0": 245.09223749450635,
+      "f0_iqr": 86.13458551199437,
+      "voiced_fraction": 0.4496554789953323,
+      "brightness_hz": 2104.5933881242368,
+      "dynamism_semitones": 0.5660931218769291,
+      "jitter_local": 0.014534308958599897,
+      "shimmer_local": 0.07407423470994247,
+      "hnr_db": 14.10853863711241,
+      "loudness_dynamics_db": 20.31839732099626,
+      "f1_hz": 847.6294913859974,
+      "f2_hz": 1837.8528877126912,
+      "f3_hz": 2798.7339886667605,
+      "f4_hz": 3936.932644074259
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "tGBB7QMKbaM",
+    "month": "2022-06",
+    "score": 40.0,
+    "window": {
+      "start_s": 120.0,
+      "end_s": 210.0
+    },
+    "features": {
+      "median_f0": 254.40675864449116,
+      "f0_iqr": 92.1951864692989,
+      "voiced_fraction": 0.5010002222716159,
+      "brightness_hz": 1750.1348547541388,
+      "dynamism_semitones": 0.3893790457730467,
+      "jitter_local": 0.010042741815375277,
+      "shimmer_local": 0.06570038436610852,
+      "hnr_db": 17.39894195273035,
+      "loudness_dynamics_db": 22.743346687980022,
+      "f1_hz": 804.9243904424027,
+      "f2_hz": 1787.4607221565639,
+      "f3_hz": 2915.626913328741,
+      "f4_hz": 4081.724667558855
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "4INEcW4lkdc",
+    "month": "2022-07",
+    "score": 50.0,
+    "window": {
+      "start_s": 15.0,
+      "end_s": 105.0
+    },
+    "features": {
+      "median_f0": 259.2563949922718,
+      "f0_iqr": 97.21259092315566,
+      "voiced_fraction": 0.5245610135585685,
+      "brightness_hz": 2116.912458680031,
+      "dynamism_semitones": 0.5671383787544741,
+      "jitter_local": 0.01728072095593954,
+      "shimmer_local": 0.09604052070076646,
+      "hnr_db": 11.280920737764541,
+      "loudness_dynamics_db": 11.083007337983956,
+      "f1_hz": 795.4931178339674,
+      "f2_hz": 1814.6537220080445,
+      "f3_hz": 2818.756158371162,
+      "f4_hz": 3927.1461200218596
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "h-Qvi1Uxkn0",
+    "month": "2022-08",
+    "score": 70.0,
+    "window": {
+      "start_s": 0.0,
+      "end_s": 90.0
+    },
+    "features": {
+      "median_f0": 228.0455016310636,
+      "f0_iqr": 70.20140882225041,
+      "voiced_fraction": 0.4903311847077128,
+      "brightness_hz": 2074.4152629353966,
+      "dynamism_semitones": 0.47321978372700524,
+      "jitter_local": 0.014415641004325205,
+      "shimmer_local": 0.0776652494387006,
+      "hnr_db": 14.740356735051844,
+      "loudness_dynamics_db": 22.46630706193085,
+      "f1_hz": 824.0705531855334,
+      "f2_hz": 1869.8710981483177,
+      "f3_hz": 2957.312970789368,
+      "f4_hz": 4071.3408267343148
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "gfUMWE7Iebc",
+    "month": "2022-09",
+    "score": 40.0,
+    "window": {
+      "start_s": 315.0,
+      "end_s": 405.0
+    },
+    "features": {
+      "median_f0": 205.58796162126882,
+      "f0_iqr": 68.5923659473367,
+      "voiced_fraction": 0.3660813514114248,
+      "brightness_hz": 2022.7871021245305,
+      "dynamism_semitones": 0.7338902837374506,
+      "jitter_local": 0.0180629695974084,
+      "shimmer_local": 0.0817014970737858,
+      "hnr_db": 13.900921961192894,
+      "loudness_dynamics_db": 15.52866130980664,
+      "f1_hz": 785.4764956620666,
+      "f2_hz": 1905.0185077184096,
+      "f3_hz": 2992.395631243224,
+      "f4_hz": 4069.8529914491855
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "ef7u-YmtNM8",
+    "month": "2022-10",
+    "score": 50.0,
+    "window": {
+      "start_s": 300.0,
+      "end_s": 390.0
+    },
+    "features": {
+      "median_f0": 255.85581861241738,
+      "f0_iqr": 118.84453144288139,
+      "voiced_fraction": 0.48210713491887086,
+      "brightness_hz": 2391.4012454474387,
+      "dynamism_semitones": 0.5706266452977617,
+      "jitter_local": 0.012006346466963405,
+      "shimmer_local": 0.08258125223145048,
+      "hnr_db": 16.707037469905277,
+      "loudness_dynamics_db": 23.693241558016666,
+      "f1_hz": 977.64806933175,
+      "f2_hz": 2161.371664413315,
+      "f3_hz": 3562.2013166051547,
+      "f4_hz": 4070.271549107562
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "NBpyMxck8A8",
+    "month": "2022-11",
+    "score": 40.0,
+    "window": {
+      "start_s": 60.0,
+      "end_s": 150.0
+    },
+    "features": {
+      "median_f0": 289.45646376207253,
+      "f0_iqr": 103.13674654394308,
+      "voiced_fraction": 0.4776617026005779,
+      "brightness_hz": 2162.422438988824,
+      "dynamism_semitones": 0.6804713001346893,
+      "jitter_local": 0.019110790987394658,
+      "shimmer_local": 0.10724593910907644,
+      "hnr_db": 11.746181165491867,
+      "loudness_dynamics_db": 15.800140297989286,
+      "f1_hz": 865.186323231105,
+      "f2_hz": 1904.3371012672333,
+      "f3_hz": 2878.8840803991015,
+      "f4_hz": 3928.665200030709
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "UJCMCJ1PlKo",
+    "month": "2022-12",
+    "score": 50.0,
+    "window": {
+      "start_s": 360.0,
+      "end_s": 450.0
+    },
+    "features": {
+      "median_f0": 298.3152129574414,
+      "f0_iqr": 122.24912750363967,
+      "voiced_fraction": 0.44165370082240496,
+      "brightness_hz": 2065.1559570254126,
+      "dynamism_semitones": 0.6421035635998991,
+      "jitter_local": 0.014319897874941982,
+      "shimmer_local": 0.07530999514156585,
+      "hnr_db": 14.200815533543647,
+      "loudness_dynamics_db": 29.997392227655755,
+      "f1_hz": 882.3437442532437,
+      "f2_hz": 1960.2617955355358,
+      "f3_hz": 3202.623833133721,
+      "f4_hz": 3981.899776056271
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "c0mNb0R91_M",
+    "month": "2023-01",
+    "score": 50.0,
+    "window": {
+      "start_s": 750.0,
+      "end_s": 840.0
+    },
+    "features": {
+      "median_f0": 226.4116005929278,
+      "f0_iqr": 60.96974416506666,
+      "voiced_fraction": 0.5699044232051567,
+      "brightness_hz": 2069.788775509682,
+      "dynamism_semitones": 0.5422423702712931,
+      "jitter_local": 0.01421766808505523,
+      "shimmer_local": 0.08047012643691993,
+      "hnr_db": 14.85139057117924,
+      "loudness_dynamics_db": 12.562886403357876,
+      "f1_hz": 778.9961274389578,
+      "f2_hz": 1877.7919885193667,
+      "f3_hz": 2929.363432330092,
+      "f4_hz": 4081.351477163058
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "-2i0Z4AYyYI",
+    "month": "2023-02",
+    "score": 40.0,
+    "window": {
+      "start_s": 375.0,
+      "end_s": 465.0
+    },
+    "features": {
+      "median_f0": 237.36342706917526,
+      "f0_iqr": 74.57372891762938,
+      "voiced_fraction": 0.30584574349855526,
+      "brightness_hz": 2603.0293211729154,
+      "dynamism_semitones": 0.6437308878394487,
+      "jitter_local": 0.017922339570510783,
+      "shimmer_local": 0.10429687953847437,
+      "hnr_db": 12.445169872864923,
+      "loudness_dynamics_db": 15.748804040217355,
+      "f1_hz": 862.3495125774332,
+      "f2_hz": 1932.3952695529713,
+      "f3_hz": 3055.097305344291,
+      "f4_hz": 4044.321749525161
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "XfjERcD7cY8",
+    "month": "2023-03",
+    "score": 40.0,
+    "window": {
+      "start_s": 0.0,
+      "end_s": 90.0
+    },
+    "features": {
+      "median_f0": 230.747880708646,
+      "f0_iqr": 85.48479243894536,
+      "voiced_fraction": 0.28250722382751725,
+      "brightness_hz": 2517.4950743378004,
+      "dynamism_semitones": 0.5348023885238465,
+      "jitter_local": 0.01765621694769617,
+      "shimmer_local": 0.09363362424505257,
+      "hnr_db": 9.455725502317826,
+      "loudness_dynamics_db": 16.643596408147786,
+      "f1_hz": 838.7954585833413,
+      "f2_hz": 2002.5194408042062,
+      "f3_hz": 3037.919409547302,
+      "f4_hz": 4069.871510217116
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "dc01On4tZ1Q",
+    "month": "2023-04",
+    "score": 40.0,
+    "window": {
+      "start_s": 690.0,
+      "end_s": 780.0
+    },
+    "features": {
+      "median_f0": 261.70435357129753,
+      "f0_iqr": 92.16683279249827,
+      "voiced_fraction": 0.35719048677483883,
+      "brightness_hz": 2428.39142536942,
+      "dynamism_semitones": 0.6229523645741439,
+      "jitter_local": 0.013738198710299557,
+      "shimmer_local": 0.09070635919938863,
+      "hnr_db": 13.762882372376703,
+      "loudness_dynamics_db": 24.1963671614293,
+      "f1_hz": 1077.0282735974222,
+      "f2_hz": 2142.7196301510153,
+      "f3_hz": 3565.4697798547822,
+      "f4_hz": 4012.6200691129134
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "OwaJ2sHGc3M",
+    "month": "2023-05",
+    "score": 40.0,
+    "window": {
+      "start_s": 570.0,
+      "end_s": 660.0
+    },
+    "features": {
+      "median_f0": 277.20754746207024,
+      "f0_iqr": 82.06213718223563,
+      "voiced_fraction": 0.23983107357190486,
+      "brightness_hz": 2532.390371210462,
+      "dynamism_semitones": 0.379749257832753,
+      "jitter_local": 0.008401390985375286,
+      "shimmer_local": 0.04865613656303831,
+      "hnr_db": 17.249108896581937,
+      "loudness_dynamics_db": 24.10300356618379,
+      "f1_hz": 1273.8368099371942,
+      "f2_hz": 2497.8833648534655,
+      "f3_hz": 4282.463987799811,
+      "f4_hz": 4058.331775036576
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "LKabPf8qFYc",
+    "month": "2023-06",
+    "score": 40.0,
+    "window": {
+      "start_s": 375.0,
+      "end_s": 465.0
+    },
+    "features": {
+      "median_f0": 228.28666955980808,
+      "f0_iqr": 70.70224490545633,
+      "voiced_fraction": 0.3578573016225828,
+      "brightness_hz": 2021.1081184748793,
+      "dynamism_semitones": 0.532082751206322,
+      "jitter_local": 0.015241884803001425,
+      "shimmer_local": 0.07294165036246288,
+      "hnr_db": 15.266883530165689,
+      "loudness_dynamics_db": 21.38706072466114,
+      "f1_hz": 865.9841721685412,
+      "f2_hz": 1986.636525455912,
+      "f3_hz": 3212.385795164714,
+      "f4_hz": 4055.0564873207964
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "Amf2Pjg3DCw",
+    "month": "2023-07",
+    "score": 70.0,
+    "window": {
+      "start_s": 645.0,
+      "end_s": 735.0
+    },
+    "features": {
+      "median_f0": 219.87363259207092,
+      "f0_iqr": 54.07578557430497,
+      "voiced_fraction": 0.4752167148255168,
+      "brightness_hz": 2629.076981970442,
+      "dynamism_semitones": 0.5288581909975246,
+      "jitter_local": 0.012977184775997451,
+      "shimmer_local": 0.07764676151975546,
+      "hnr_db": 15.359508477605955,
+      "loudness_dynamics_db": 26.766704218894294,
+      "f1_hz": 843.8417347093006,
+      "f2_hz": 2041.0565370844529,
+      "f3_hz": 3191.900281552302,
+      "f4_hz": 4141.553321380389
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "VCWLMCJKz0I",
+    "month": "2023-08",
+    "score": 30.0,
+    "window": {
+      "start_s": 330.0,
+      "end_s": 420.0
+    },
+    "features": {
+      "median_f0": 287.9065134006755,
+      "f0_iqr": 142.66545355230076,
+      "voiced_fraction": 0.2713936430317848,
+      "brightness_hz": 2844.4265109343423,
+      "dynamism_semitones": 0.5418928951415596,
+      "jitter_local": 0.011796639818928365,
+      "shimmer_local": 0.06362871459538186,
+      "hnr_db": 15.69233237191408,
+      "loudness_dynamics_db": 23.41873855710136,
+      "f1_hz": 1195.4432808342356,
+      "f2_hz": 2374.897232348211,
+      "f3_hz": 3675.5709713113956,
+      "f4_hz": 4049.3274157029705
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "FOc749sw5qQ",
+    "month": "2023-09",
+    "score": 40.0,
+    "window": {
+      "start_s": 45.0,
+      "end_s": 135.0
+    },
+    "features": {
+      "median_f0": 257.36930183391155,
+      "f0_iqr": 94.89342455339761,
+      "voiced_fraction": 0.5018893087352745,
+      "brightness_hz": 2536.7795564379812,
+      "dynamism_semitones": 0.61243219864365,
+      "jitter_local": 0.012009503154053244,
+      "shimmer_local": 0.071973275906984,
+      "hnr_db": 15.07668304171733,
+      "loudness_dynamics_db": 22.959880630504976,
+      "f1_hz": 792.3759312433399,
+      "f2_hz": 2063.6700401042704,
+      "f3_hz": 3301.6732739615654,
+      "f4_hz": 4197.503056913305
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "EP3w2pCIKY0",
+    "month": "2023-10",
+    "score": 40.0,
+    "window": {
+      "start_s": 345.0,
+      "end_s": 435.0
+    },
+    "features": {
+      "median_f0": 321.2676130372319,
+      "f0_iqr": 135.24895149777518,
+      "voiced_fraction": 0.2269393198488553,
+      "brightness_hz": 2756.4595417977525,
+      "dynamism_semitones": 0.762454889862637,
+      "jitter_local": 0.016697234915878306,
+      "shimmer_local": 0.0723703872389334,
+      "hnr_db": 15.237129328749367,
+      "loudness_dynamics_db": 27.312349456680714,
+      "f1_hz": 1051.5473246336353,
+      "f2_hz": 2163.6816168078817,
+      "f3_hz": 3486.0536021100606,
+      "f4_hz": 4039.5976947153513
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "CbX4M1B0764",
+    "month": "2023-11",
+    "score": 40.0,
+    "window": {
+      "start_s": 30.0,
+      "end_s": 120.0
+    },
+    "features": {
+      "median_f0": 252.60310742109473,
+      "f0_iqr": 81.19104596716983,
+      "voiced_fraction": 0.3678595243387419,
+      "brightness_hz": 2103.8137993909763,
+      "dynamism_semitones": 0.5536187400137937,
+      "jitter_local": 0.014049522975069197,
+      "shimmer_local": 0.08837980690935462,
+      "hnr_db": 13.696464742129125,
+      "loudness_dynamics_db": 22.265067355624215,
+      "f1_hz": 887.7004312832662,
+      "f2_hz": 2061.2655077165623,
+      "f3_hz": 3382.976080201491,
+      "f4_hz": 4041.166861970981
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "orkmpBigiOw",
+    "month": "2023-12",
+    "score": 40.0,
+    "window": {
+      "start_s": 705.0,
+      "end_s": 795.0
+    },
+    "features": {
+      "median_f0": 246.85739515169968,
+      "f0_iqr": 73.06804517196838,
+      "voiced_fraction": 0.5510113358524117,
+      "brightness_hz": 2351.91700477585,
+      "dynamism_semitones": 0.635969132484045,
+      "jitter_local": 0.013576577046887356,
+      "shimmer_local": 0.07588131654686558,
+      "hnr_db": 14.052246202386408,
+      "loudness_dynamics_db": 19.213499229801897,
+      "f1_hz": 719.1803273654231,
+      "f2_hz": 1989.9061791067484,
+      "f3_hz": 3100.3194554250213,
+      "f4_hz": 4101.472546137388
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "NkRm8HbEIFQ",
+    "month": "2024-01",
+    "score": 40.0,
+    "window": {
+      "start_s": 555.0,
+      "end_s": 645.0
+    },
+    "features": {
+      "median_f0": 238.83225764214112,
+      "f0_iqr": 76.2790792418871,
+      "voiced_fraction": 0.6012447210491221,
+      "brightness_hz": 1953.306429887647,
+      "dynamism_semitones": 0.5340740562382473,
+      "jitter_local": 0.014508348744370004,
+      "shimmer_local": 0.09576207700614535,
+      "hnr_db": 12.909807923743672,
+      "loudness_dynamics_db": 11.650104472803044,
+      "f1_hz": 725.1157440092883,
+      "f2_hz": 1755.715499082535,
+      "f3_hz": 2891.421258192694,
+      "f4_hz": 3958.416940905888
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "d0Bp1PI7vZw",
+    "month": "2024-02",
+    "score": 30.0,
+    "window": {
+      "start_s": 345.0,
+      "end_s": 435.0
+    },
+    "features": {
+      "median_f0": 244.0995982343097,
+      "f0_iqr": 89.34843261955879,
+      "voiced_fraction": 0.36852633918648586,
+      "brightness_hz": 1963.7596602987614,
+      "dynamism_semitones": 0.6221067408595868,
+      "jitter_local": 0.013407312420728892,
+      "shimmer_local": 0.07179222676562534,
+      "hnr_db": 15.361278328001328,
+      "loudness_dynamics_db": 17.630448489138367,
+      "f1_hz": 733.0742819342141,
+      "f2_hz": 1845.8859255344748,
+      "f3_hz": 3017.944836097546,
+      "f4_hz": 4065.984024886458
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "y3QpnBzetJ4",
+    "month": "2024-05",
+    "score": 40.0,
+    "window": {
+      "start_s": 780.0,
+      "end_s": 870.0
+    },
+    "features": {
+      "median_f0": 268.77828766432816,
+      "f0_iqr": 154.94823013944062,
+      "voiced_fraction": 0.2691709268726384,
+      "brightness_hz": 2679.895783951431,
+      "dynamism_semitones": 0.6448889163198575,
+      "jitter_local": 0.017050362305336388,
+      "shimmer_local": 0.0795922362316897,
+      "hnr_db": 13.90868304026291,
+      "loudness_dynamics_db": 21.87843557759977,
+      "f1_hz": 905.8226207739685,
+      "f2_hz": 1972.6119353922168,
+      "f3_hz": 3121.9512828876855,
+      "f4_hz": 4071.9132859025754
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "wl-0828UpLQ",
+    "month": "2024-06",
+    "score": 30.0,
+    "window": {
+      "start_s": 210.0,
+      "end_s": 300.0
+    },
+    "features": {
+      "median_f0": 229.7166964780608,
+      "f0_iqr": 63.55456258175698,
+      "voiced_fraction": 0.4092020448988664,
+      "brightness_hz": 1941.5258657016257,
+      "dynamism_semitones": 0.4712654098595245,
+      "jitter_local": 0.01474057994053511,
+      "shimmer_local": 0.07660863526054401,
+      "hnr_db": 13.945314567155371,
+      "loudness_dynamics_db": 13.409614449331153,
+      "f1_hz": 884.9851072263411,
+      "f2_hz": 2095.058161466108,
+      "f3_hz": 3261.192336281507,
+      "f4_hz": 3891.0433737401804
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "kNSA-NfDiS0",
+    "month": "2024-07",
+    "score": 30.0,
+    "window": {
+      "start_s": 90.0,
+      "end_s": 180.0
+    },
+    "features": {
+      "median_f0": 228.42785965573916,
+      "f0_iqr": 74.48890935283546,
+      "voiced_fraction": 0.37074905534563235,
+      "brightness_hz": 2130.7966231346204,
+      "dynamism_semitones": 0.4977577835289086,
+      "jitter_local": 0.014396415662098448,
+      "shimmer_local": 0.08366566881364362,
+      "hnr_db": 13.718368351764212,
+      "loudness_dynamics_db": 18.237221686207395,
+      "f1_hz": 939.8892389070543,
+      "f2_hz": 2006.9066319577669,
+      "f3_hz": 3213.7180752619097,
+      "f4_hz": 3859.486840657735
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "v7uR1hS4kPw",
+    "month": "2024-08",
+    "score": 30.0,
+    "window": {
+      "start_s": 60.0,
+      "end_s": 150.0
+    },
+    "features": {
+      "median_f0": 247.3727139409459,
+      "f0_iqr": 96.1166009454688,
+      "voiced_fraction": 0.37386085796843743,
+      "brightness_hz": 1844.9074180867335,
+      "dynamism_semitones": 0.7600858517359067,
+      "jitter_local": 0.016418967028509777,
+      "shimmer_local": 0.08160575301095307,
+      "hnr_db": 13.625696652138076,
+      "loudness_dynamics_db": 17.722704626316048,
+      "f1_hz": 707.5124539197427,
+      "f2_hz": 1660.191611990308,
+      "f3_hz": 2808.266568030791,
+      "f4_hz": 3888.180312492338
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "1M4gZQPOJoI",
+    "month": "2024-09",
+    "score": 40.0,
+    "window": {
+      "start_s": 585.0,
+      "end_s": 675.0
+    },
+    "features": {
+      "median_f0": 338.5453312951243,
+      "f0_iqr": 127.98050457569809,
+      "voiced_fraction": 0.6114692153811958,
+      "brightness_hz": 2204.3563312522515,
+      "dynamism_semitones": 0.9687169289923455,
+      "jitter_local": 0.015151345419657503,
+      "shimmer_local": 0.09864822031879375,
+      "hnr_db": 11.037658843620294,
+      "loudness_dynamics_db": 11.891595465747505,
+      "f1_hz": 807.0964369650893,
+      "f2_hz": 1841.2355042980398,
+      "f3_hz": 2920.499776957957,
+      "f4_hz": 3993.397921105713
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  }
+]
