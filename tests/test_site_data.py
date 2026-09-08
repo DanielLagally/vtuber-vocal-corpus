@@ -329,6 +329,17 @@ def test_dev_is_short_name_resolves_via_alias_table() -> None:
     assert talent["branch"] == "DEV_IS"
 
 
+def test_fuwamoco_resolves_via_alias_table() -> None:
+    store = {"a.json": [_entry("2024-01", "vid0000001", median_f0=200.0)]}
+    roster = [_roster_entry("Fuwawa & Mococo Abyssgard", "English -Advent-")]
+    result = site_data.build_site_data(
+        {"a.json": "FUWAMOCO"}, roster=roster, loader=_loader(store)
+    )
+    talent = result["talents"]["FUWAMOCO"]
+    assert talent["group"] == ["English -Advent-"]
+    assert talent["branch"] == "EN"
+
+
 def test_multi_group_talent_appears_under_every_membership() -> None:
     """Rule 7b: Shirakami Fubuki holds two generation memberships — both
     appear in "group", regardless of what the roster alone says (roster

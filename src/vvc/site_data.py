@@ -56,7 +56,7 @@ YEARLY_FEATURE_KEYS = (
 _CUTE_MATURE_AXES = ("median_f0", "brightness_hz", "dynamism_semitones")
 
 # talents.json display names that don't equal roster.json's english_name
-# for that person (DEV_IS members registered under short given names).
+# (mostly DEV_IS short given names, plus the joint FUWAMOCO channel).
 _ROSTER_NAME_ALIASES = {
     "Niko": "Koganei Niko",
     "Su": "Mizumiya Su",
@@ -67,6 +67,7 @@ _ROSTER_NAME_ALIASES = {
     "Riona": "Isaki Riona",
     "Ririka": "Ichijou Ririka",
     "Vivi": "Kikirara Vivi",
+    "FUWAMOCO": "Fuwawa & Mococo Abyssgard",
 }
 
 
