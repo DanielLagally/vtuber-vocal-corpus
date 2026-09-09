@@ -1,5 +1,5 @@
 window.SITE_DATA = {
-  "generated_at": "2026-09-09T02:42:46+00:00",
+  "generated_at": "2026-09-09T03:08:13+00:00",
   "talents": {
     "Aki Rosenthal": {
       "monthly": {
@@ -7482,9 +7482,9 @@ window.SITE_DATA = {
         "total": 179
       },
       "group": [
-        "Unknown"
+        "1st Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 76.71232876712328,
         "brightness_hz": 68.4931506849315,
@@ -7557,9 +7557,9 @@ window.SITE_DATA = {
         "total": 0
       },
       "group": [
-        "Unknown"
+        "5th Generation (holoFive)"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {},
       "raw_means": {}
     },
@@ -11568,9 +11568,9 @@ window.SITE_DATA = {
         "total": 96
       },
       "group": [
-        "Unknown"
+        "English -Myth-"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 16.438356164383563,
         "brightness_hz": 79.45205479452055,
@@ -17143,9 +17143,9 @@ window.SITE_DATA = {
         "total": 138
       },
       "group": [
-        "Unknown"
+        "Indonesia 2nd Gen (holoro)"
       ],
-      "branch": "Unknown",
+      "branch": "ID",
       "percentiles": {
         "median_f0": 32.87671232876713,
         "brightness_hz": 2.73972602739726,
@@ -18857,9 +18857,9 @@ window.SITE_DATA = {
         "total": 57
       },
       "group": [
-        "Unknown"
+        "DEV_IS ReGLOSS"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 5.47945205479452,
         "brightness_hz": 45.205479452054796,
@@ -24289,9 +24289,9 @@ window.SITE_DATA = {
         "total": 119
       },
       "group": [
-        "Unknown"
+        "2nd Generation"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 86.3013698630137,
         "brightness_hz": 8.219178082191782,
@@ -30898,9 +30898,9 @@ window.SITE_DATA = {
         "total": 137
       },
       "group": [
-        "Unknown"
+        "2nd Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 47.945205479452056,
         "brightness_hz": 34.24657534246575,
@@ -37221,9 +37221,9 @@ window.SITE_DATA = {
         "total": 180
       },
       "group": [
-        "Unknown"
+        "0th Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 56.16438356164384,
         "brightness_hz": 93.15068493150685,
@@ -42048,9 +42048,9 @@ window.SITE_DATA = {
         "total": 120
       },
       "group": [
-        "Unknown"
+        "English -Promise-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 20.54794520547945,
         "brightness_hz": 24.65753424657534,
@@ -45181,9 +45181,9 @@ window.SITE_DATA = {
         "total": 115
       },
       "group": [
-        "Unknown"
+        "English -Advent-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 80.82191780821918,
         "brightness_hz": 76.71232876712328,
@@ -50965,9 +50965,9 @@ window.SITE_DATA = {
         "total": 146
       },
       "group": [
-        "Unknown"
+        "5th Generation (holoFive)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 13.698630136986301,
         "brightness_hz": 16.438356164383563,
@@ -53262,9 +53262,9 @@ window.SITE_DATA = {
         "total": 72
       },
       "group": [
-        "Unknown"
+        "English -Justice-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 35.61643835616438,
         "brightness_hz": 35.61643835616438,
@@ -55185,9 +55185,9 @@ window.SITE_DATA = {
         "total": 66
       },
       "group": [
-        "Unknown"
+        "DEV_IS FLOW GLOW"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 21.91780821917808,
         "brightness_hz": 42.465753424657535,
@@ -58472,9 +58472,9 @@ window.SITE_DATA = {
         "total": 77
       },
       "group": [
-        "Unknown"
+        "6th Generation -holoX-"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 57.534246575342465,
         "brightness_hz": 17.80821917808219,
@@ -64740,9 +64740,9 @@ window.SITE_DATA = {
         "total": 148
       },
       "group": [
-        "Unknown"
+        "2nd Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 24.65753424657534,
         "brightness_hz": 50.68493150684932,
@@ -66454,9 +66454,9 @@ window.SITE_DATA = {
         "total": 38
       },
       "group": [
-        "Unknown"
+        "4th Generation (holoForce)"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 94.52054794520548,
         "brightness_hz": 10.95890410958904,
@@ -68751,9 +68751,9 @@ window.SITE_DATA = {
         "total": 51
       },
       "group": [
-        "Unknown"
+        "English -Justice-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 2.73972602739726,
         "brightness_hz": 43.83561643835616,
@@ -72203,9 +72203,9 @@ window.SITE_DATA = {
         "total": 83
       },
       "group": [
-        "Unknown"
+        "English -Promise-"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 72.6027397260274,
         "brightness_hz": 56.16438356164384,
@@ -78405,9 +78405,9 @@ window.SITE_DATA = {
         "total": 158
       },
       "group": [
-        "Unknown"
+        "3rd Generation (Fantasy)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 50.68493150684932,
         "brightness_hz": 1.36986301369863,
@@ -86136,9 +86136,10 @@ window.SITE_DATA = {
         "total": 194
       },
       "group": [
-        "Unknown"
+        "1st Generation",
+        "GAMERS"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 93.15068493150685,
         "brightness_hz": 47.945205479452056,
@@ -89225,9 +89226,9 @@ window.SITE_DATA = {
         "total": 76
       },
       "group": [
-        "Unknown"
+        "English -Advent-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 100.0,
         "brightness_hz": 65.75342465753425,
@@ -91522,9 +91523,9 @@ window.SITE_DATA = {
         "total": 54
       },
       "group": [
-        "Unknown"
+        "English -Justice-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 39.726027397260275,
         "brightness_hz": 95.89041095890411,
@@ -95491,9 +95492,9 @@ window.SITE_DATA = {
         "total": 89
       },
       "group": [
-        "Unknown"
+        "English -Myth-"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 23.28767123287671,
         "brightness_hz": 21.91780821917808,
@@ -101880,9 +101881,9 @@ window.SITE_DATA = {
         "total": 152
       },
       "group": [
-        "Unknown"
+        "1st Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 91.78082191780823,
         "brightness_hz": 94.52054794520548,
@@ -104881,9 +104882,9 @@ window.SITE_DATA = {
         "total": 108
       },
       "group": [
-        "Unknown"
+        "DEV_IS ReGLOSS"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 63.013698630136986,
         "brightness_hz": 78.08219178082192,
@@ -110533,9 +110534,9 @@ window.SITE_DATA = {
         "total": 139
       },
       "group": [
-        "Unknown"
+        "English -Myth-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 6.8493150684931505,
         "brightness_hz": 26.027397260273972,
@@ -116614,9 +116615,9 @@ window.SITE_DATA = {
         "total": 155
       },
       "group": [
-        "Unknown"
+        "Indonesia 1st Gen (AREA 15)"
       ],
-      "branch": "Unknown",
+      "branch": "ID",
       "percentiles": {
         "median_f0": 78.08219178082192,
         "brightness_hz": 5.47945205479452,
@@ -121188,9 +121189,9 @@ window.SITE_DATA = {
         "total": 110
       },
       "group": [
-        "Unknown"
+        "6th Generation -holoX-"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 43.83561643835616,
         "brightness_hz": 41.0958904109589,
@@ -126147,9 +126148,9 @@ window.SITE_DATA = {
         "total": 123
       },
       "group": [
-        "Unknown"
+        "English -Promise-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 12.32876712328767,
         "brightness_hz": 9.58904109589041,
@@ -130391,9 +130392,9 @@ window.SITE_DATA = {
         "total": 104
       },
       "group": [
-        "Unknown"
+        "Indonesia 3rd Gen (holoh3ro)"
       ],
-      "branch": "Unknown",
+      "branch": "ID",
       "percentiles": {
         "median_f0": 10.95890410958904,
         "brightness_hz": 73.97260273972603,
@@ -133348,9 +133349,9 @@ window.SITE_DATA = {
         "total": 105
       },
       "group": [
-        "Unknown"
+        "DEV_IS ReGLOSS"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 90.41095890410959,
         "brightness_hz": 57.534246575342465,
@@ -139044,9 +139045,9 @@ window.SITE_DATA = {
         "total": 139
       },
       "group": [
-        "Unknown"
+        "4th Generation (holoForce)"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 87.67123287671232,
         "brightness_hz": 54.794520547945204,
@@ -144784,9 +144785,9 @@ window.SITE_DATA = {
         "total": 144
       },
       "group": [
-        "Unknown"
+        "English -Myth-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 36.986301369863014,
         "brightness_hz": 53.42465753424658,
@@ -148984,9 +148985,9 @@ window.SITE_DATA = {
         "total": 98
       },
       "group": [
-        "Unknown"
+        "Indonesia 3rd Gen (holoh3ro)"
       ],
-      "branch": "Unknown",
+      "branch": "ID",
       "percentiles": {
         "median_f0": 53.42465753424658,
         "brightness_hz": 58.9041095890411,
@@ -155846,9 +155847,9 @@ window.SITE_DATA = {
         "total": 171
       },
       "group": [
-        "Unknown"
+        "GAMERS"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 73.97260273972603,
         "brightness_hz": 23.28767123287671,
@@ -160464,9 +160465,9 @@ window.SITE_DATA = {
         "total": 115
       },
       "group": [
-        "Unknown"
+        "6th Generation -holoX-"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 69.86301369863014,
         "brightness_hz": 84.93150684931507,
@@ -165379,9 +165380,9 @@ window.SITE_DATA = {
         "total": 122
       },
       "group": [
-        "Unknown"
+        "English -Promise-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 0.0,
         "brightness_hz": 72.6027397260274,
@@ -171163,9 +171164,9 @@ window.SITE_DATA = {
         "total": 144
       },
       "group": [
-        "Unknown"
+        "5th Generation (holoFive)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 75.34246575342466,
         "brightness_hz": 4.109589041095891,
@@ -175385,9 +175386,9 @@ window.SITE_DATA = {
         "total": 86
       },
       "group": [
-        "Unknown"
+        "6th Generation -holoX-"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 41.0958904109589,
         "brightness_hz": 90.41095890410959,
@@ -180047,9 +180048,9 @@ window.SITE_DATA = {
         "total": 116
       },
       "group": [
-        "Unknown"
+        "6th Generation -holoX-"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 1.36986301369863,
         "brightness_hz": 80.82191780821918,
@@ -185952,9 +185953,9 @@ window.SITE_DATA = {
         "total": 150
       },
       "group": [
-        "Unknown"
+        "4th Generation (holoForce)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 84.93150684931507,
         "brightness_hz": 6.8493150684931505,
@@ -192517,9 +192518,9 @@ window.SITE_DATA = {
         "total": 153
       },
       "group": [
-        "Unknown"
+        "3rd Generation (Fantasy)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 42.465753424657535,
         "brightness_hz": 39.726027397260275,
@@ -200204,9 +200205,9 @@ window.SITE_DATA = {
         "total": 185
       },
       "group": [
-        "Unknown"
+        "1st Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 58.9041095890411,
         "brightness_hz": 28.767123287671232,
@@ -200510,9 +200511,9 @@ window.SITE_DATA = {
         "total": 1
       },
       "group": [
-        "Unknown"
+        "1st Generation"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 68.4931506849315,
         "brightness_hz": 30.136986301369863,
@@ -207603,9 +207604,9 @@ window.SITE_DATA = {
         "total": 173
       },
       "group": [
-        "Unknown"
+        "0th Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 83.56164383561644,
         "brightness_hz": 97.26027397260275,
@@ -214245,9 +214246,9 @@ window.SITE_DATA = {
         "total": 162
       },
       "group": [
-        "Unknown"
+        "GAMERS"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 31.506849315068493,
         "brightness_hz": 71.23287671232876,
@@ -220194,9 +220195,9 @@ window.SITE_DATA = {
         "total": 145
       },
       "group": [
-        "Unknown"
+        "Indonesia 1st Gen (AREA 15)"
       ],
-      "branch": "Unknown",
+      "branch": "ID",
       "percentiles": {
         "median_f0": 15.068493150684931,
         "brightness_hz": 75.34246575342466,
@@ -225978,9 +225979,9 @@ window.SITE_DATA = {
         "total": 145
       },
       "group": [
-        "Unknown"
+        "English -Myth-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 4.109589041095891,
         "brightness_hz": 13.698630136986301,
@@ -229221,9 +229222,9 @@ window.SITE_DATA = {
         "total": 77
       },
       "group": [
-        "Unknown"
+        "English -Promise-"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 45.205479452054796,
         "brightness_hz": 15.068493150684931,
@@ -234873,9 +234874,9 @@ window.SITE_DATA = {
         "total": 138
       },
       "group": [
-        "Unknown"
+        "5th Generation (holoFive)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 64.38356164383562,
         "brightness_hz": 61.64383561643836,
@@ -237962,9 +237963,9 @@ window.SITE_DATA = {
         "total": 76
       },
       "group": [
-        "Unknown"
+        "English -Advent-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 8.219178082191782,
         "brightness_hz": 20.54794520547945,
@@ -239841,9 +239842,9 @@ window.SITE_DATA = {
         "total": 56
       },
       "group": [
-        "Unknown"
+        "DEV_IS FLOW GLOW"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 27.397260273972602,
         "brightness_hz": 46.57534246575342,
@@ -246538,9 +246539,9 @@ window.SITE_DATA = {
         "total": 170
       },
       "group": [
-        "Unknown"
+        "3rd Generation (Fantasy)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 49.31506849315068,
         "brightness_hz": 52.054794520547944,
@@ -253015,9 +253016,9 @@ window.SITE_DATA = {
         "total": 161
       },
       "group": [
-        "Unknown"
+        "GAMERS"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 19.17808219178082,
         "brightness_hz": 0.0,
@@ -258590,9 +258591,9 @@ window.SITE_DATA = {
         "total": 140
       },
       "group": [
-        "Unknown"
+        "Indonesia 2nd Gen (holoro)"
       ],
-      "branch": "Unknown",
+      "branch": "ID",
       "percentiles": {
         "median_f0": 61.64383561643836,
         "brightness_hz": 87.67123287671232,
@@ -265331,9 +265332,9 @@ window.SITE_DATA = {
         "total": 172
       },
       "group": [
-        "Unknown"
+        "3rd Generation (Fantasy)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 98.63013698630137,
         "brightness_hz": 100.0,
@@ -271115,9 +271116,9 @@ window.SITE_DATA = {
         "total": 146
       },
       "group": [
-        "Unknown"
+        "5th Generation (holoFive)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 17.80821917808219,
         "brightness_hz": 63.013698630136986,
@@ -274116,9 +274117,9 @@ window.SITE_DATA = {
         "total": 106
       },
       "group": [
-        "Unknown"
+        "DEV_IS ReGLOSS"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 95.89041095890411,
         "brightness_hz": 98.63013698630137,
@@ -276369,9 +276370,9 @@ window.SITE_DATA = {
         "total": 52
       },
       "group": [
-        "Unknown"
+        "English -Justice-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 34.24657534246575,
         "brightness_hz": 82.1917808219178,
@@ -280074,9 +280075,9 @@ window.SITE_DATA = {
         "total": 89
       },
       "group": [
-        "Unknown"
+        "Indonesia 2nd Gen (holoro)"
       ],
-      "branch": "Unknown",
+      "branch": "ID",
       "percentiles": {
         "median_f0": 9.58904109589041,
         "brightness_hz": 69.86301369863014,
@@ -281997,9 +281998,9 @@ window.SITE_DATA = {
         "total": 66
       },
       "group": [
-        "Unknown"
+        "DEV_IS FLOW GLOW"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 26.027397260273972,
         "brightness_hz": 64.38356164383562,
@@ -284998,9 +284999,9 @@ window.SITE_DATA = {
         "total": 106
       },
       "group": [
-        "Unknown"
+        "DEV_IS ReGLOSS"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 65.75342465753425,
         "brightness_hz": 86.3013698630137,
@@ -291079,9 +291080,9 @@ window.SITE_DATA = {
         "total": 154
       },
       "group": [
-        "Unknown"
+        "Indonesia 1st Gen (AREA 15)"
       ],
-      "branch": "Unknown",
+      "branch": "ID",
       "percentiles": {
         "median_f0": 97.26027397260275,
         "brightness_hz": 38.35616438356164,
@@ -298931,9 +298932,9 @@ window.SITE_DATA = {
         "total": 198
       },
       "group": [
-        "Unknown"
+        "0th Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 52.054794520547944,
         "brightness_hz": 12.32876712328767,
@@ -299006,9 +299007,9 @@ window.SITE_DATA = {
         "total": 0
       },
       "group": [
-        "Unknown"
+        "3rd Generation (Fantasy)"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {},
       "raw_means": {}
     },
@@ -300157,9 +300158,9 @@ window.SITE_DATA = {
         "total": 24
       },
       "group": [
-        "Unknown"
+        "English -Promise-"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 54.794520547945204,
         "brightness_hz": 32.87671232876713,
@@ -305798,9 +305799,9 @@ window.SITE_DATA = {
         "total": 130
       },
       "group": [
-        "Unknown"
+        "2nd Generation"
       ],
-      "branch": "Unknown",
+      "branch": "Graduated",
       "percentiles": {
         "median_f0": 71.23287671232876,
         "brightness_hz": 83.56164383561644,
@@ -308887,9 +308888,9 @@ window.SITE_DATA = {
         "total": 75
       },
       "group": [
-        "Unknown"
+        "English -Advent-"
       ],
-      "branch": "Unknown",
+      "branch": "EN",
       "percentiles": {
         "median_f0": 30.136986301369863,
         "brightness_hz": 91.78082191780823,
@@ -317190,9 +317191,9 @@ window.SITE_DATA = {
         "total": 205
       },
       "group": [
-        "Unknown"
+        "0th Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 67.12328767123287,
         "brightness_hz": 27.397260273972602,
@@ -319113,9 +319114,9 @@ window.SITE_DATA = {
         "total": 66
       },
       "group": [
-        "Unknown"
+        "DEV_IS FLOW GLOW"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 79.45205479452055,
         "brightness_hz": 36.986301369863014,
@@ -325557,9 +325558,9 @@ window.SITE_DATA = {
         "total": 161
       },
       "group": [
-        "Unknown"
+        "2nd Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 28.767123287671232,
         "brightness_hz": 89.04109589041096,
@@ -332397,9 +332398,9 @@ window.SITE_DATA = {
         "total": 163
       },
       "group": [
-        "Unknown"
+        "0th Generation"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 46.57534246575342,
         "brightness_hz": 31.506849315068493,
@@ -338555,9 +338556,9 @@ window.SITE_DATA = {
         "total": 155
       },
       "group": [
-        "Unknown"
+        "4th Generation (holoForce)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 38.35616438356164,
         "brightness_hz": 67.12328767123287,
@@ -340478,9 +340479,9 @@ window.SITE_DATA = {
         "total": 66
       },
       "group": [
-        "Unknown"
+        "DEV_IS FLOW GLOW"
       ],
-      "branch": "Unknown",
+      "branch": "DEV_IS",
       "percentiles": {
         "median_f0": 89.04109589041096,
         "brightness_hz": 60.273972602739725,
@@ -346724,9 +346725,9 @@ window.SITE_DATA = {
         "total": 160
       },
       "group": [
-        "Unknown"
+        "4th Generation (holoForce)"
       ],
-      "branch": "Unknown",
+      "branch": "JP",
       "percentiles": {
         "median_f0": 82.1917808219178,
         "brightness_hz": 19.17808219178082,
@@ -351100,9 +351101,9 @@ window.SITE_DATA = {
         "total": 109
       },
       "group": [
-        "Unknown"
+        "Indonesia 3rd Gen (holoh3ro)"
       ],
-      "branch": "Unknown",
+      "branch": "ID",
       "percentiles": {
         "median_f0": 60.273972602739725,
         "brightness_hz": 49.31506849315068,
@@ -351578,6 +351579,22 @@ window.SITE_DATA = {
     }
   },
   "generation_order": [
-    "Unknown"
+    "0th Generation",
+    "1st Generation",
+    "2nd Generation",
+    "GAMERS",
+    "3rd Generation (Fantasy)",
+    "4th Generation (holoForce)",
+    "Indonesia 1st Gen (AREA 15)",
+    "5th Generation (holoFive)",
+    "English -Myth-",
+    "Indonesia 2nd Gen (holoro)",
+    "English -Promise-",
+    "6th Generation -holoX-",
+    "Indonesia 3rd Gen (holoh3ro)",
+    "English -Advent-",
+    "DEV_IS ReGLOSS",
+    "English -Justice-",
+    "DEV_IS FLOW GLOW"
   ]
 };

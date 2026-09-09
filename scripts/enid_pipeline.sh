@@ -109,6 +109,10 @@ for spec in "${SPECS[@]}"; do
   slug="${spec%%:*}"; rest="${spec#*:}"; disp="${rest#*:}"
   VV plot --measurements "data/measurements/${slug}_monthly.json" --talent "$disp" 2>&1 | grep -E "plots ->" || true
 done
+# roster.json is gitignored (machine-local); refresh it here so site-data
+# never falls back to group=branch="Unknown" for every talent because a
+# stale/missing roster.json happened to be lying around on this machine.
+VV roster 2>&1 | grep -E "talents ->" || true
 VV site-data 2>&1 | grep -oE "site data \([^)]*\)" | head -c 120; echo
 
 echo "======== $(date '+%F %T')  commit ========"
