@@ -540,6 +540,51 @@ select {
   display: none;
 }
 
+/* The Compare chart's actual height is set inline by app.js's
+   sizeChartPanel() — pinned so its bottom edge sits a fixed 20px above the
+   viewport bottom when the page is scrolled to the top, computed from the
+   panel's real rendered position rather than a guessed static offset. This
+   is only a floor for the instant before that runs. It also keeps a lot of
+   overlapping series or a long legend from compressing the plot area the
+   way Plotly's old built-in legend did inside a size-constrained container
+   — the custom legend below (see .series-legend) grows the page instead of
+   fighting the chart for the same box. */
+#chart {
+  min-height: 360px;
+}
+
+.series-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.6rem;
+  /* Top margin matches sizeChartPanel()'s 20px gap exactly, so the legend's
+     own box — not just blank space — starts right at the fold: at
+     scroll-top you see the chart end, not the first row of chips. */
+  margin: 20px 0.25rem 0;
+}
+
+.series-legend[hidden] {
+  display: none;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+  cursor: default;
+}
+
+.legend-item .legend-swatch {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  flex: none;
+}
+
 .table-view-wrap {
   background: var(--panel);
   border: 1px solid var(--border);

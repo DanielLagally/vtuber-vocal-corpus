@@ -6,6 +6,7 @@
 let DATA;
 
 let selectedCompare = new Set();
+let currentView = "home";
 let compareFamily = "pitch_level";
 let compareMetric = "median_f0";
 let compareMode = "series";
@@ -145,6 +146,7 @@ function main() {
   DATA = window.SITE_DATA_V2;
   assignFallbackColors(Object.keys(DATA.talents));
   document.getElementById("generated-at").textContent = DATA.generated_at;
+  selectedCompare = new Set(Object.keys(DATA.talents));
 
   buildHomeFilters();
   buildFamilyPicker();
@@ -156,6 +158,13 @@ function main() {
 
   route();
   window.addEventListener("hashchange", route);
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (currentView === "compare") renderCompare();
+    }, 120);
+  });
 }
 
 function route() {
@@ -170,6 +179,7 @@ function route() {
 }
 
 function showView(view) {
+  currentView = view;
   for (const el of document.querySelectorAll(".view")) el.hidden = true;
   document.getElementById(view + "-view").hidden = false;
   for (const btn of document.querySelectorAll(".nav-btn")) {
@@ -187,6 +197,7 @@ function showProfile(name) {
     showView("home");
     return;
   }
+  currentView = "profile";
   for (const el of document.querySelectorAll(".view")) el.hidden = true;
   document.getElementById("profile-view").hidden = false;
   for (const btn of document.querySelectorAll(".nav-btn")) btn.classList.remove("active");
@@ -552,14 +563,31 @@ function updateValidityBanner() {
   }
 }
 
+// Pins the chart panel's bottom edge 20px above the viewport bottom when
+// the page is scrolled to the very top — sized from the panel's real
+// document position so it adapts to whatever the header/controls actually
+// render at, rather than a guessed static offset. Deliberately excludes the
+// legend and caption below it: those are meant to start just out of view at
+// scroll-top, not be folded into "the panel".
+function sizeChartPanel() {
+  const chart = document.getElementById("chart");
+  if (chart.hidden) return;
+  const documentTop = chart.getBoundingClientRect().top + window.scrollY;
+  chart.style.height = `${Math.max(360, window.innerHeight - documentTop - 20)}px`;
+}
+
 function renderCompare() {
   updateValidityBanner();
   const chart = document.getElementById("chart");
   const table = document.getElementById("table-view");
+  const legend = document.getElementById("series-legend");
   const caption = document.getElementById("caption");
+  legend.hidden = compareMode !== "series";
+  if (compareMode !== "series") legend.innerHTML = "";
   if (selectedCompare.size === 0) {
     chart.hidden = false;
     table.hidden = true;
+    sizeChartPanel();
     Plotly.purge(chart);
     caption.textContent = "Select a talent or a group chip on the left to compare.";
     return;
@@ -765,26 +793,60 @@ function bandAlphaHex(n) {
 const BAND_HOVER_ALPHA_HEX = "6e"; // ~0.43, the hovered member's own band
 const BAND_DIM_ALPHA_HEX = "08"; // ~0.03, every other band while one is hovered
 
-// Highlights one entry's band on hovering its line, dims the rest, and
-// restores the count-scaled default on unhover. Listeners are re-attached
-// on every render (old ones removed first) since Plotly.react keeps the
-// same <div> but trace indices change between renders.
+// Highlights one entry's band (by its trace index), dims every other band,
+// and restores the count-scaled default. Shared by hovering the line itself
+// AND hovering its entry in the custom legend below the chart (see
+// renderCompareSeries) — the plain HTML legend replaces Plotly's built-in
+// one, which otherwise eats into the plot's own height as more entries wrap
+// across legend rows inside the same fixed-size container.
+function applyBandHighlight(chartEl, pairs, bandIdx) {
+  const withBand = pairs.filter((p) => p.bandIdx != null);
+  if (withBand.length === 0) return;
+  const colors = withBand.map((p) => p.color + (p.bandIdx === bandIdx ? BAND_HOVER_ALPHA_HEX : BAND_DIM_ALPHA_HEX));
+  Plotly.restyle(chartEl, { fillcolor: colors }, withBand.map((p) => p.bandIdx));
+}
+
+function clearBandHighlight(chartEl, pairs) {
+  const withBand = pairs.filter((p) => p.bandIdx != null);
+  if (withBand.length === 0) return;
+  Plotly.restyle(
+    chartEl,
+    { fillcolor: withBand.map((p) => p.color + p.baseAlphaHex) },
+    withBand.map((p) => p.bandIdx)
+  );
+}
+
+// Listeners are re-attached on every render (old ones removed first) since
+// Plotly.react keeps the same <div> but trace indices change between
+// renders.
 function attachSeriesHover(chartEl, pairs) {
   chartEl.removeAllListeners("plotly_hover");
   chartEl.removeAllListeners("plotly_unhover");
-  const withBand = pairs.filter((p) => p.bandIdx != null);
-  if (withBand.length === 0) return;
-  const bandIdxs = withBand.map((p) => p.bandIdx);
   chartEl.on("plotly_hover", (ev) => {
-    const lineIdx = ev.points[0].curveNumber;
-    const hit = pairs.find((p) => p.lineIdx === lineIdx);
-    if (!hit) return;
-    const colors = withBand.map((p) => p.color + (p.bandIdx === hit.bandIdx ? BAND_HOVER_ALPHA_HEX : BAND_DIM_ALPHA_HEX));
-    Plotly.restyle(chartEl, { fillcolor: colors }, bandIdxs);
+    const hit = pairs.find((p) => p.lineIdx === ev.points[0].curveNumber);
+    if (hit) applyBandHighlight(chartEl, pairs, hit.bandIdx);
   });
-  chartEl.on("plotly_unhover", () => {
-    Plotly.restyle(chartEl, { fillcolor: withBand.map((p) => p.color + p.baseAlphaHex) }, bandIdxs);
-  });
+  chartEl.on("plotly_unhover", () => clearBandHighlight(chartEl, pairs));
+}
+
+// A plain HTML legend below the fixed-height chart (see #chart's CSS) so it
+// can wrap across as many rows as it needs and grow the page instead of
+// shrinking the plot. Hovering an item drives the same band highlight as
+// hovering the line itself.
+function renderSeriesLegend(chartEl, pairs) {
+  const legend = document.getElementById("series-legend");
+  legend.innerHTML = pairs
+    .map(
+      (p, i) =>
+        `<span class="legend-item" data-i="${i}"><span class="legend-swatch" ` +
+        `style="background:${p.color}"></span>${escapeHtml(p.label)}</span>`
+    )
+    .join("");
+  for (const item of legend.querySelectorAll(".legend-item")) {
+    const pair = pairs[Number(item.dataset.i)];
+    item.addEventListener("mouseenter", () => applyBandHighlight(chartEl, pairs, pair.bandIdx));
+    item.addEventListener("mouseleave", () => clearBandHighlight(chartEl, pairs));
+  }
 }
 
 function renderCompareSeries() {
@@ -828,12 +890,14 @@ function renderCompareSeries() {
       y: series.map((p) => p.median),
       mode: "lines+markers",
       name: label,
+      showlegend: false,
       line: { color },
       marker: { color, size: 5 },
       type: "scatter",
     });
-    hoverPairs.push({ bandIdx, lineIdx, color, baseAlphaHex });
+    hoverPairs.push({ bandIdx, lineIdx, color, baseAlphaHex, label });
   }
+  sizeChartPanel();
   Plotly.react(
     "chart",
     traces,
@@ -843,12 +907,14 @@ function renderCompareSeries() {
       font: { color: fg },
       xaxis: periodXAxis(grid),
       yaxis: { title: meta.label + (meta.unit ? ` (${meta.unit})` : ""), gridcolor: grid },
-      legend: { orientation: "h" },
+      showlegend: false,
       margin: { t: 20 },
     },
     { responsive: true, displayModeBar: false }
   );
-  attachSeriesHover(document.getElementById("chart"), hoverPairs);
+  const chartEl = document.getElementById("chart");
+  attachSeriesHover(chartEl, hoverPairs);
+  renderSeriesLegend(chartEl, hoverPairs);
   const nf = DATA.corpus_noise_floor[compareMetric];
   const nfLine =
     nf && nf.median_abs_diff != null
@@ -957,6 +1023,7 @@ function renderCompareScatter() {
       color: entryColor(entry),
     }))
     .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  sizeChartPanel();
   Plotly.react(
     "chart",
     [
