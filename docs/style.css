@@ -5,9 +5,8 @@
   --text: #e6e8ec;
   --text-dim: #9aa0ab;
   --accent: #7aa2f7;
-  /* Opaque (not the transparent row-hover tint) — the sticky name column
-     sits on its own stacking layer and needs a solid color to actually
-     cover the rows scrolling underneath it. */
+  --robust: #3ddc97;
+  --experimental: #f7b955;
   --panel-hover: color-mix(in srgb, var(--accent) 10%, var(--panel));
 }
 
@@ -19,6 +18,8 @@
     --text: #1a1d23;
     --text-dim: #5b616e;
     --accent: #3b5fd9;
+    --robust: #1d9a6c;
+    --experimental: #b3760a;
     --panel-hover: color-mix(in srgb, var(--accent) 10%, var(--panel));
   }
 }
@@ -36,6 +37,20 @@ body {
   line-height: 1.45;
 }
 
+a {
+  color: var(--accent);
+}
+
+.version-banner {
+  margin: 0;
+  padding: 0.5rem 1.5rem;
+  max-width: 1800px;
+  margin: 0 auto;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
 .site-header {
   padding: 1.75rem 1.5rem 1rem;
   max-width: 1800px;
@@ -48,28 +63,46 @@ body {
 }
 
 .tagline {
-  margin: 0;
+  margin: 0 0 1rem;
   color: var(--text-dim);
   font-size: 0.92rem;
-  max-width: 60ch;
+  max-width: 65ch;
 }
 
-.layout {
+.top-nav {
   display: flex;
-  gap: 1.25rem;
+  gap: 0.5rem;
+}
+
+.nav-btn {
+  padding: 0.4rem 1rem;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+.nav-btn:hover {
+  border-color: var(--accent);
+}
+
+.nav-btn.active {
+  background: var(--accent);
+  color: #0b0d11;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.view {
   max-width: 1800px;
   margin: 0 auto;
   padding: 0 1.5rem 2rem;
-  align-items: flex-start;
 }
 
-.sidebar {
-  flex: 0 0 220px;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  position: sticky;
-  top: 1rem;
+.view[hidden] {
+  display: none;
 }
 
 .panel {
@@ -87,39 +120,270 @@ body {
   color: var(--text-dim);
 }
 
-#metric-picker {
-  width: 100%;
-  padding: 0.45rem 0.5rem;
+/* ---------- Home ---------- */
+
+.home-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+#talent-search {
+  flex: 1 1 220px;
+}
+
+input[type="text"],
+select {
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 0.9rem;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.88rem;
+}
+
+.filter-label-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .filter-label {
   display: block;
   font-size: 0.75rem;
   color: var(--text-dim);
-  margin: 0.5rem 0 0.25rem;
+  margin: 0.6rem 0 0.25rem;
 }
 
-#branch-filter,
-#generation-filter {
-  width: 100%;
-  padding: 0.4rem 0.5rem;
-  background: var(--bg);
-  color: var(--text);
+.talent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.7rem;
+}
+
+.talent-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+}
+
+.talent-card:hover {
+  border-color: var(--accent);
+  background: var(--panel-hover);
+}
+
+.talent-swatch {
+  width: 0.6rem;
+  height: 2.2rem;
+  border-radius: 3px;
+  flex: none;
+}
+
+.talent-card-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.talent-card-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.talent-card-meta {
+  display: block;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.talent-card-spark {
+  width: 100%;
+  height: 22px;
+}
+
+.legacy-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 0.3em;
+  margin-left: 0.35em;
+}
+
+/* ---------- Profile ---------- */
+
+.back-link {
+  display: inline-block;
+  margin: 1rem 0;
+  font-size: 0.88rem;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.profile-swatch {
+  width: 0.9rem;
+  height: 2.6rem;
+  border-radius: 4px;
+  flex: none;
+}
+
+.profile-header h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.profile-meta {
+  color: var(--text-dim);
   font-size: 0.85rem;
-  margin-bottom: 0.4rem;
+  margin: 0 0 1.25rem;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.family-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem 0.95rem;
+  margin-bottom: 0.85rem;
+}
+
+.family-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+}
+
+.badge {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid transparent;
+}
+
+.badge.robust {
+  color: var(--robust);
+  border-color: var(--robust);
+}
+
+.badge.experimental {
+  color: var(--experimental);
+  border-color: var(--experimental);
+}
+
+.badge.context {
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+.family-note {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin: 0 0 0.6rem;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.86rem;
+}
+
+.metric-row:first-of-type {
+  border-top: none;
+}
+
+.metric-row .metric-name {
+  color: var(--text-dim);
+}
+
+.metric-row .metric-value {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.metric-row .metric-sub {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.profile-radar-panel {
+  position: sticky;
+  top: 1rem;
+}
+
+.profile-closing {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* ---------- Compare ---------- */
+
+.layout {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.sidebar {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.sidebar select,
+.sidebar input[type="text"] {
+  width: 100%;
+  margin-bottom: 0.35rem;
 }
 
 .talent-actions {
   display: flex;
   gap: 0.5rem;
-  margin: 0.6rem 0;
+  margin: 0.4rem 0;
 }
 
 .talent-actions button {
@@ -137,20 +401,41 @@ body {
   border-color: var(--accent);
 }
 
-.talent-list {
+.chip-picker {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 0.3rem;
-  max-height: 55vh;
+  max-height: 45vh;
   overflow-y: auto;
 }
 
-.talent-list label {
-  display: flex;
+.chip {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 0.78rem;
   cursor: pointer;
+  color: var(--text);
+}
+
+.chip .chip-swatch {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  flex: none;
+}
+
+.chip.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg));
+}
+
+.chip.group {
+  border-style: dashed;
 }
 
 .content {
@@ -158,11 +443,14 @@ body {
   min-width: 0;
 }
 
+/* Sits above the chart/table, same width as them — not in the sidebar — so
+   there's room for several controls side by side (mode, granularity, group-by,
+   scatter axes) without cramming a narrow column. */
 .view-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem 1.2rem;
+  gap: 0.6rem 1.4rem;
   margin-bottom: 0.75rem;
   padding: 0.6rem 0.85rem;
   background: var(--panel);
@@ -171,91 +459,73 @@ body {
   font-size: 0.85rem;
 }
 
-.view-controls:empty {
-  display: none;
-}
-
 .view-controls .control-group {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+}
+
+.view-controls .control-group[hidden] {
+  display: none;
+}
+
+.view-controls .control-group-right {
+  margin-left: auto;
 }
 
 .view-controls label {
   color: var(--text-dim);
   white-space: nowrap;
-}
-
-.view-controls select,
-.view-controls input[type="range"],
-.view-controls input[type="text"] {
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.25rem 0.4rem;
-  font-size: 0.85rem;
-}
-
-.view-controls input[type="range"] {
-  width: 180px;
-}
-
-.view-controls input[type="text"] {
-  width: 160px;
-}
-
-.control-hint {
-  color: var(--text-dim);
   font-size: 0.8rem;
-  margin: 0.2rem 0 0;
 }
 
-.view-controls .range-value {
-  min-width: 2.5em;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.metric-checklist-row {
+.mode-tabs {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem 0.6rem;
-  width: 100%;
+  gap: 0.3rem;
 }
 
-.metric-checklist-label {
-  margin: 0;
-}
-
-.mini-btn {
-  padding: 0.2rem 0.55rem;
+.mode-btn {
+  padding: 0.3rem 0.75rem;
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.78rem;
+  white-space: nowrap;
 }
 
-.mini-btn:hover {
+.mode-btn.active {
+  background: var(--accent);
+  color: #0b0d11;
   border-color: var(--accent);
+  font-weight: 600;
 }
 
-.metric-checklist {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.9rem;
-  width: 100%;
-}
-
-.metric-checklist label {
+.validity-banner {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
   font-size: 0.82rem;
-  cursor: pointer;
+  margin-bottom: 0.6rem;
+}
+
+.validity-banner:empty {
+  display: none;
+}
+
+.validity-banner.experimental {
+  border-color: var(--experimental);
+  color: var(--experimental);
+}
+
+.validity-banner.robust {
+  border-color: var(--robust);
+  color: var(--robust);
 }
 
 .chart {
@@ -263,7 +533,11 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.5rem;
-  min-height: 620px;
+  min-height: 560px;
+}
+
+.chart[hidden] {
+  display: none;
 }
 
 .table-view-wrap {
@@ -290,10 +564,11 @@ body {
 }
 
 .data-table th:first-child,
-.data-table td:first-child,
-.data-table th:nth-child(2),
-.data-table td:nth-child(2) {
+.data-table td:first-child {
   text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--panel);
 }
 
 .data-table th {
@@ -302,9 +577,9 @@ body {
   background: var(--panel);
   color: var(--text-dim);
   font-weight: 600;
+  z-index: 2;
   cursor: pointer;
   user-select: none;
-  white-space: nowrap;
 }
 
 .data-table th:hover {
@@ -316,6 +591,10 @@ body {
   margin-left: 0.3em;
 }
 
+.data-table th:first-child {
+  z-index: 3;
+}
+
 .data-table tbody tr:hover {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
@@ -323,28 +602,6 @@ body {
 .data-table td.name-cell {
   font-weight: 600;
   color: var(--text);
-}
-
-/* Name column stays visible while the rest of a wide table scrolls
-   horizontally. The header's first cell is the sticky-top/sticky-left
-   corner, so it needs the higher z-index of the two sticky layers. */
-.data-table th:first-child,
-.data-table td:first-child {
-  position: sticky;
-  left: 0;
-  background: var(--panel);
-}
-
-.data-table th:first-child {
-  z-index: 3;
-}
-
-.data-table td:first-child {
-  z-index: 1;
-}
-
-.data-table tbody tr:hover td:first-child {
-  background: var(--panel-hover);
 }
 
 .caption {
@@ -357,27 +614,12 @@ body {
 .site-footer {
   max-width: 1800px;
   margin: 0 auto;
-  padding: 0 1.5rem 2rem;
+  padding: 1rem 1.5rem 2rem;
   color: var(--text-dim);
   font-size: 0.8rem;
 }
 
-.site-footer code {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.05rem 0.35rem;
-}
-
-.site-footer a {
-  color: var(--accent);
-}
-
-.site-footer a:hover {
-  text-decoration: none;
-}
-
-@media (max-width: 720px) {
+@media (max-width: 780px) {
   .layout {
     flex-direction: column;
   }
@@ -386,7 +628,10 @@ body {
     width: 100%;
     position: static;
   }
-  .talent-list {
-    max-height: 200px;
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+  .profile-radar-panel {
+    position: static;
   }
 }

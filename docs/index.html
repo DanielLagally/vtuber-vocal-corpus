@@ -3,57 +3,116 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>vtuber-vocal-corpus — talent comparison</title>
+<title>vtuber-vocal-corpus — v2</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+<p class="version-banner">
+  v2 — corrected measurement pipeline, still evolving.
+  Looking for the original site? <a href="v1/index.html">v1</a> (frozen, still live).
+</p>
+
 <header class="site-header">
-  <h1>hololive vocal measurements</h1>
+  <h1>vtuber-vocal-corpus</h1>
   <p class="tagline">
-    Public acoustic measurements of hololive chatting-stream speech —
-    pitch, brightness, and voice-quality correlates.
+    Public acoustic measurements of hololive stream speech, tracked over time.
+    No audio, transcripts, or voice synthesis — numbers only.
   </p>
+  <nav class="top-nav" id="top-nav">
+    <button class="nav-btn" data-view="home">Talents</button>
+    <button class="nav-btn" data-view="compare">Compare</button>
+  </nav>
 </header>
 
-<div class="layout">
-  <aside class="sidebar">
-    <section class="panel">
-      <h2>Metric</h2>
-      <select id="metric-picker"></select>
-    </section>
-    <section class="panel">
-      <h2>Talents</h2>
-      <div class="talent-actions">
-        <button type="button" id="select-all">All</button>
-        <button type="button" id="select-none">None</button>
-      </div>
-      <label class="filter-label" for="branch-filter">Branch</label>
-      <select id="branch-filter"></select>
-      <label class="filter-label" for="generation-filter">Generation</label>
-      <select id="generation-filter"></select>
-      <div id="talent-list" class="talent-list"></div>
-    </section>
-  </aside>
+<main id="home-view" class="view">
+  <div class="home-controls panel">
+    <input id="talent-search" type="text" placeholder="Search a talent…" />
+    <label class="filter-label-inline">Branch
+      <select id="home-branch-filter"></select>
+    </label>
+    <label class="filter-label-inline">Generation
+      <select id="home-generation-filter"></select>
+    </label>
+  </div>
+  <div id="talent-grid" class="talent-grid"></div>
+</main>
 
-  <main class="content">
-    <div id="view-controls" class="view-controls"></div>
-    <div id="chart" class="chart"></div>
-    <div id="table-view" class="table-view-wrap"></div>
-    <p id="caption" class="caption"></p>
-  </main>
-</div>
+<main id="profile-view" class="view" hidden>
+  <a href="#home" class="back-link">&larr; All talents</a>
+  <div id="profile-content"></div>
+</main>
+
+<main id="compare-view" class="view" hidden>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="panel">
+        <h2>Talents &amp; groups</h2>
+        <input id="compare-search" type="text" placeholder="Filter…" />
+        <div class="talent-actions">
+          <button id="compare-select-none" type="button">Clear</button>
+        </div>
+        <div id="chip-picker" class="chip-picker"></div>
+      </div>
+      <div class="panel">
+        <h2>Metric</h2>
+        <label class="filter-label">Family</label>
+        <select id="family-picker"></select>
+        <label class="filter-label">Metric</label>
+        <select id="metric-picker"></select>
+        <p id="family-note" class="control-hint"></p>
+      </div>
+    </aside>
+    <div class="content">
+      <div class="view-controls" id="view-controls">
+        <div class="control-group">
+          <label>View</label>
+          <div class="mode-tabs" id="mode-tabs">
+            <button class="mode-btn active" data-mode="series" type="button">Time series</button>
+            <button class="mode-btn" data-mode="table" type="button">Table</button>
+            <button class="mode-btn" data-mode="scatter" type="button">Scatter</button>
+          </div>
+        </div>
+        <div id="series-controls" class="control-group">
+          <label>Granularity</label>
+          <select id="granularity-picker">
+            <option value="monthly">Monthly</option>
+            <option value="quarterly" selected>Quarterly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
+        <div id="scatter-controls" class="control-group" hidden>
+          <label>X axis</label>
+          <select id="scatter-x-picker"></select>
+          <label>Y axis</label>
+          <select id="scatter-y-picker"></select>
+        </div>
+        <div class="control-group control-group-right">
+          <label>Group by</label>
+          <select id="group-by-picker">
+            <option value="member" selected>Member</option>
+            <option value="generation">Generation</option>
+            <option value="branch">Branch</option>
+          </select>
+        </div>
+      </div>
+      <div id="validity-banner" class="validity-banner"></div>
+      <div id="chart" class="chart"></div>
+      <div id="table-view" class="table-view-wrap" hidden></div>
+      <p id="caption" class="caption"></p>
+    </div>
+  </div>
+</main>
 
 <footer class="site-footer">
   <p>
-    Generated from <code>data.js</code> — an aggregate export, no raw
-    audio. See the project's
-    <a href="https://github.com/DanielLagally/vtuber-vocal-corpus/blob/master/PLAN.md">PLAN.md</a>
-    for methodology.
-    <a href="https://github.com/DanielLagally/vtuber-vocal-corpus">View source on GitHub</a>.
+    Generated <span id="generated-at">—</span>. Numbers, not conclusions — read
+    <a href="https://github.com/DanielLagally/vtuber-vocal-corpus/blob/master/reference/limitations.md">what this corpus can and cannot support</a>
+    before citing anything from it. Source and methodology:
+    <a href="https://github.com/DanielLagally/vtuber-vocal-corpus">repository</a>.
   </p>
 </footer>
 
-<script src="vendor/plotly.min.js"></script>
+<script src="v1/vendor/plotly.min.js"></script>
 <script src="data.js"></script>
 <script src="app.js"></script>
 </body>

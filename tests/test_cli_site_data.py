@@ -1,5 +1,5 @@
 """The `site-data` CLI command must load the talent registry and write
-vvc.site_data's export to --out (default docs/data.js)."""
+vvc.site_data's export to --out (default docs/v1/data.js)."""
 
 from __future__ import annotations
 
@@ -49,4 +49,4 @@ def test_site_data_cli_default_paths(tmp_path: Path, monkeypatch) -> None:
 
     cli.main(["site-data"])
 
-    assert captured["out"] == Path("docs/data.js")
+    assert captured["out"] == Path("docs/v1/data.js")

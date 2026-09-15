@@ -1,14 +1,15 @@
-"""Aggregate export for the interactive comparison site (``docs/``, the
-directory GitHub Pages serves).
+"""Aggregate export for the v1 interactive comparison site (``docs/v1/``,
+served by GitHub Pages alongside the v2 placeholder at ``docs/``).
 
 Pure data — no matplotlib/plotly here, only JSON-serializable Python
 values built from vvc.series's existing aggregation functions, so
 this module is testable without a plotting dependency and the frontend
 never needs to re-derive any statistics itself.
 
-The cute/mature percentile is the first real implementation of the rule
-PLAN.md has described since the start ("PLAN L36" / "What we measure"):
-a scatter of F0 vs brightness plus a percentile from equal-weight
+The cute/mature percentile is an exploratory index, not a measurement —
+see docs/v1/LIMITATIONS.md for why its axes are fewer independent things
+than they look. It is a scatter of F0 vs brightness plus a percentile
+from equal-weight
 z-scores of F0, brightness, and dynamism vs the corpus. Concretely: for
 every talent with at least one QC-pass clip, take the plain mean of that
 talent's QC-pass median_f0 / brightness_hz / dynamism_semitones; z-score
@@ -103,8 +104,9 @@ _MULTI_GROUP_TALENTS = {
 }
 
 # Real-world debut chronology (earliest member's Holodex published_at
-# per group, resolved once directly against the API on 2026-09-03 — see
-# PLAN.md). Alphabetical order badly scrambles this (e.g. "DEV_IS
+# per group, resolved once directly against the API and pinned here so
+# the export does not depend on a live lookup). Alphabetical order badly
+# scrambles this (e.g. "DEV_IS
 # ReGLOSS" (2023) would sort before "English -Myth-" (2020)), so
 # generation_order in the export uses this reference table instead of a
 # plain string sort.

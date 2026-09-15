@@ -35,7 +35,7 @@ never Cover/hololive audio, never downloads):
 8. write_quarterly_plots(entries, out_dir) writes exactly two PNGs:
    f0_quarterly_all.png and f0_quarterly_qc.png. The min–max band is
    drawn only where n >= 2 (n=1 renders a bare point — anecdotal,
-   PLAN L36); existence only here — no image comparison.
+   reference/statistics.md); existence only here — no image comparison.
 9. Multi-clip months (STATE R3): when several records share a month,
    the monthly series collapses to ONE point per month — the plain
    float mean (NO rounding) of that month's values for the series at
@@ -497,7 +497,7 @@ def test_iqr_series_multi_clip_month_mean_of_finite_iqrs() -> None:
 
 
 def test_f0_yearly_median_of_clip_medians_min_max_n_sorted() -> None:
-    """Rule 10 (PLAN L36 year rule): per calendar year the MEDIAN of that
+    """Rule 10 (reference/statistics.md year rule): per calendar year the MEDIAN of that
     year's clip medians (not the mean — clips 300/340/520 give 340, a mean
     would give ~386.7), plus between-clip min/max and n, sorted by year.
     The nan-median clip is excluded ENTIRELY (it cannot plot)."""

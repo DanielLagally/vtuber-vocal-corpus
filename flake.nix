@@ -67,6 +67,14 @@
               pkgs.jq
               pkgs.basedpyright
               pkgs.ruff
+              # Standalone Praat, driven as a subprocess. The pip binding
+              # (praat-parselmouth) embeds a much older Praat, so newer pitch
+              # methods — notably filtered autocorrelation, which exists to
+              # cut octave errors — are unreachable through it. This is the
+              # only way to evaluate them. It is a prebuilt binary from the
+              # cache, NOT the source build that the parselmouth/librosa
+              # nixpkgs packages trigger (see CLAUDE.md).
+              pkgs.praat
             ];
 
             venvDir = ".venv";

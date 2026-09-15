@@ -150,7 +150,7 @@ def iqr_series(
 
 
 def _quarter(month: object) -> str | None:
-    """"YYYY-MM" -> "YYYY-Qn" (PLAN L36 quarter point). Anything that is
+    """"YYYY-MM" -> "YYYY-Qn" (reference/statistics.md quarter point). Anything that is
     not a parseable month (None, malformed) cannot be placed on the
     timeline and yields None."""
     if not isinstance(month, str):
@@ -171,7 +171,7 @@ def f0_quarterly(
     feature_key: str = "median_f0",
     max_per_month: int | None = None,
 ) -> list[dict]:
-    """Per calendar quarter (PLAN L36): the MEAN of that quarter's clip
+    """Per calendar quarter (reference/statistics.md): the MEAN of that quarter's clip
     ``feature_key`` values (default ``median_f0``, but any numeric
     feature key works, same generalization as ``f0_yearly``/``f0_series``),
     plus min and max of the same values, and n, sorted by quarter.
@@ -217,7 +217,7 @@ def f0_quarterly(
 
 
 def _year(month: object) -> str | None:
-    """Validated "YYYY" from a "YYYY-MM" month string (PLAN L36 year
+    """Validated "YYYY" from a "YYYY-MM" month string (reference/statistics.md year
     point). Anything that is not a parseable month (None, malformed)
     cannot be placed on the timeline and yields None."""
     if not isinstance(month, str):
@@ -237,7 +237,7 @@ def f0_yearly(
     feature_key: str = "median_f0",
     max_per_month: int | None = None,
 ) -> list[dict]:
-    """Per calendar year (PLAN L36 year rule): the MEDIAN of that year's
+    """Per calendar year (reference/statistics.md year rule): the MEDIAN of that year's
     clip ``feature_key`` values (clip-level — not month-means first, the
     clip is the sample; default ``median_f0``, but any numeric feature
     key works the same way — brightness_hz, dynamism_semitones, etc.),
@@ -297,7 +297,7 @@ def _plot_points(ax: plt.Axes, points: list[tuple[str, float]], label: str) -> N
 
 def _plot_quarterly(ax: plt.Axes, points: list[dict], label: str) -> None:
     """Quarter points as means, with a min–max band ONLY where n >= 2 —
-    a n=1 quarter is anecdotal (PLAN L36) and renders as a bare point.
+    a n=1 quarter is anecdotal (reference/statistics.md) and renders as a bare point.
     Empty quarters are absent from the series and so leave a natural
     gap on the x axis. Each point is direct-labeled with its exact Hz
     value; horizontal gridlines make reading values off the axis
@@ -370,7 +370,7 @@ def write_plots(entries: list[dict], out_dir: Path, *, talent: str | None = None
 def write_quarterly_plots(
     entries: list[dict], out_dir: Path, *, talent: str | None = None
 ) -> None:
-    """The two quarterly PNGs (PLAN L36 quarter point): mean of clip
+    """The two quarterly PNGs (reference/statistics.md quarter point): mean of clip
     medians + min–max band where n >= 2 (n=1 anecdotal, bare point),
     empty quarters as gaps. ``*_all`` shows QC-failing clips (cleaning
     visible), ``*_qc`` shows QC passes only (fails are gaps)."""
@@ -419,7 +419,7 @@ def _year_month_sets(entries: list[dict]) -> tuple[dict[str, set], dict[str, set
 def write_yearly_plot(
     entries: list[dict], out_dir: Path, *, talent: str | None = None
 ) -> None:
-    """The single yearly PNG (PLAN L36 year rule), the QC view: a
+    """The single yearly PNG (reference/statistics.md year rule), the QC view: a
     two-panel figure over the QC-pass years. TOP = per-year median of
     clip medians with the between-clip min–max spread as vlines (a n=1
     year renders as a bare point). BOTTOM = bars of QC-pass clip count

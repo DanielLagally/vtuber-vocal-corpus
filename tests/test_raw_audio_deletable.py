@@ -5,8 +5,8 @@ raw-audio-file presence, so deleting a video's large raw wav after
 it's been windowed never causes a wasted re-fetch or re-window.
 
 Only retry/rescue genuinely still need the raw wav (they hunt a
-DIFFERENT window when the first one failed QC) — see PLAN.md; that is
-by design, not covered here.
+DIFFERENT window when the first one failed QC) — see
+reference/pipeline.md; that is by design, not covered here.
 """
 
 from __future__ import annotations

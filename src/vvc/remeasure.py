@@ -7,8 +7,8 @@ Re-measures EVERY record in a measurements file with Praat autocorrelation
 record already used — id/month/score/window/model are preserved
 unchanged; only features/qc are replaced, plus a "tracker" field marking
 provenance. Same audio, different tracker only: this is what the "same
-processing per talent" rule in PLAN.md requires, not a re-run of window
-hunting or isolation.
+processing per talent" rule (reference/measurement.md) requires, not a
+re-run of window hunting or isolation.
 
 Source resolution: a record's authoritative audio is whichever of
 <id>_raw90 (original), <id>_raw90b (2nd-window retry), <id>_stem90

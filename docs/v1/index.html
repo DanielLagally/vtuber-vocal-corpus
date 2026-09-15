@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>vtuber-vocal-corpus — talent comparison</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<p class="version-banner">
+  You are viewing the <strong>v1</strong> site.
+  <a href="../index.html">Go to the current site</a>.
+</p>
+
+<header class="site-header">
+  <h1>hololive vocal measurements</h1>
+  <p class="tagline">
+    Public acoustic measurements of hololive chatting-stream speech —
+    pitch, brightness, and voice-quality correlates.
+  </p>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <section class="panel">
+      <h2>Metric</h2>
+      <select id="metric-picker"></select>
+    </section>
+    <section class="panel">
+      <h2>Talents</h2>
+      <div class="talent-actions">
+        <button type="button" id="select-all">All</button>
+        <button type="button" id="select-none">None</button>
+      </div>
+      <label class="filter-label" for="branch-filter">Branch</label>
+      <select id="branch-filter"></select>
+      <label class="filter-label" for="generation-filter">Generation</label>
+      <select id="generation-filter"></select>
+      <div id="talent-list" class="talent-list"></div>
+    </section>
+  </aside>
+
+  <main class="content">
+    <div id="view-controls" class="view-controls"></div>
+    <div id="chart" class="chart"></div>
+    <div id="table-view" class="table-view-wrap"></div>
+    <p id="caption" class="caption"></p>
+  </main>
+</div>
+
+<footer class="site-footer">
+  <p>
+    Generated from <code>data.js</code> — an aggregate export, no raw
+    audio. See
+    <a href="https://github.com/DanielLagally/vtuber-vocal-corpus/blob/master/docs/v1/METHODOLOGY.md">METHODOLOGY.md</a>
+    for how these numbers were produced and
+    <a href="https://github.com/DanielLagally/vtuber-vocal-corpus/blob/master/docs/v1/LIMITATIONS.md">LIMITATIONS.md</a>
+    for what they do and don't support.
+    <a href="https://github.com/DanielLagally/vtuber-vocal-corpus">View source on GitHub</a>.
+  </p>
+</footer>
+
+<script src="vendor/plotly.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

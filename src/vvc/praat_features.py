@@ -77,7 +77,8 @@ def _point_process(sound: parselmouth.Sound, pitch: parselmouth.Pitch):
 
 def jitter_local(path: Path | str) -> float:
     """Cycle-to-cycle variation in the TIMING between successive pitch
-    periods (fraction, e.g. 0.01 = 1%). PLAN caveat: Praat's local-
+    periods (fraction, e.g. 0.01 = 1%). Caveat (see
+    reference/measurement.md): Praat's local-
     jitter algorithm is calibrated for a sustained vowel, not
     conversational speech, and is sensitive to residual vocal-isolation
     artifact — trust the relative comparison within this pipeline
@@ -128,14 +129,26 @@ _FORMANT_PRE_EMPHASIS_HZ = 50.0
 
 def formants_hz(path: Path | str) -> dict:
     """Mean F1-F4 (vocal-tract resonance frequencies, Hz) via Praat's
-    Burg-method formant tracker, over frames where a formant number has
-    a defined value — undefined frames (unvoiced/silent/too little
-    energy) are excluded, never averaged in as 0, same no-bogus-
-    confidence convention as median_f0. The strongest, most literature-
-    grounded acoustic correlate of perceived voice maturity/body size
-    (formant spacing tracks vocal tract length) — see PLAN.md's
-    deferred-feature notes; added specifically to make the cute/mature
-    scoring less arbitrary than pitch+brightness+dynamism alone."""
+    Burg-method formant tracker.
+
+    Formant spacing tracks vocal tract length, which makes it the most
+    literature-grounded acoustic correlate of perceived voice maturity
+    here — but this implementation does NOT deliver that reading, and
+    the numbers must be treated as experimental:
+
+    - **No voiced-frame mask.** The average runs over every frame Burg
+      returns a finite value for, and Burg returns values for unvoiced
+      and noisy frames too. Consonants, breath, silence and vocal-
+      isolation artifact are all averaged in; on real stems the unvoiced
+      share of contributing frames can exceed half, shifting medians by
+      tens to hundreds of Hz. Only NaN frames are excluded.
+    - **A single fixed ceiling for every speaker**, where Praat's own
+      guidance is that the ceiling should suit the speaker.
+    - Averaging across whatever vowels someone happened to say does not
+      isolate vocal-tract length regardless of the two above.
+
+    See reference/measurement.md for the constraints and
+    docs/v1/LIMITATIONS.md for what this means for published v1 data."""
     sound = parselmouth.Sound(str(path))
     formant = sound.to_formant_burg(
         time_step=_HOP_S,

@@ -21,7 +21,8 @@ hololive audio, never downloads):
    pitched voiced blocks must NOT count as a jump — only frame pairs
    that are BOTH voiced (and therefore adjacent in time, not just
    adjacent after unvoiced frames are filtered out) contribute.
-6. jitter_local / shimmer_local / hnr_db (voice quality; PLAN caveat:
+6. jitter_local / shimmer_local / hnr_db (voice quality; caveat, see
+   reference/measurement.md:
    calibrated for a sustained vowel, not conversational speech, and
    sensitive to residual vocal-isolation artifact — trust the relative
    comparison within this pipeline, not the absolute number against a

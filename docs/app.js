@@ -1,32 +1,27 @@
 "use strict";
 
-// Caption text mirrors series.py's _WHAT_IS_F0 / _QC_FOOTER wording (no
-// Python import path available from a static page, so the strings are
-// copied here — keep them in sync if series.py's wording changes).
-const WHAT_IS_F0 =
-  "Median F0 = typical pitch of voiced speech in a ~90 s clip of a public " +
-  "chatting stream. Higher = higher-pitched voice.";
-const QC_FOOTER =
-  "QC excludes clips with too little voice, unstable pitch (BGM/tracker " +
-  "error), or an implausible reading. Gaps are missing/failed data, never 0 Hz.";
-const CUTE_MATURE_CAPTION =
-  "Acoustic correlates, not a vibe rating. Percentile = equal-weight average " +
-  "of each talent's z-scored mean F0, brightness, and pitch dynamism vs. " +
-  "every other talent shown here with QC-pass data.";
-const RADAR_CAPTION =
-  "One shape per talent: each axis is that talent's percentile (0=lowest, " +
-  "100=highest) vs. the whole registered corpus on that metric, computed " +
-  "independently per axis (not a combined cute/mature score). A talent " +
-  "missing an axis (no QC-pass data on that metric, or fewer than 2 " +
-  "talents corpus-wide have it) simply has no vertex there.";
+// window.SITE_DATA_V2 comes from data.js (a <script>, not a fetch() —
+// fetch("data.json") is blocked by CORS when this page is opened via
+// file://, which is the whole point of a static, no-server site).
+let DATA;
 
-// Each talent's official/fandom-recognized image color, where confidently
-// known. A talent NOT in this map falls back to Plotly's default
-// categorical palette (assignTalentColor below) rather than a guessed
-// hex value — colors are identity, worth getting right or not at all.
-// Values are official hololive schedule ring colors; the map was refreshed
-// 2026-09-07. The schedule only reveals colors for members with a listed
-// stream, so unmapped names deliberately retain the stable fallback.
+let selectedCompare = new Set();
+let compareFamily = "pitch_level";
+let compareMetric = "median_f0";
+let compareMode = "series";
+let compareGranularity = "quarterly";
+let scatterX = "median_f0";
+let scatterY = "brightness_hz";
+let groupBy = "member";
+let tableSort = { key: "typical", dir: -1 };
+
+// ---------------------------------------------------------------------
+// Colors — ported from v1's app.js unchanged (same curated brand-color
+// map, same deterministic alphabetical fallback). Colors are identity:
+// keeping one shared table here rather than a second hand-maintained
+// copy is what keeps a talent's color consistent between v1 and v2.
+// ---------------------------------------------------------------------
+
 const TALENT_COLORS = {
   "Aki Rosenthal": "#4E7FFC",
   "AZKi": "#FC3488",
@@ -65,19 +60,12 @@ const TALENT_COLORS = {
   "Mizumiya Su": "#71E5FF",
 };
 
-// Plotly's default categorical palette (d3.schemeCategory10-derived),
-// used for any talent not in TALENT_COLORS — cycled independently of
-// the hardcoded talents so no two visible traces share a color.
 const FALLBACK_PALETTE = [
   "#636efa", "#EF553B", "#00cc96", "#ab63fa", "#FFA15A",
   "#19d3f3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52",
 ];
 const _fallbackAssigned = new Map();
 function assignFallbackColors(allNames) {
-  // Deterministic regardless of selection/render order: walk every
-  // talent alphabetically once at load, skipping anyone with a
-  // hardcoded color, so the same un-mapped talent always gets the same
-  // fallback color across a session.
   let i = 0;
   for (const name of [...allNames].sort()) {
     if (TALENT_COLORS[name]) continue;
@@ -86,1491 +74,921 @@ function assignFallbackColors(allNames) {
   }
 }
 function talentColor(name) {
-  return TALENT_COLORS[name] || _fallbackAssigned.get(name);
+  return TALENT_COLORS[name] || _fallbackAssigned.get(name) || "#888888";
 }
 
-// Yearly metrics: keyed by the data.json "yearly" feature key. label/unit
-// mirror the existing per-talent PNGs (__main__.py's _EXTRA_FEATURE_PLOTS).
-const YEARLY_METRICS = {
-  median_f0: { label: "F0 (Pitch) — Yearly", unit: "Median F0 (Hz)", caption: WHAT_IS_F0 },
-  brightness_hz: {
-    label: "Brightness — Yearly",
-    unit: "Brightness (Hz)",
-    caption:
-      "Spectral centroid - a brighter/more forward vs. darker/warmer voice. " +
-      "Mic/EQ and leftover BGM affect this too; trust the relative shape.",
-  },
-  dynamism_semitones: {
-    label: "Pitch Dynamism — Yearly",
-    unit: "Dynamism (semitones)",
-    caption:
-      "Mean semitone change between consecutive voiced frames - how much " +
-      "the pitch actually moves, not just its static spread.",
-  },
-  jitter_local: {
-    label: "Jitter — Yearly",
-    unit: "Jitter (local, fraction)",
-    caption: "Cycle-to-cycle pitch-period timing irregularity.",
-  },
-  shimmer_local: {
-    label: "Shimmer — Yearly",
-    unit: "Shimmer (local, fraction)",
-    caption: "Cycle-to-cycle amplitude irregularity.",
-  },
-  hnr_db: {
-    label: "Harmonics-to-Noise Ratio — Yearly",
-    unit: "HNR (dB)",
-    caption: "Higher = clearer/more tonal voice; lower = breathier/noisier.",
-  },
-  loudness_dynamics_db: {
-    label: "Loudness Dynamics — Yearly",
-    unit: "Loudness spread (dB)",
-    caption:
-      "Spread of frame loudness (RMS in dB) within a clip - animated volume " +
-      "swings vs. a flat, even delivery.",
-  },
-  f1_hz: {
-    label: "First Formant (F1) — Yearly",
-    unit: "F1 (Hz)",
-    caption:
-      "Vocal-tract resonance most tied to jaw/tongue height - not a pitch " +
-      "measure. Sensitive to the formant tracker's parameters and residual " +
-      "isolation artifact; trust the relative shape.",
-  },
-  f2_hz: {
-    label: "Second Formant (F2) — Yearly",
-    unit: "F2 (Hz)",
-    caption:
-      "Vocal-tract resonance most tied to tongue front/back position - " +
-      "with F1, the classic acoustic vowel-space axes.",
-  },
-  f3_hz: {
-    label: "Third Formant (F3) — Yearly",
-    unit: "F3 (Hz)",
-    caption:
-      "Higher vocal-tract resonance. Overall formant spacing (F1-F4) tracks " +
-      "vocal tract length - the strongest acoustic correlate of perceived " +
-      "voice maturity/body size measured here.",
-  },
-  f4_hz: {
-    label: "Fourth Formant (F4) — Yearly",
-    unit: "F4 (Hz)",
-    caption: "Highest formant tracked - completes the F1-F4 picture with F1-F3.",
-  },
+// ---------------------------------------------------------------------
+// Metric metadata — display label and unit only. Which family a metric
+// belongs to, and whether it's robust/experimental, comes from
+// DATA.families (reference/statistics.md and reference/measurement.md),
+// not duplicated here.
+// ---------------------------------------------------------------------
+
+const METRIC_META = {
+  median_f0: { label: "Median F0 (pitch)", unit: "Hz" },
+  f0_iqr_semitones: { label: "F0 spread (IQR)", unit: "semitones" },
+  dynamism_semitones: { label: "Pitch dynamism", unit: "semitones" },
+  jitter_local: { label: "Jitter", unit: "fraction" },
+  shimmer_local: { label: "Shimmer", unit: "fraction" },
+  hnr_db: { label: "Harmonics-to-noise ratio", unit: "dB" },
+  brightness_hz: { label: "Brightness", unit: "Hz" },
+  f1_hz: { label: "Formant F1", unit: "Hz" },
+  f2_hz: { label: "Formant F2", unit: "Hz" },
+  f3_hz: { label: "Formant F3", unit: "Hz" },
+  f4_hz: { label: "Formant F4", unit: "Hz" },
+  voiced_fraction: { label: "Voiced fraction", unit: "" },
+  loudness_dynamics_db: { label: "Loudness dynamics", unit: "dB" },
+  background_ratio_db: { label: "Background ratio", unit: "dB" },
 };
 
-let DATA = null;
-let selectedTalents = new Set();
-let branchFilter = "All";
-let generationFilter = "All";
+function allMetrics() {
+  return DATA.families.flatMap((f) => f.metrics);
+}
 
-// Radar "timeline" mode: per-axis min-max range across EVERY talent and
-// EVERY year (computed once at load, held fixed) so scrubbing the year
-// slider moves points within a stable frame instead of the axes silently
-// rescaling underneath you. Falls back to the corpus-wide rank percentile
-// (radarOverall = true, the original behavior) when unchecked.
-let RADAR_AXIS_RANGE = {};
-let radarOverall = true;
-let radarYear = null;
-// Which metrics appear as radar axes — user-editable via checkboxes,
-// defaults to every present yearly metric the first time the radar view
-// is built (null means "not yet initialized", not "none selected").
-let radarSelectedKeys = null;
+function familyOf(metric) {
+  return DATA.families.find((f) => f.metrics.includes(metric));
+}
 
-// Trajectory view: X/Y (+ optional size) metric pickers and a from/to
-// year range, all read straight from the already-present per-year
-// "yearly" series — no new backend aggregation.
-let ALL_YEARS = [];
-let trajXKey = null;
-let trajYKey = null;
-let trajSizeKey = "none";
-let trajFromYear = null;
-let trajToYear = null;
+// ---------------------------------------------------------------------
+// Small helpers
+// ---------------------------------------------------------------------
 
-// Time Series view: replaces the old fixed "F0 Monthly"/"F0 Quarterly"/
-// "<metric> Yearly" (13 separate metric-picker entries) with one view
-// plus independent X-granularity and Y-metric pickers — any metric at
-// any of the three time granularities, all backed by the same per-key
-// monthly/quarterly/yearly dicts in data.js (site_data.py generalized
-// f0_series/f0_quarterly with a feature_key, matching f0_yearly).
-let seriesGranularity = "monthly";
-let seriesMetricKey = null; // null = not yet initialized; set on first render
+function fmt(x) {
+  if (!Number.isFinite(x)) return "—";
+  return Math.abs(x) < 10 ? x.toFixed(2) : x.toFixed(0);
+}
 
-let lastControlsMetric = null;
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
 
-let tableSortColumn = "name";
-let tableSortAscending = true;
-// "raw" = each metric's plain mean in its native unit (site_data.py's
-// raw_means); "percentile" = 0-100 rank vs. the corpus (percentiles).
-let tableMode = "raw";
+function fillSelect(id, values) {
+  document.getElementById(id).innerHTML = values
+    .map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`)
+    .join("");
+}
 
-// Group Comparison view: bucket the SELECTED talents into groups (by
-// generation, by branch, or user-defined) and compare each group's
-// per-metric aggregate (median or mean of its members' own raw_means —
-// entirely client-side, no new backend data). "generation"/"branch"
-// groups are derived fresh from DATA every render; "custom" groups are
-// user-built and live only for this session (not persisted).
-let groupingMode = "generation";
-let groupAggFunc = "median";
-let customGroups = []; // [{ name: string, members: Set<talentName> }]
-let editingCustomGroupIndex = 0;
-let groupSortColumn = "name";
-let groupSortAscending = true;
-// Which visualization the Group Comparison view shows — same idea as
-// the per-talent views (Table/Time Series/Radar/Trajectory), just one
-// value per group (groupAggFunc'd across members) instead of one value
-// per talent. Reuses the per-talent views' own metric/axis/year-range
-// state (seriesGranularity, seriesMetricKey, radarSelectedKeys,
-// trajXKey/trajYKey/trajSizeKey/trajFromYear/trajToYear) rather than
-// duplicating a parallel set — "which metric(s)/years" is the same
-// question regardless of whether the chart is per-talent or per-group.
-let groupChartType = "table";
+function chartColors() {
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return dark
+    ? { fg: "#e6e8ec", grid: "#2a2e38" }
+    : { fg: "#1a1d23", grid: "#dde1e7" };
+}
 
-// Short header text for the table (full names are used for chart/radar
-// labels elsewhere, but they make table columns unusably wide) — the
-// full name still shows via the header's title tooltip.
-const TABLE_SHORT_LABEL = {
-  median_f0: "F0",
-  brightness_hz: "Bright.",
-  dynamism_semitones: "Dynam.",
-  jitter_local: "Jitter",
-  shimmer_local: "Shimmer",
-  hnr_db: "HNR",
-  loudness_dynamics_db: "Loud.",
-  f1_hz: "F1",
-  f2_hz: "F2",
-  f3_hz: "F3",
-  f4_hz: "F4",
-};
-
-// Decimal places for RAW values only (percentiles are always whole
-// numbers) — jitter/shimmer are small fractions (~0.01-0.05) and
-// dynamism is typically ~0.5-2 semitones, all of which round to the
-// same 0-1 with no decimals (dynamism specifically rounded to "1" for
-// every single talent — not a real tie, just lost precision). Hz/dB are
-// large enough that whole numbers are the right precision.
-const TABLE_RAW_DECIMALS = { jitter_local: 3, shimmer_local: 3, dynamism_semitones: 2 };
-
-// Minimal display form for the table's Generation column — full group
-// strings ("4th Generation (holoForce)") are fine for the sidebar
-// filter dropdown but too verbose for a table column. Numbered JP
-// generations collapse to a bare digit; units with a distinctive brand
-// name use that instead (matches the source Holodex group strings'
-// exact capitalization, not a guess): "6th Generation -holoX-" ->
-// "holoX", "DEV_IS ReGLOSS" -> "ReGLOSS" (tag dropped), etc. ID
-// generations keep their brand suffix rather than a bare digit — unlike
-// JP, a plain "1"/"2"/"3" would collide with the JP numbered gens once
-// the Branch column (which used to disambiguate them) is gone from this
-// table.
-const GENERATION_SHORT_LABEL = {
-  "0th Generation": "0",
-  "1st Generation": "1",
-  "2nd Generation": "2",
-  "3rd Generation (Fantasy)": "3",
-  "4th Generation (holoForce)": "4",
-  "5th Generation (holoFive)": "5",
-  "6th Generation -holoX-": "holoX",
-  "DEV_IS ReGLOSS": "ReGLOSS",
-  "DEV_IS FLOW GLOW": "FLOW GLOW",
-  "English -Myth-": "Myth",
-  "English -Promise-": "Promise",
-  "English -Justice-": "Justice",
-  "English -Advent-": "Advent",
-  "Indonesia 1st Gen (AREA 15)": "AREA 15",
-  "Indonesia 2nd Gen (holoro)": "holoro",
-  "Indonesia 3rd Gen (holoh3ro)": "holoh3ro",
-};
+// ---------------------------------------------------------------------
+// Init and routing
+// ---------------------------------------------------------------------
 
 function main() {
-  // window.SITE_DATA comes from data.js (a <script>, not a fetch() —
-  // fetch("data.json") is blocked by CORS when this page is opened via
-  // file://, which is the whole point of a static, no-server site).
-  DATA = window.SITE_DATA;
-  selectedTalents = new Set(Object.keys(DATA.talents));
+  DATA = window.SITE_DATA_V2;
   assignFallbackColors(Object.keys(DATA.talents));
-  computeRadarAxisRanges();
-  computeYearRangeAndDefaultAxes();
+  document.getElementById("generated-at").textContent = DATA.generated_at;
 
-  buildMetricPicker();
-  buildFilterPickers();
-  buildTalentList();
+  buildHomeFilters();
+  buildFamilyPicker();
+  buildScatterAxisPickers();
 
-  // Delegated once on the stable container — buildTalentList() only ever
-  // replaces its innerHTML (on every filter change too), so a listener
-  // attached here keeps working without re-attaching (re-attaching inside
-  // buildTalentList would stack a duplicate handler per filter change).
-  document.getElementById("talent-list").addEventListener("change", (event) => {
-    const name = event.target.value;
-    if (event.target.checked) selectedTalents.add(name);
-    else selectedTalents.delete(name);
-    render();
-  });
+  wireNav();
+  wireHomeControls();
+  wireCompareControls();
 
-  document.getElementById("select-all").addEventListener("click", () => {
-    selectedTalents = new Set(filteredNames());
-    buildTalentList();
-    render();
-  });
-  document.getElementById("select-none").addEventListener("click", () => {
-    selectedTalents = new Set();
-    buildTalentList();
-    render();
-  });
-  const picker = document.getElementById("metric-picker");
-  picker.addEventListener("change", () => {
-    location.hash = picker.value;
-    render();
-  });
-
-  // Deep-linkable views: #cute_mature, #series, #radar, etc. (granularity
-  // and metric sub-selections within #series aren't part of the hash).
-  const initial = location.hash.slice(1);
-  if (initial && [...picker.options].some((o) => o.value === initial)) {
-    picker.value = initial;
-  }
-
-  render();
+  route();
+  window.addEventListener("hashchange", route);
 }
 
-function computeRadarAxisRanges() {
-  RADAR_AXIS_RANGE = {};
-  for (const key of Object.keys(YEARLY_METRICS)) {
-    let min = Infinity;
-    let max = -Infinity;
-    for (const talent of Object.values(DATA.talents)) {
-      for (const point of (talent.yearly && talent.yearly[key]) || []) {
-        if (typeof point.median === "number") {
-          min = Math.min(min, point.median);
-          max = Math.max(max, point.median);
-        }
+function route() {
+  const hash = location.hash.slice(1);
+  if (hash.startsWith("talent/")) {
+    showProfile(decodeURIComponent(hash.slice("talent/".length)));
+  } else if (hash === "compare") {
+    showView("compare");
+  } else {
+    showView("home");
+  }
+}
+
+function showView(view) {
+  for (const el of document.querySelectorAll(".view")) el.hidden = true;
+  document.getElementById(view + "-view").hidden = false;
+  for (const btn of document.querySelectorAll(".nav-btn")) {
+    btn.classList.toggle("active", btn.dataset.view === view);
+  }
+  if (view === "home") buildTalentGrid();
+  if (view === "compare") {
+    renderChipPicker();
+    renderCompare();
+  }
+}
+
+function showProfile(name) {
+  if (!DATA.talents[name]) {
+    showView("home");
+    return;
+  }
+  for (const el of document.querySelectorAll(".view")) el.hidden = true;
+  document.getElementById("profile-view").hidden = false;
+  for (const btn of document.querySelectorAll(".nav-btn")) btn.classList.remove("active");
+  renderProfile(name);
+}
+
+function wireNav() {
+  for (const btn of document.querySelectorAll(".nav-btn")) {
+    btn.addEventListener("click", () => {
+      location.hash = btn.dataset.view;
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+// Home view
+// ---------------------------------------------------------------------
+
+function buildHomeFilters() {
+  const branches = new Set();
+  const gens = new Set();
+  for (const t of Object.values(DATA.talents)) {
+    branches.add(t.branch);
+    for (const g of t.group) gens.add(g);
+  }
+  fillSelect("home-branch-filter", ["All branches", ...[...branches].sort()]);
+  fillSelect(
+    "home-generation-filter",
+    ["All generations", ...DATA.generation_order.filter((g) => gens.has(g))]
+  );
+}
+
+function wireHomeControls() {
+  document.getElementById("talent-search").addEventListener("input", buildTalentGrid);
+  document.getElementById("home-branch-filter").addEventListener("change", buildTalentGrid);
+  document.getElementById("home-generation-filter").addEventListener("change", buildTalentGrid);
+}
+
+function sparklineSvg(points, color) {
+  if (!points || points.length < 2) return "";
+  const ys = points.map((p) => p.median);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const w = 100;
+  const h = 22;
+  const scaleX = (i) => (points.length === 1 ? w / 2 : (i / (points.length - 1)) * w);
+  const scaleY = (y) => (maxY === minY ? h / 2 : h - ((y - minY) / (maxY - minY)) * h);
+  const pts = ys.map((y, i) => `${scaleX(i).toFixed(1)},${scaleY(y).toFixed(1)}`).join(" ");
+  return (
+    `<svg class="talent-card-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">` +
+    `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6"/></svg>`
+  );
+}
+
+function talentCardHtml(name) {
+  const t = DATA.talents[name];
+  const legacy = t.legacy_fallback ? `<span class="legacy-tag">v1 only</span>` : "";
+  const spark = sparklineSvg(t.metrics.median_f0.yearly, talentColor(name));
+  return (
+    `<button class="talent-card" data-name="${escapeHtml(name)}">` +
+    `<span class="talent-swatch" style="background:${talentColor(name)}"></span>` +
+    `<span class="talent-card-body">` +
+    `<span class="talent-card-name">${escapeHtml(name)}${legacy}</span>` +
+    `<span class="talent-card-meta">${escapeHtml(t.group[0] || "Unknown")} · ${t.n_pass}/${t.n_clips} clips</span>` +
+    spark +
+    `</span></button>`
+  );
+}
+
+function buildTalentGrid() {
+  const query = (document.getElementById("talent-search").value || "").toLowerCase();
+  const branch = document.getElementById("home-branch-filter").value;
+  const gen = document.getElementById("home-generation-filter").value;
+  const grid = document.getElementById("talent-grid");
+  const names = Object.keys(DATA.talents)
+    .sort()
+    .filter((name) => name.toLowerCase().includes(query))
+    .filter((name) => branch === "All branches" || DATA.talents[name].branch === branch)
+    .filter((name) => gen === "All generations" || DATA.talents[name].group.includes(gen));
+  grid.innerHTML = names.map(talentCardHtml).join("");
+  for (const card of grid.querySelectorAll(".talent-card")) {
+    card.addEventListener("click", () => {
+      location.hash = "talent/" + encodeURIComponent(card.dataset.name);
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
+// Profile view
+// ---------------------------------------------------------------------
+
+function metricRowHtml(name, metric) {
+  const m = DATA.talents[name].metrics[metric];
+  const meta = METRIC_META[metric];
+  if (!m || !Number.isFinite(m.typical)) {
+    return (
+      `<div class="metric-row"><span class="metric-name">${escapeHtml(meta.label)}</span>` +
+      `<span class="metric-sub">no data</span></div>`
+    );
+  }
+  const ci = Number.isFinite(m.ci_low)
+    ? ` · 95% CI ${fmt(m.ci_low)}–${fmt(m.ci_high)}`
+    : "";
+  const pct = m.percentile != null ? ` · ${Math.round(m.percentile)}th percentile` : "";
+  const trend =
+    m.trend && Number.isFinite(m.trend.slope_per_year)
+      ? ` · ${m.trend.slope_per_year >= 0 ? "+" : ""}${m.trend.slope_per_year.toFixed(2)} ${meta.unit}/yr (r² ${m.trend.r2.toFixed(2)})`
+      : "";
+  const nf =
+    m.noise_floor && m.noise_floor.median_abs_diff != null
+      ? ` · noise floor ${fmt(m.noise_floor.median_abs_diff)} ${meta.unit}`
+      : "";
+  return (
+    `<div class="metric-row"><span class="metric-name">${escapeHtml(meta.label)}</span>` +
+    `<span><span class="metric-value">${fmt(m.typical)} ${escapeHtml(meta.unit)}</span>` +
+    `<span class="metric-sub">${ci}${pct}${trend}${nf}</span></span></div>`
+  );
+}
+
+function familyCardHtml(name, family) {
+  const badge =
+    family.robust === true ? "robust" : family.robust === false ? "experimental" : "context";
+  const rows = family.metrics.map((metric) => metricRowHtml(name, metric)).join("");
+  return (
+    `<div class="family-card"><h3>${escapeHtml(family.label)} ` +
+    `<span class="badge ${badge}">${badge}</span></h3>` +
+    `<p class="family-note">${escapeHtml(family.note)}</p>${rows}</div>`
+  );
+}
+
+function renderProfile(name) {
+  const t = DATA.talents[name];
+  const legacyNote = t.legacy_fallback
+    ? `<p class="control-hint">This talent's source audio wasn't available for v2 ` +
+      `re-measurement — every figure below is carried over from v1 rather than remeasured.</p>`
+    : "";
+  document.getElementById("profile-content").innerHTML =
+    `<div class="profile-header">` +
+    `<span class="profile-swatch" style="background:${talentColor(name)}"></span>` +
+    `<h2>${escapeHtml(name)}</h2></div>` +
+    `<p class="profile-meta">${escapeHtml(t.group.join(", ") || "Unknown")} (${escapeHtml(t.branch)}) &middot; ` +
+    `${t.n_pass}/${t.n_clips} clips passing QC &middot; ${t.months_covered} months covered ` +
+    `(${escapeHtml(t.first_month || "—")} to ${escapeHtml(t.last_month || "—")}) &middot; ` +
+    `${Math.round(t.legacy_fraction * 100)}% legacy features</p>` +
+    legacyNote +
+    `<div class="profile-grid">` +
+    `<div class="profile-families">${DATA.families.map((f) => familyCardHtml(name, f)).join("")}</div>` +
+    `<div class="profile-radar-panel panel"><h2>Snapshot</h2>` +
+    `<div id="profile-radar" class="chart" style="min-height:320px"></div>` +
+    `<p class="control-hint">Percentile within the corpus, averaged per family. A family with ` +
+    `no comparable talents sits at the neutral midpoint, not a measured value.</p></div></div>` +
+    `<p class="profile-closing">This shows a typical value, its trend, and this talent's own ` +
+    `same-month measurement noise floor for each metric — a trend smaller than the noise floor ` +
+    `is not distinguishable from measurement error. It does not, on its own, establish a change ` +
+    `in anyone's voice: career time and recording era are hard to separate in this material. See ` +
+    `the repository's <code>reference/limitations.md</code> for what this corpus can and cannot ` +
+    `support.</p>`;
+  renderProfileRadar(name);
+}
+
+function renderProfileRadar(name) {
+  const cats = DATA.families.map((f) => f.label);
+  const vals = DATA.families.map((f) => {
+    const pcts = f.metrics
+      .map((m) => DATA.talents[name].metrics[m] && DATA.talents[name].metrics[m].percentile)
+      .filter((v) => v != null);
+    return pcts.length ? pcts.reduce((a, b) => a + b, 0) / pcts.length : 50;
+  });
+  const { fg, grid } = chartColors();
+  const color = talentColor(name);
+  Plotly.react(
+    "profile-radar",
+    [
+      {
+        type: "scatterpolar",
+        r: [...vals, vals[0]],
+        theta: [...cats, cats[0]],
+        fill: "toself",
+        line: { color },
+        marker: { color },
+      },
+    ],
+    {
+      polar: {
+        bgcolor: "transparent",
+        radialaxis: { range: [0, 100], gridcolor: grid, color: fg },
+        angularaxis: { gridcolor: grid, color: fg },
+      },
+      paper_bgcolor: "transparent",
+      font: { color: fg, size: 10 },
+      showlegend: false,
+      margin: { t: 30, b: 30, l: 30, r: 30 },
+    },
+    { displayModeBar: false, responsive: true }
+  );
+}
+
+// ---------------------------------------------------------------------
+// Compare view
+// ---------------------------------------------------------------------
+
+// A graduated talent's stored `branch` is always "Graduated" (a status, not a
+// region — see site_data.py) even though their `group` still carries their
+// real generation. Branch CHIPS need the region a talent actually debuted
+// in, or "JP" would silently exclude every graduated JP member — so this
+// re-derives it from group[0] instead of trusting the stored field. Mirrors
+// site_data.py's _branch_for_group; small and pure enough that duplicating
+// it here (rather than threading it through data.js) is the simpler choice.
+function regionOf(name) {
+  const group = DATA.talents[name].group[0];
+  if (!group) return DATA.talents[name].branch;
+  if (group.startsWith("English")) return "EN";
+  if (group.startsWith("Indonesia")) return "ID";
+  if (group.startsWith("DEV_IS")) return "DEV_IS";
+  return "JP";
+}
+
+function chipTokens() {
+  const regions = [...new Set(Object.keys(DATA.talents).map(regionOf))].sort();
+  const hasGraduated = Object.values(DATA.talents).some((t) => t.branch === "Graduated");
+  return [
+    { type: "all", label: "All" },
+    ...regions.map((label) => ({ type: "region", label })),
+    ...(hasGraduated ? [{ type: "graduated", label: "Graduated" }] : []),
+    ...DATA.generation_order.map((label) => ({ type: "group", label })),
+    ...Object.keys(DATA.talents).sort().map((label) => ({ type: "talent", label })),
+  ];
+}
+
+function membersOf(token) {
+  if (token.type === "talent") return [token.label];
+  if (token.type === "all") return Object.keys(DATA.talents);
+  if (token.type === "region") {
+    return Object.keys(DATA.talents).filter((n) => regionOf(n) === token.label);
+  }
+  if (token.type === "graduated") {
+    return Object.keys(DATA.talents).filter((n) => DATA.talents[n].branch === "Graduated");
+  }
+  return Object.keys(DATA.talents).filter((n) => DATA.talents[n].group.includes(token.label));
+}
+
+function renderChipPicker() {
+  const query = (document.getElementById("compare-search").value || "").toLowerCase();
+  const wrap = document.getElementById("chip-picker");
+  const tokens = chipTokens().filter((tok) => tok.label.toLowerCase().includes(query));
+  wrap.innerHTML = tokens
+    .map((tok) => {
+      const members = membersOf(tok);
+      const allSelected = members.length > 0 && members.every((m) => selectedCompare.has(m));
+      const swatch =
+        tok.type === "talent"
+          ? `<span class="chip-swatch" style="background:${talentColor(tok.label)}"></span>`
+          : "";
+      const cls = ["chip", tok.type !== "talent" ? "group" : "", allSelected ? "selected" : ""]
+        .filter(Boolean)
+        .join(" ");
+      return (
+        `<button type="button" class="${cls}" data-type="${tok.type}" ` +
+        `data-label="${escapeHtml(tok.label)}">${swatch}${escapeHtml(tok.label)}</button>`
+      );
+    })
+    .join("");
+  for (const chip of wrap.querySelectorAll(".chip")) {
+    chip.addEventListener("click", () => {
+      const token = { type: chip.dataset.type, label: chip.dataset.label };
+      const members = membersOf(token);
+      const allSelected = members.every((m) => selectedCompare.has(m));
+      for (const m of members) {
+        if (allSelected) selectedCompare.delete(m);
+        else selectedCompare.add(m);
       }
-    }
-    if (min <= max) RADAR_AXIS_RANGE[key] = { min, max };
+      renderChipPicker();
+      renderCompare();
+    });
   }
 }
 
-function computeYearRangeAndDefaultAxes() {
-  const years = new Set();
-  for (const talent of Object.values(DATA.talents)) {
-    for (const points of Object.values(talent.yearly || {})) {
-      for (const point of points) years.add(Number(point.year));
-    }
-  }
-  ALL_YEARS = [...years].sort((a, b) => a - b);
-  if (ALL_YEARS.length > 0) {
-    radarYear = ALL_YEARS[ALL_YEARS.length - 1];
-    trajFromYear = ALL_YEARS[0];
-    trajToYear = ALL_YEARS[ALL_YEARS.length - 1];
-  }
-  const keys = presentYearlyKeys();
-  trajXKey = keys.includes("median_f0") ? "median_f0" : keys[0];
-  trajYKey = keys.includes("brightness_hz") ? "brightness_hz" : keys[1] || keys[0];
-}
-
-function presentYearlyKeys() {
-  const present = new Set();
-  for (const talent of Object.values(DATA.talents)) {
-    for (const key of Object.keys(talent.yearly || {})) present.add(key);
-  }
-  return Object.keys(YEARLY_METRICS).filter((key) => present.has(key));
+function buildFamilyPicker() {
+  const el = document.getElementById("family-picker");
+  el.innerHTML = DATA.families
+    .map((f) => `<option value="${f.key}">${escapeHtml(f.label)}</option>`)
+    .join("");
+  el.value = compareFamily;
+  el.addEventListener("change", () => {
+    compareFamily = el.value;
+    compareMetric = DATA.families.find((f) => f.key === compareFamily).metrics[0];
+    buildMetricPicker();
+    renderCompare();
+  });
+  buildMetricPicker();
 }
 
 function buildMetricPicker() {
-  const picker = document.getElementById("metric-picker");
-  const options = [{ value: "series", label: "Time Series (metric over time)" }];
-  if (Object.keys(DATA.cute_mature).length > 0) {
-    options.push({ value: "cute_mature", label: "Cute × Mature (F0 vs Brightness)" });
-  }
-  const anyPercentiles = Object.values(DATA.talents).some(
-    (t) => Object.keys(t.percentiles || {}).length > 0
-  );
-  if (anyPercentiles) {
-    options.push({ value: "radar", label: "Profile (Percentile Radar)" });
-  }
-  if (presentYearlyKeys().length >= 2 && ALL_YEARS.length > 0) {
-    options.push({ value: "trajectory", label: "Trajectory (metric vs. metric, by year)" });
-  }
-  options.push({ value: "table", label: "Table (sortable)" });
-  options.push({ value: "groups", label: "Group Comparison" });
-  picker.innerHTML = options
-    .map((o) => `<option value="${o.value}">${o.label}</option>`)
+  const fam = DATA.families.find((f) => f.key === compareFamily);
+  const el = document.getElementById("metric-picker");
+  el.innerHTML = fam.metrics
+    .map((m) => `<option value="${m}">${escapeHtml(METRIC_META[m].label)}</option>`)
     .join("");
+  el.value = compareMetric;
+  el.onchange = () => {
+    compareMetric = el.value;
+    renderCompare();
+  };
+  document.getElementById("family-note").textContent = fam.note;
 }
 
-// Branch (EN/ID/DEV_IS/JP/Graduated/Unknown) is a coarse bucket derived
-// server-side (site_data.py) from generation. "group" is a LIST of exact
-// Holodex generation/unit strings (e.g. ["4th Generation (holoForce)"])
-// — a list because a handful of talents (currently just Shirakami
-// Fubuki: 1st Generation + GAMERS) hold more than one membership and
-// should be filterable under either. Every talent has both fields,
-// defaulted to ["Unknown"]/"Unknown" if the site was built without a
-// roster.json (site_data.py rule 9), so these dropdowns are always
-// populated, never missing a talent silently.
-function distinctBranches() {
-  return [...new Set(Object.values(DATA.talents).map((t) => t.branch || "Unknown"))].sort();
+function buildScatterAxisPickers() {
+  const opts = allMetrics()
+    .map((m) => `<option value="${m}">${escapeHtml(METRIC_META[m].label)}</option>`)
+    .join("");
+  document.getElementById("scatter-x-picker").innerHTML = opts;
+  document.getElementById("scatter-y-picker").innerHTML = opts;
+  document.getElementById("scatter-x-picker").value = scatterX;
+  document.getElementById("scatter-y-picker").value = scatterY;
 }
 
-function buildFilterPickers() {
-  const branchSel = document.getElementById("branch-filter");
-  const genSel = document.getElementById("generation-filter");
-  branchSel.innerHTML = ['<option value="All">All branches</option>']
-    .concat(distinctBranches().map((b) => `<option value="${b}">${b}</option>`))
-    .join("");
-  // generation_order is computed server-side from real debut chronology
-  // (site_data.py) — a plain alphabetical sort here would badly scramble
-  // it (e.g. "DEV_IS ReGLOSS" (2023) sorting before "English -Myth-"
-  // (2020)).
-  genSel.innerHTML = ['<option value="All">All generations</option>']
-    .concat((DATA.generation_order || []).map((g) => `<option value="${g}">${g}</option>`))
-    .join("");
-  branchSel.addEventListener("change", () => {
-    branchFilter = branchSel.value;
-    selectedTalents = new Set(filteredNames());
-    buildTalentList();
-    render();
+function wireCompareControls() {
+  document.getElementById("compare-search").addEventListener("input", renderChipPicker);
+  document.getElementById("compare-select-none").addEventListener("click", () => {
+    selectedCompare.clear();
+    renderChipPicker();
+    renderCompare();
   });
-  genSel.addEventListener("change", () => {
-    generationFilter = genSel.value;
-    selectedTalents = new Set(filteredNames());
-    buildTalentList();
-    render();
+  for (const btn of document.querySelectorAll(".mode-btn")) {
+    btn.addEventListener("click", () => {
+      compareMode = btn.dataset.mode;
+      for (const b of document.querySelectorAll(".mode-btn")) b.classList.toggle("active", b === btn);
+      document.getElementById("series-controls").hidden = compareMode !== "series";
+      document.getElementById("scatter-controls").hidden = compareMode !== "scatter";
+      renderCompare();
+    });
+  }
+  document.getElementById("granularity-picker").addEventListener("change", (e) => {
+    compareGranularity = e.target.value;
+    renderCompare();
+  });
+  document.getElementById("group-by-picker").addEventListener("change", (e) => {
+    groupBy = e.target.value;
+    renderCompare();
+  });
+  document.getElementById("scatter-x-picker").addEventListener("change", (e) => {
+    scatterX = e.target.value;
+    renderCompare();
+  });
+  document.getElementById("scatter-y-picker").addEventListener("change", (e) => {
+    scatterY = e.target.value;
+    renderCompare();
   });
 }
 
-// Talents matching the current branch/generation filters (AND'd
-// together) — the set the checkbox list displays, and what "All"/a
-// filter change selects. Independent of selectedTalents: a filter change
-// replaces the selection with exactly its matches (predictable "show me
-// this branch" behavior), but a single checkbox toggle afterward only
-// edits selectedTalents, not the filter. A multi-generation talent
-// matches the generation filter if ANY of their memberships does.
-function filteredNames() {
-  return Object.keys(DATA.talents)
-    .filter((name) => {
-      const t = DATA.talents[name];
-      const branchOk = branchFilter === "All" || (t.branch || "Unknown") === branchFilter;
-      const genOk =
-        generationFilter === "All" || (t.group || ["Unknown"]).includes(generationFilter);
-      return branchOk && genOk;
-    })
-    .sort();
+function updateValidityBanner() {
+  const fam = DATA.families.find((f) => f.key === compareFamily);
+  const banner = document.getElementById("validity-banner");
+  if (fam.robust === false) {
+    banner.className = "validity-banner experimental";
+    banner.textContent = "Experimental — " + fam.note;
+  } else if (fam.robust === null) {
+    banner.className = "validity-banner";
+    banner.textContent = fam.note;
+  } else {
+    banner.className = "validity-banner robust";
+    banner.textContent = "";
+  }
 }
 
-function buildTalentList() {
-  const list = document.getElementById("talent-list");
-  const names = filteredNames();
-  list.innerHTML = names
-    .map(
-      (name) => `
-      <label>
-        <input type="checkbox" value="${name}" ${selectedTalents.has(name) ? "checked" : ""} />
-        <span>${name}</span>
-      </label>`
-    )
-    .join("");
-}
-
-function selectedNames() {
-  return Object.keys(DATA.talents)
-    .filter((name) => selectedTalents.has(name))
-    .sort();
-}
-
-function render() {
-  const metric = document.getElementById("metric-picker").value;
+function renderCompare() {
+  updateValidityBanner();
   const chart = document.getElementById("chart");
-  const tableView = document.getElementById("table-view");
+  const table = document.getElementById("table-view");
   const caption = document.getElementById("caption");
-  const names = selectedNames();
-
-  if (metric !== lastControlsMetric) {
-    lastControlsMetric = metric;
-    buildViewControls(metric);
-  }
-
-  const usesTableView =
-    metric === "table" || (metric === "groups" && groupChartType === "table");
-  chart.style.display = usesTableView ? "none" : "";
-  tableView.style.display = usesTableView ? "" : "none";
-
-  if (names.length === 0) {
+  if (selectedCompare.size === 0) {
+    chart.hidden = false;
+    table.hidden = true;
     Plotly.purge(chart);
-    tableView.innerHTML = "";
-    caption.textContent = "Select at least one talent.";
+    caption.textContent = "Select a talent or a group chip on the left to compare.";
     return;
   }
-
-  if (metric === "table") {
-    renderTable(names);
-    caption.textContent =
-      "Click a column header to sort (click again to reverse)." +
-      (tableMode === "percentile"
-        ? " Metric columns are percentiles: 0=lowest, 100=highest vs. the whole registered " +
-          "corpus on that metric, independently per column."
-        : " Metric columns are each talent's plain mean in that metric's native unit (see a " +
-          "column header's tooltip) — switch to percentiles above to compare across metrics " +
-          "on one scale.") +
-      `\n\n${QC_FOOTER}`;
-  } else if (metric === "groups") {
-    const groups = derivedGroups(names);
-    if (groups.size === 0) {
-      tableView.innerHTML = "";
-      Plotly.purge(chart);
-      caption.textContent =
-        groupingMode === "custom"
-          ? "No custom groups yet — use the controls above to create one and assign talents to it."
-          : "No groups to show.";
-    } else if (groupChartType === "table") {
-      renderGroupTable(groups);
-      caption.textContent =
-        `Click a column header to sort (click again to reverse). Each cell is the ${groupAggFunc} ` +
-        "of that group's member talents' own overall means (site_data.py's raw_means), in the " +
-        "metric's native unit — not a pooled median/mean of every underlying clip. Members with " +
-        `no QC-pass data for a metric are excluded from that group's ${groupAggFunc}, not treated ` +
-        `as 0.\n\n${QC_FOOTER}`;
-    } else if (groupChartType === "series") {
-      const keys = presentYearlyKeys();
-      if (seriesMetricKey === null || !keys.includes(seriesMetricKey)) {
-        seriesMetricKey = keys.includes("median_f0") ? "median_f0" : keys[0];
-      }
-      renderGroupSeries(groups, seriesGranularity, seriesMetricKey);
-      caption.textContent =
-        `Each point is the ${groupAggFunc} of that group's members' values in that time bucket ` +
-        `(a member missing a bucket is simply excluded from it, not 0).\n\n${YEARLY_METRICS[seriesMetricKey].caption}\n\n${QC_FOOTER}`;
-    } else if (groupChartType === "radar") {
-      if (radarSelectedKeys === null) radarSelectedKeys = new Set(presentYearlyKeys());
-      if (radarSelectedKeys.size === 0) {
-        Plotly.purge(chart);
-        caption.textContent = "Select at least one metric (see the checkboxes above the chart).";
-        return;
-      }
-      renderGroupRadar(groups, [...radarSelectedKeys]);
-      caption.textContent =
-        `Each axis is that group's ${groupAggFunc} for that metric, min-max scaled 0-100 against ` +
-        "the range across the groups actually shown here (NOT the corpus-wide percentile the " +
-        "per-talent radar uses — with only a handful of groups, a real corpus percentile isn't " +
-        `meaningful). Rescales if you change which groups are shown.\n\n${QC_FOOTER}`;
-    } else if (groupChartType === "trajectory") {
-      renderGroupTrajectory(groups, trajXKey, trajYKey, trajSizeKey, trajFromYear, trajToYear);
-      caption.textContent =
-        `Each group's yearly path (${groupAggFunc} of members' yearly values), arrows show ` +
-        `direction of travel. A year missing either metric for a group is simply skipped.\n\n${QC_FOOTER}`;
-    }
-  } else if (metric === "series") {
-    const keys = presentYearlyKeys();
-    if (seriesMetricKey === null || !keys.includes(seriesMetricKey)) {
-      seriesMetricKey = keys.includes("median_f0") ? "median_f0" : keys[0];
-    }
-    renderSeries(names, seriesGranularity, seriesMetricKey);
-    const metricCaption = YEARLY_METRICS[seriesMetricKey].caption;
-    caption.textContent =
-      `${metricCaption}\n\n${QC_FOOTER}\n\n${percentileSummary(names, seriesMetricKey)}`;
-  } else if (metric === "cute_mature") {
-    renderCuteMature(names);
-    caption.textContent = CUTE_MATURE_CAPTION;
-  } else if (metric === "radar") {
-    if (radarSelectedKeys === null) radarSelectedKeys = new Set(presentYearlyKeys());
-    if (radarSelectedKeys.size === 0) {
-      Plotly.purge(chart);
-      caption.textContent = "Select at least one metric (see the checkboxes above the chart).";
-      return;
-    }
-    renderRadar(names, [...radarSelectedKeys]);
-    caption.textContent = radarOverall
-      ? RADAR_CAPTION
-      : `${RADAR_CAPTION}\n\nShowing ${radarYear} only: each axis is min-max scaled ` +
-        `against that metric's full range across every talent and every year (a fixed ` +
-        `frame, so the shape's movement across years is meaningful) — not the overall ` +
-        `rank percentile used in "Overall" mode.`;
-  } else if (metric === "trajectory") {
-    renderTrajectory(names);
-    caption.textContent =
-      "Each talent's path from year to year on the two chosen metrics (arrows show " +
-      "direction of travel). Built from the same per-year values as the Yearly plots — " +
-      `a year missing either metric for a talent is simply skipped.\n\n${QC_FOOTER}`;
-  }
-}
-
-function buildViewControls(metric) {
-  const el = document.getElementById("view-controls");
-  if (metric === "series") {
-    const keys = presentYearlyKeys();
-    if (seriesMetricKey === null || !keys.includes(seriesMetricKey)) {
-      seriesMetricKey = keys.includes("median_f0") ? "median_f0" : keys[0];
-    }
-    const granOpts = ["monthly", "quarterly", "yearly"]
-      .map(
-        (g) =>
-          `<option value="${g}" ${g === seriesGranularity ? "selected" : ""}>${g[0].toUpperCase()}${g.slice(1)}</option>`
-      )
-      .join("");
-    const metricOpts = keys
-      .map(
-        (k) =>
-          `<option value="${k}" ${k === seriesMetricKey ? "selected" : ""}>${radarAxisLabel(k)}</option>`
-      )
-      .join("");
-    el.innerHTML = `
-      <div class="control-group"><label for="series-granularity">Time</label><select id="series-granularity">${granOpts}</select></div>
-      <div class="control-group"><label for="series-metric">Metric</label><select id="series-metric">${metricOpts}</select></div>`;
-    document.getElementById("series-granularity").addEventListener("change", (e) => {
-      seriesGranularity = e.target.value;
-      render();
-    });
-    document.getElementById("series-metric").addEventListener("change", (e) => {
-      seriesMetricKey = e.target.value;
-      render();
-    });
-  } else if (metric === "radar") {
-    const keys = presentYearlyKeys();
-    if (radarSelectedKeys === null) radarSelectedKeys = new Set(keys);
-    const metricsHtml = keys
-      .map(
-        (k) => `
-        <label>
-          <input type="checkbox" class="radar-metric-cb" value="${k}" ${radarSelectedKeys.has(k) ? "checked" : ""} />
-          ${radarAxisLabel(k)}
-        </label>`
-      )
-      .join("");
-    el.innerHTML = `
-      <div class="control-group">
-        <label><input type="checkbox" id="radar-overall" ${radarOverall ? "checked" : ""} /> Overall (all years)</label>
-      </div>
-      <div class="control-group">
-        <label for="radar-year">Year</label>
-        <input type="range" id="radar-year" min="${ALL_YEARS[0]}" max="${ALL_YEARS[ALL_YEARS.length - 1]}"
-          step="1" value="${radarYear}" ${radarOverall ? "disabled" : ""} />
-        <span class="range-value" id="radar-year-value">${radarYear}</span>
-      </div>
-      <div class="metric-checklist-row">
-        <span class="filter-label metric-checklist-label">Axes</span>
-        <button type="button" id="radar-metrics-all" class="mini-btn">All</button>
-        <button type="button" id="radar-metrics-none" class="mini-btn">None</button>
-        <div class="metric-checklist">${metricsHtml}</div>
-      </div>`;
-    document.getElementById("radar-overall").addEventListener("change", (e) => {
-      radarOverall = e.target.checked;
-      document.getElementById("radar-year").disabled = radarOverall;
-      render();
-    });
-    document.getElementById("radar-year").addEventListener("input", (e) => {
-      radarYear = Number(e.target.value);
-      document.getElementById("radar-year-value").textContent = radarYear;
-      render();
-    });
-    el.querySelector(".metric-checklist").addEventListener("change", (e) => {
-      if (e.target.checked) radarSelectedKeys.add(e.target.value);
-      else radarSelectedKeys.delete(e.target.value);
-      render();
-    });
-    document.getElementById("radar-metrics-all").addEventListener("click", () => {
-      radarSelectedKeys = new Set(keys);
-      buildViewControls(metric);
-      render();
-    });
-    document.getElementById("radar-metrics-none").addEventListener("click", () => {
-      radarSelectedKeys = new Set();
-      buildViewControls(metric);
-      render();
-    });
-  } else if (metric === "trajectory") {
-    const keys = presentYearlyKeys();
-    const opts = (selected) =>
-      keys.map((k) => `<option value="${k}" ${k === selected ? "selected" : ""}>${radarAxisLabel(k)}</option>`).join("");
-    const sizeOpts =
-      `<option value="none" ${trajSizeKey === "none" ? "selected" : ""}>None</option>` + opts(trajSizeKey);
-    const yearOpts = (selected) =>
-      ALL_YEARS.map((y) => `<option value="${y}" ${y === selected ? "selected" : ""}>${y}</option>`).join("");
-    el.innerHTML = `
-      <div class="control-group"><label for="traj-x">X</label><select id="traj-x">${opts(trajXKey)}</select></div>
-      <div class="control-group"><label for="traj-y">Y</label><select id="traj-y">${opts(trajYKey)}</select></div>
-      <div class="control-group"><label for="traj-size">Size</label><select id="traj-size">${sizeOpts}</select></div>
-      <div class="control-group"><label for="traj-from">From</label><select id="traj-from">${yearOpts(trajFromYear)}</select></div>
-      <div class="control-group"><label for="traj-to">To</label><select id="traj-to">${yearOpts(trajToYear)}</select></div>`;
-    document.getElementById("traj-x").addEventListener("change", (e) => {
-      trajXKey = e.target.value;
-      render();
-    });
-    document.getElementById("traj-y").addEventListener("change", (e) => {
-      trajYKey = e.target.value;
-      render();
-    });
-    document.getElementById("traj-size").addEventListener("change", (e) => {
-      trajSizeKey = e.target.value;
-      render();
-    });
-    document.getElementById("traj-from").addEventListener("change", (e) => {
-      trajFromYear = Number(e.target.value);
-      render();
-    });
-    document.getElementById("traj-to").addEventListener("change", (e) => {
-      trajToYear = Number(e.target.value);
-      render();
-    });
-  } else if (metric === "table") {
-    el.innerHTML = `
-      <div class="control-group">
-        <label><input type="checkbox" id="table-percentile-toggle" ${tableMode === "percentile" ? "checked" : ""} /> Show percentiles (instead of raw values)</label>
-      </div>`;
-    document.getElementById("table-percentile-toggle").addEventListener("change", (e) => {
-      tableMode = e.target.checked ? "percentile" : "raw";
-      render();
-    });
-  } else if (metric === "groups") {
-    const chartTypeOpts = [
-      ["table", "Table"],
-      ["series", "Time Series"],
-      ["radar", "Radar"],
-      ["trajectory", "Trajectory"],
-    ]
-      .map(
-        ([v, label]) =>
-          `<option value="${v}" ${v === groupChartType ? "selected" : ""}>${label}</option>`
-      )
-      .join("");
-    const modeOpts = ["generation", "branch", "custom"]
-      .map(
-        (m) =>
-          `<option value="${m}" ${m === groupingMode ? "selected" : ""}>${m[0].toUpperCase()}${m.slice(1)}</option>`
-      )
-      .join("");
-    const aggOpts = ["median", "mean"]
-      .map(
-        (a) =>
-          `<option value="${a}" ${a === groupAggFunc ? "selected" : ""}>${a[0].toUpperCase()}${a.slice(1)}</option>`
-      )
-      .join("");
-
-    const keys = presentYearlyKeys();
-    let chartTypeHtml = "";
-    if (groupChartType === "series") {
-      if (seriesMetricKey === null || !keys.includes(seriesMetricKey)) {
-        seriesMetricKey = keys.includes("median_f0") ? "median_f0" : keys[0];
-      }
-      const granOpts = ["monthly", "quarterly", "yearly"]
-        .map(
-          (g) =>
-            `<option value="${g}" ${g === seriesGranularity ? "selected" : ""}>${g[0].toUpperCase()}${g.slice(1)}</option>`
-        )
-        .join("");
-      const metricOpts = keys
-        .map(
-          (k) =>
-            `<option value="${k}" ${k === seriesMetricKey ? "selected" : ""}>${radarAxisLabel(k)}</option>`
-        )
-        .join("");
-      chartTypeHtml = `
-      <div class="control-group"><label for="group-series-granularity">Time</label><select id="group-series-granularity">${granOpts}</select></div>
-      <div class="control-group"><label for="group-series-metric">Metric</label><select id="group-series-metric">${metricOpts}</select></div>`;
-    } else if (groupChartType === "radar") {
-      if (radarSelectedKeys === null) radarSelectedKeys = new Set(keys);
-      const metricsHtml = keys
-        .map(
-          (k) => `
-        <label>
-          <input type="checkbox" class="group-radar-metric-cb" value="${k}" ${radarSelectedKeys.has(k) ? "checked" : ""} />
-          ${radarAxisLabel(k)}
-        </label>`
-        )
-        .join("");
-      chartTypeHtml = `
-      <div class="metric-checklist-row">
-        <span class="filter-label metric-checklist-label">Axes</span>
-        <button type="button" id="group-radar-metrics-all" class="mini-btn">All</button>
-        <button type="button" id="group-radar-metrics-none" class="mini-btn">None</button>
-        <div class="metric-checklist">${metricsHtml}</div>
-      </div>`;
-    } else if (groupChartType === "trajectory") {
-      const axisOpts = (selected) =>
-        keys
-          .map((k) => `<option value="${k}" ${k === selected ? "selected" : ""}>${radarAxisLabel(k)}</option>`)
-          .join("");
-      const sizeOpts =
-        `<option value="none" ${trajSizeKey === "none" ? "selected" : ""}>None</option>` +
-        axisOpts(trajSizeKey);
-      const yearOpts = (selected) =>
-        ALL_YEARS.map((y) => `<option value="${y}" ${y === selected ? "selected" : ""}>${y}</option>`).join("");
-      chartTypeHtml = `
-      <div class="control-group"><label for="group-traj-x">X</label><select id="group-traj-x">${axisOpts(trajXKey)}</select></div>
-      <div class="control-group"><label for="group-traj-y">Y</label><select id="group-traj-y">${axisOpts(trajYKey)}</select></div>
-      <div class="control-group"><label for="group-traj-size">Size</label><select id="group-traj-size">${sizeOpts}</select></div>
-      <div class="control-group"><label for="group-traj-from">From</label><select id="group-traj-from">${yearOpts(trajFromYear)}</select></div>
-      <div class="control-group"><label for="group-traj-to">To</label><select id="group-traj-to">${yearOpts(trajToYear)}</select></div>`;
-    }
-
-    let customHtml = "";
-    if (groupingMode === "custom") {
-      if (editingCustomGroupIndex >= customGroups.length) editingCustomGroupIndex = 0;
-      const editingGroup = customGroups[editingCustomGroupIndex];
-      const groupOpts = customGroups
-        .map(
-          (g, i) =>
-            `<option value="${i}" ${i === editingCustomGroupIndex ? "selected" : ""}>${g.name}</option>`
-        )
-        .join("");
-      const memberBoxes = Object.keys(DATA.talents)
-        .sort()
-        .map(
-          (name) => `
-        <label>
-          <input type="checkbox" class="custom-group-member-cb" value="${name}" ${editingGroup && editingGroup.members.has(name) ? "checked" : ""} />
-          ${name}
-        </label>`
-        )
-        .join("");
-      customHtml = `
-      <div class="control-group">
-        <input type="text" id="new-group-name" placeholder="New group name" />
-        <button type="button" id="add-group-btn" class="mini-btn">Add Group</button>
-      </div>
-      ${
-        customGroups.length > 0
-          ? `
-      <div class="control-group">
-        <label for="edit-group-select">Editing</label>
-        <select id="edit-group-select">${groupOpts}</select>
-        <button type="button" id="delete-group-btn" class="mini-btn">Delete</button>
-      </div>
-      <div class="metric-checklist-row">
-        <span class="filter-label metric-checklist-label">Members of "${editingGroup.name}"</span>
-        <div class="metric-checklist">${memberBoxes}</div>
-      </div>`
-          : `<p class="control-hint">No custom groups yet — name one above and click Add Group.</p>`
-      }`;
-    }
-    el.innerHTML = `
-      <div class="control-group"><label for="group-chart-type">Chart</label><select id="group-chart-type">${chartTypeOpts}</select></div>
-      <div class="control-group"><label for="group-mode">Group by</label><select id="group-mode">${modeOpts}</select></div>
-      <div class="control-group"><label for="group-agg">Aggregate</label><select id="group-agg">${aggOpts}</select></div>
-      ${chartTypeHtml}
-      ${customHtml}`;
-    document.getElementById("group-chart-type").addEventListener("change", (e) => {
-      groupChartType = e.target.value;
-      buildViewControls(metric);
-      render();
-    });
-    if (groupChartType === "series") {
-      document.getElementById("group-series-granularity").addEventListener("change", (e) => {
-        seriesGranularity = e.target.value;
-        render();
-      });
-      document.getElementById("group-series-metric").addEventListener("change", (e) => {
-        seriesMetricKey = e.target.value;
-        render();
-      });
-    } else if (groupChartType === "radar") {
-      el.querySelector(".metric-checklist").addEventListener("change", (e) => {
-        if (e.target.checked) radarSelectedKeys.add(e.target.value);
-        else radarSelectedKeys.delete(e.target.value);
-        render();
-      });
-      document.getElementById("group-radar-metrics-all").addEventListener("click", () => {
-        radarSelectedKeys = new Set(presentYearlyKeys());
-        buildViewControls(metric);
-        render();
-      });
-      document.getElementById("group-radar-metrics-none").addEventListener("click", () => {
-        radarSelectedKeys = new Set();
-        buildViewControls(metric);
-        render();
-      });
-    } else if (groupChartType === "trajectory") {
-      document.getElementById("group-traj-x").addEventListener("change", (e) => {
-        trajXKey = e.target.value;
-        render();
-      });
-      document.getElementById("group-traj-y").addEventListener("change", (e) => {
-        trajYKey = e.target.value;
-        render();
-      });
-      document.getElementById("group-traj-size").addEventListener("change", (e) => {
-        trajSizeKey = e.target.value;
-        render();
-      });
-      document.getElementById("group-traj-from").addEventListener("change", (e) => {
-        trajFromYear = Number(e.target.value);
-        render();
-      });
-      document.getElementById("group-traj-to").addEventListener("change", (e) => {
-        trajToYear = Number(e.target.value);
-        render();
-      });
-    }
-    document.getElementById("group-mode").addEventListener("change", (e) => {
-      groupingMode = e.target.value;
-      buildViewControls(metric);
-      render();
-    });
-    document.getElementById("group-agg").addEventListener("change", (e) => {
-      groupAggFunc = e.target.value;
-      render();
-    });
-    if (groupingMode === "custom") {
-      document.getElementById("add-group-btn").addEventListener("click", () => {
-        const input = document.getElementById("new-group-name");
-        const name = input.value.trim();
-        if (!name) return;
-        customGroups.push({ name, members: new Set() });
-        editingCustomGroupIndex = customGroups.length - 1;
-        buildViewControls(metric);
-        render();
-      });
-      if (customGroups.length > 0) {
-        document.getElementById("edit-group-select").addEventListener("change", (e) => {
-          editingCustomGroupIndex = Number(e.target.value);
-          buildViewControls(metric);
-          render();
-        });
-        document.getElementById("delete-group-btn").addEventListener("click", () => {
-          customGroups.splice(editingCustomGroupIndex, 1);
-          editingCustomGroupIndex = 0;
-          buildViewControls(metric);
-          render();
-        });
-        for (const cb of document.querySelectorAll(".custom-group-member-cb")) {
-          cb.addEventListener("change", (e) => {
-            const group = customGroups[editingCustomGroupIndex];
-            if (e.target.checked) group.members.add(e.target.value);
-            else group.members.delete(e.target.value);
-            render();
-          });
-        }
-      }
-    }
+  if (compareMode === "series") {
+    chart.hidden = false;
+    table.hidden = true;
+    renderCompareSeries();
+  } else if (compareMode === "table") {
+    chart.hidden = true;
+    table.hidden = false;
+    renderCompareTable();
   } else {
-    el.innerHTML = "";
+    chart.hidden = false;
+    table.hidden = true;
+    renderCompareScatter();
   }
 }
 
-function radarAxisLabel(key) {
-  return YEARLY_METRICS[key].label.replace(/\s*—\s*Yearly$/, "");
+// Plotly's default category order is "trace" — the order each x value is
+// first seen across traces, not a sort. With several talents' spans
+// stitched together that jumps back and forth in time. The period strings
+// (YYYY-MM / YYYY-Qn / YYYY) are fixed-width and zero-padded, so a plain
+// ascending string sort is chronological.
+function periodXAxis(grid) {
+  return { gridcolor: grid, tickangle: -45, type: "category", categoryorder: "category ascending" };
 }
-
-// One row per talent: identity columns (name/branch/generation) plus a
-// QC-pass-rate column and one column per present yearly metric. Metric
-// columns switch between raw (site_data.py's raw_means, native unit per
-// metric) and percentile (0-100 vs. the corpus) via tableMode — raw is
-// the default since "what's the actual number" is usually the first
-// question, percentile is there for comparing across differently-united
-// metrics on one sortable scale.
-function tableColumns() {
-  const cols = [
-    { key: "name", label: "Talent", full: "Talent", type: "text" },
-    { key: "group", label: "Gen.", full: "Generation", type: "text" },
-    { key: "qc_pass", label: "QC%", full: "QC-pass %", type: "number" },
-  ];
-  for (const key of presentYearlyKeys()) {
-    const short = TABLE_SHORT_LABEL[key] || radarAxisLabel(key);
-    cols.push({
-      key: `metric:${key}`,
-      label: tableMode === "percentile" ? `${short} pctl` : short,
-      full: tableMode === "percentile" ? `${radarAxisLabel(key)} percentile` : YEARLY_METRICS[key].unit,
-      type: "number",
-      metricKey: key,
-    });
-  }
-  return cols;
-}
-
-function tableCellValue(name, col) {
-  const t = DATA.talents[name];
-  if (col.key === "name") return name;
-  if (col.key === "group") {
-    return (t.group || ["Unknown"]).map((g) => GENERATION_SHORT_LABEL[g] || g).join(", ");
-  }
-  if (col.key === "qc_pass") {
-    const s = t.qc_summary;
-    return s && s.total > 0 ? (100 * s.qc_pass) / s.total : null;
-  }
-  if (col.key.startsWith("metric:")) {
-    const source = tableMode === "percentile" ? t.percentiles : t.raw_means;
-    const value = (source || {})[col.metricKey];
-    return value == null ? null : value;
-  }
-  return null;
-}
-
-function tableFormatNumber(value, col) {
-  if (col.key.startsWith("metric:") && tableMode === "raw") {
-    const decimals = TABLE_RAW_DECIMALS[col.metricKey] || 0;
-    return value.toFixed(decimals);
-  }
-  return value.toFixed(0);
-}
-
-function sortTableBy(columnKey) {
-  if (tableSortColumn === columnKey) {
-    tableSortAscending = !tableSortAscending;
-  } else {
-    tableSortColumn = columnKey;
-    tableSortAscending = true;
-  }
-  render();
-}
-
-function renderTable(names) {
-  const cols = tableColumns();
-  const sortCol = cols.find((c) => c.key === tableSortColumn) || cols[0];
-  const rows = names.map((name) => ({
-    name,
-    values: Object.fromEntries(cols.map((c) => [c.key, tableCellValue(name, c)])),
-  }));
-  // Missing values always sink to the bottom regardless of sort
-  // direction — reversing the direction should never make "no data"
-  // look like "the highest/lowest value".
-  rows.sort((a, b) => {
-    const av = a.values[sortCol.key];
-    const bv = b.values[sortCol.key];
-    if (av == null && bv == null) return 0;
-    if (av == null) return 1;
-    if (bv == null) return -1;
-    const cmp = sortCol.type === "number" ? av - bv : String(av).localeCompare(String(bv));
-    return tableSortAscending ? cmp : -cmp;
-  });
-
-  const headerHtml = cols
-    .map((c) => {
-      const arrow = c.key === tableSortColumn ? (tableSortAscending ? " ▲" : " ▼") : "";
-      return `<th data-col="${c.key}" title="${c.full}">${c.label}${arrow ? `<span class="sort-arrow">${arrow}</span>` : ""}</th>`;
-    })
-    .join("");
-  const bodyHtml = rows
-    .map((row) => {
-      const cells = cols
-        .map((c) => {
-          const value = row.values[c.key];
-          if (c.key === "name") return `<td class="name-cell">${row.name}</td>`;
-          if (value == null) return "<td>—</td>";
-          return `<td>${c.type === "number" ? tableFormatNumber(value, c) : value}</td>`;
-        })
-        .join("");
-      return `<tr>${cells}</tr>`;
-    })
-    .join("");
-
-  const wrap = document.getElementById("table-view");
-  wrap.innerHTML = `<table class="data-table"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
-  wrap.querySelector("thead").addEventListener("click", (event) => {
-    const th = event.target.closest("th");
-    if (th) sortTableBy(th.dataset.col);
-  });
-}
-
-// ------------------------------------------------------------- Groups
 
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function mean(values) {
-  return values.reduce((a, b) => a + b, 0) / values.length;
+// ---------------------------------------------------------------------
+// "Group by" — member / generation / branch — applies across all three
+// views below. Member mode is one entry per selected talent, using that
+// talent's own precomputed, server-side stats (real bootstrap CI, career
+// trend). Generation/branch mode is one entry per group PRESENT AMONG THE
+// CURRENT SELECTION, aggregated client-side from its members' series —
+// there is no server-side "group" record, so its uncertainty is a plain
+// min-max range rather than a bootstrap CI, and its trend is fit over
+// calendar time (member-level trends use each talent's own career time,
+// which isn't comparable across members once aggregated).
+// ---------------------------------------------------------------------
+
+// A talent can hold more than one generation (e.g. Shirakami Fubuki: 1st
+// Generation AND GAMERS) — grouping by generation counts her toward both,
+// matching how the chip picker already treats multi-group membership.
+// Grouping by branch uses regionOf (real region, graduated-inclusive) for
+// the same reason region chips do: "Graduated" is a status, not a region.
+function groupKeysFor(name) {
+  if (groupBy === "branch") return [regionOf(name)];
+  const groups = DATA.talents[name].group;
+  return groups && groups.length ? groups : ["Unknown"];
 }
 
-// Buckets the SELECTED talents (respects the sidebar checkboxes/filters,
-// same as every other view) into groups. "generation"/"branch" groups
-// are derived fresh every call — a talent with multiple generation
-// memberships (Fubuki: 1st Generation + GAMERS) lands in BOTH groups,
-// same as the sidebar generation filter already treats her. "custom"
-// groups are whatever the user has built via the controls above the
-// table; a talent can belong to more than one custom group too (no
-// reason to forbid it — e.g. "veterans" and "high pitch" could overlap).
-function derivedGroups(names) {
-  const map = new Map(); // label -> Set<name>
-  if (groupingMode === "generation") {
-    for (const name of names) {
-      for (const g of DATA.talents[name].group || ["Unknown"]) {
-        if (!map.has(g)) map.set(g, new Set());
-        map.get(g).add(name);
-      }
-    }
-  } else if (groupingMode === "branch") {
-    for (const name of names) {
-      const b = DATA.talents[name].branch || "Unknown";
-      if (!map.has(b)) map.set(b, new Set());
-      map.get(b).add(name);
-    }
-  } else {
-    for (const g of customGroups) {
-      const members = new Set([...g.members].filter((n) => names.includes(n)));
-      if (members.size > 0) map.set(g.name, members);
+function selectionEntries() {
+  if (groupBy === "member") {
+    return [...selectedCompare].sort().map((name) => ({ label: name, members: [name], isGroup: false }));
+  }
+  const namesByGroup = new Map();
+  for (const name of selectedCompare) {
+    for (const key of groupKeysFor(name)) {
+      if (!namesByGroup.has(key)) namesByGroup.set(key, []);
+      namesByGroup.get(key).push(name);
     }
   }
-  return map;
+  return [...namesByGroup.keys()]
+    .sort()
+    .map((label) => ({ label, members: namesByGroup.get(label), isGroup: true }));
 }
 
-function groupTableColumns() {
-  const cols = [
-    { key: "name", label: "Group", full: "Group", type: "text" },
-    { key: "n", label: "N", full: "Member count", type: "number" },
-  ];
-  for (const key of presentYearlyKeys()) {
-    const short = TABLE_SHORT_LABEL[key] || radarAxisLabel(key);
-    cols.push({
-      key: `metric:${key}`,
-      label: short,
-      full: YEARLY_METRICS[key].unit,
-      type: "number",
-      metricKey: key,
+function entryColor(entry) {
+  return entry.isGroup ? paletteColorFor(entry.label) : talentColor(entry.label);
+}
+
+// Deterministic per-label (not per-position) color, so a group's color
+// stays the same across renders regardless of what else is selected.
+function paletteColorFor(label) {
+  let hash = 0;
+  for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
+  return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
+}
+
+// One talent (isGroup=false): pass its own series straight through, with
+// its real per-point CI. Several talents (isGroup=true): aggregate across
+// members at each period present in the CURRENT granularity, taking the
+// median of whichever members have a value there — a period no member
+// covers is a gap, never interpolated.
+function aggregatedSeries(members, metric, granularity) {
+  if (members.length === 1) {
+    return { series: DATA.talents[members[0]].metrics[metric][granularity] || [], hasRealCi: true };
+  }
+  const byPeriod = new Map();
+  for (const name of members) {
+    for (const p of DATA.talents[name].metrics[metric][granularity] || []) {
+      if (!Number.isFinite(p.median)) continue;
+      if (!byPeriod.has(p.period)) byPeriod.set(p.period, []);
+      byPeriod.get(p.period).push(p.median);
+    }
+  }
+  const periods = [...byPeriod.keys()].sort();
+  const series = periods.map((period) => {
+    const values = byPeriod.get(period);
+    return { period, median: median(values), min: Math.min(...values), max: Math.max(...values), n: values.length };
+  });
+  return { series, hasRealCi: false };
+}
+
+function periodToMonthIndex(period, granularity) {
+  if (granularity === "yearly") return parseInt(period, 10) * 12;
+  if (granularity === "monthly") {
+    const [y, m] = period.split("-").map(Number);
+    return y * 12 + (m - 1);
+  }
+  const [y, q] = period.split("-Q").map(Number);
+  return y * 12 + (q - 1) * 3;
+}
+
+// Same estimator as analysis.py's theil_sen/career_trend: median of
+// pairwise slopes, median intercept, ordinary r². Ported to JS because a
+// group's trend can only be computed client-side — there is no server-side
+// record for an ad-hoc selection of members.
+function theilSenTrend(xs, ys) {
+  const pairs = xs.map((x, i) => [x, ys[i]]).filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+  if (pairs.length < 2) return null;
+  const slopes = [];
+  for (let i = 0; i < pairs.length; i++) {
+    for (let j = i + 1; j < pairs.length; j++) {
+      if (pairs[j][0] !== pairs[i][0]) slopes.push((pairs[j][1] - pairs[i][1]) / (pairs[j][0] - pairs[i][0]));
+    }
+  }
+  if (!slopes.length) return null;
+  const slope = median(slopes);
+  const intercept = median(pairs.map(([x, y]) => y - slope * x));
+  const meanY = pairs.reduce((a, [, y]) => a + y, 0) / pairs.length;
+  const ssTot = pairs.reduce((a, [, y]) => a + (y - meanY) ** 2, 0);
+  const ssRes = pairs.reduce((a, [x, y]) => a + (y - (intercept + slope * x)) ** 2, 0);
+  return { slope_per_year: slope * 12, r2: ssTot > 0 ? 1 - ssRes / ssTot : null };
+}
+
+// One summary per entry, for the Table and Scatter views. Member entries
+// use the precomputed, server-side per-talent stats directly (so numbers
+// here always agree with the Profile page); group entries are aggregated
+// from the currently selected granularity.
+function summaryFor(entry, metric, granularity) {
+  if (!entry.isGroup) {
+    const name = entry.members[0];
+    const m = DATA.talents[name].metrics[metric];
+    const t = DATA.talents[name];
+    return {
+      typical: m.typical,
+      low: m.ci_low,
+      high: m.ci_high,
+      isRange: false,
+      trend: m.trend && Number.isFinite(m.trend.slope_per_year) ? m.trend : null,
+      nPass: t.n_pass,
+      nClips: t.n_clips,
+      noiseFloor: m.noise_floor && m.noise_floor.median_abs_diff != null ? m.noise_floor.median_abs_diff : null,
+    };
+  }
+  const { series } = aggregatedSeries(entry.members, metric, granularity);
+  if (series.length === 0) {
+    return { typical: NaN, low: NaN, high: NaN, isRange: true, trend: null, nPass: 0, nClips: 0, noiseFloor: null };
+  }
+  const values = series.map((p) => p.median);
+  const xs = series.map((p) => periodToMonthIndex(p.period, granularity));
+  let nPass = 0;
+  let nClips = 0;
+  const floors = [];
+  for (const name of entry.members) {
+    const t = DATA.talents[name];
+    nPass += t.n_pass;
+    nClips += t.n_clips;
+    const nf = t.metrics[metric].noise_floor;
+    if (nf && nf.median_abs_diff != null) floors.push(nf.median_abs_diff);
+  }
+  return {
+    typical: median(values),
+    low: Math.min(...values),
+    high: Math.max(...values),
+    isRange: true,
+    trend: theilSenTrend(xs, values),
+    nPass,
+    nClips,
+    noiseFloor: floors.length ? median(floors) : null,
+  };
+}
+
+// Base band opacity shrinks as more entries overlap — several 95% CI bands
+// stacked on each other turn opaque and unreadable well before six lines,
+// which is what was reported. Inverse-sqrt keeps a visible band at n=1
+// while backing off quickly over the first few additions and flattening out
+// rather than vanishing. Hover restores one band to full visibility (see
+// attachSeriesHover below) so any single member is still checkable.
+function bandAlphaHex(n) {
+  const frac = Math.max(0.05, Math.min(0.3, 0.3 / Math.sqrt(n)));
+  return Math.round(frac * 255)
+    .toString(16)
+    .padStart(2, "0");
+}
+const BAND_HOVER_ALPHA_HEX = "6e"; // ~0.43, the hovered member's own band
+const BAND_DIM_ALPHA_HEX = "08"; // ~0.03, every other band while one is hovered
+
+// Highlights one entry's band on hovering its line, dims the rest, and
+// restores the count-scaled default on unhover. Listeners are re-attached
+// on every render (old ones removed first) since Plotly.react keeps the
+// same <div> but trace indices change between renders.
+function attachSeriesHover(chartEl, pairs) {
+  chartEl.removeAllListeners("plotly_hover");
+  chartEl.removeAllListeners("plotly_unhover");
+  const withBand = pairs.filter((p) => p.bandIdx != null);
+  if (withBand.length === 0) return;
+  const bandIdxs = withBand.map((p) => p.bandIdx);
+  chartEl.on("plotly_hover", (ev) => {
+    const lineIdx = ev.points[0].curveNumber;
+    const hit = pairs.find((p) => p.lineIdx === lineIdx);
+    if (!hit) return;
+    const colors = withBand.map((p) => p.color + (p.bandIdx === hit.bandIdx ? BAND_HOVER_ALPHA_HEX : BAND_DIM_ALPHA_HEX));
+    Plotly.restyle(chartEl, { fillcolor: colors }, bandIdxs);
+  });
+  chartEl.on("plotly_unhover", () => {
+    Plotly.restyle(chartEl, { fillcolor: withBand.map((p) => p.color + p.baseAlphaHex) }, bandIdxs);
+  });
+}
+
+function renderCompareSeries() {
+  const meta = METRIC_META[compareMetric];
+  const { fg, grid } = chartColors();
+  const entries = selectionEntries();
+  const withData = entries
+    .map((entry) => ({ entry, ...aggregatedSeries(entry.members, compareMetric, compareGranularity) }))
+    .filter((e) => e.series.length > 0);
+  const baseAlphaHex = bandAlphaHex(withData.length);
+
+  const traces = [];
+  const hoverPairs = [];
+  for (const { entry, series, hasRealCi } of withData) {
+    const color = entryColor(entry);
+    const xs = series.map((p) => p.period);
+    const upper = series.map((p) => (hasRealCi ? p.ci_high : p.max));
+    const lower = series.map((p) => (hasRealCi ? p.ci_low : p.min));
+    const hasBand = upper.some((v, i) => Number.isFinite(v) && Number.isFinite(lower[i]));
+    let bandIdx = null;
+    if (hasBand) {
+      const bandUpper = series.map((p, i) => (Number.isFinite(upper[i]) ? upper[i] : p.median));
+      const bandLower = series.map((p, i) => (Number.isFinite(lower[i]) ? lower[i] : p.median));
+      bandIdx = traces.length;
+      traces.push({
+        x: [...xs, ...xs.slice().reverse()],
+        y: [...bandUpper, ...bandLower.slice().reverse()],
+        fill: "toself",
+        fillcolor: color + baseAlphaHex,
+        mode: "lines",
+        line: { width: 0 },
+        showlegend: false,
+        hoverinfo: "skip",
+        type: "scatter",
+      });
+    }
+    const label = entry.isGroup ? `${entry.label} (n=${new Set(entry.members).size})` : entry.label;
+    const lineIdx = traces.length;
+    traces.push({
+      x: xs,
+      y: series.map((p) => p.median),
+      mode: "lines+markers",
+      name: label,
+      line: { color },
+      marker: { color, size: 5 },
+      type: "scatter",
+    });
+    hoverPairs.push({ bandIdx, lineIdx, color, baseAlphaHex });
+  }
+  Plotly.react(
+    "chart",
+    traces,
+    {
+      paper_bgcolor: "transparent",
+      plot_bgcolor: "transparent",
+      font: { color: fg },
+      xaxis: periodXAxis(grid),
+      yaxis: { title: meta.label + (meta.unit ? ` (${meta.unit})` : ""), gridcolor: grid },
+      legend: { orientation: "h" },
+      margin: { t: 20 },
+    },
+    { responsive: true, displayModeBar: false }
+  );
+  attachSeriesHover(document.getElementById("chart"), hoverPairs);
+  const nf = DATA.corpus_noise_floor[compareMetric];
+  const nfLine =
+    nf && nf.median_abs_diff != null
+      ? ` Corpus noise floor for this metric: ${fmt(nf.median_abs_diff)} ${meta.unit}` +
+        (nf.median_abs_semitones != null ? ` (${nf.median_abs_semitones.toFixed(2)} semitones)` : "") +
+        " — a difference smaller than this is not distinguishable from measurement noise."
+      : "";
+  const bandLine =
+    groupBy === "member"
+      ? "Shaded band = 95% bootstrap CI (quarterly/yearly only — a single month's own " +
+        "uncertainty is better read from its noise floor than from a 2-3 clip bootstrap)."
+      : "Shaded band = min–max range across each group's SELECTED members at that period " +
+        "(not a confidence interval); a group with one selected member shows no band. Reflects " +
+        "your current selection, not the whole corpus.";
+  const hoverHint =
+    withData.length > 1 ? " Bands fade as more lines overlap — hover a line to isolate its own band." : "";
+  document.getElementById("caption").textContent = bandLine + hoverHint + nfLine;
+}
+
+const TABLE_COLUMNS = [
+  { key: "name", label: "Talent" },
+  { key: "typical", label: "Typical" },
+  { key: "ci", label: "95% CI", sortKey: "low" },
+  { key: "trend", label: "Trend/yr", sortKey: "trend" },
+  { key: "r2", label: "r²" },
+  { key: "clips", label: "Clips (pass/total)", sortKey: "nPass" },
+  { key: "noise_floor", label: "Noise floor" },
+];
+
+function renderCompareTable() {
+  const meta = METRIC_META[compareMetric];
+  const grouped = groupBy !== "member";
+  const entries = selectionEntries();
+  const rows = entries.map((entry) => {
+    const s = summaryFor(entry, compareMetric, compareGranularity);
+    return {
+      name: entry.isGroup ? `${entry.label} (n=${new Set(entry.members).size})` : entry.label,
+      typical: s.typical,
+      low: s.low,
+      ci: Number.isFinite(s.low) ? `${fmt(s.low)}–${fmt(s.high)}` : "—",
+      trend: s.trend ? s.trend.slope_per_year : null,
+      r2: s.trend && s.trend.r2 != null ? s.trend.r2 : null,
+      nPass: s.nPass,
+      clips: `${s.nPass}/${s.nClips}`,
+      noise_floor: s.noiseFloor,
+    };
+  });
+
+  const sortKey = tableSort.key === "name" ? "name" : TABLE_COLUMNS.find((c) => c.key === tableSort.key)?.sortKey || tableSort.key;
+  rows.sort((a, b) => {
+    const av = a[sortKey];
+    const bv = b[sortKey];
+    const aMissing = av == null || av === "";
+    const bMissing = bv == null || bv === "";
+    if (aMissing && bMissing) return 0;
+    if (aMissing) return 1; // missing values always sort last, in either direction
+    if (bMissing) return -1;
+    if (typeof av === "string") return av.localeCompare(bv) * tableSort.dir;
+    return (av - bv) * tableSort.dir;
+  });
+
+  const headerHtml = TABLE_COLUMNS.map((col) => {
+    const label = col.key === "name" ? (grouped ? "Group" : "Talent") : col.key === "ci" ? (grouped ? "Range" : "95% CI") : col.label;
+    const arrow = tableSort.key === col.key ? `<span class="sort-arrow">${tableSort.dir === 1 ? "▲" : "▼"}</span>` : "";
+    return `<th data-key="${col.key}">${escapeHtml(label)}${arrow}</th>`;
+  }).join("");
+  const bodyHtml = rows
+    .map(
+      (r) =>
+        `<tr><td class="name-cell">${escapeHtml(r.name)}</td><td>${fmt(r.typical)}</td>` +
+        `<td>${r.ci}</td><td>${r.trend != null ? r.trend.toFixed(2) : "—"}</td>` +
+        `<td>${r.r2 != null ? r.r2.toFixed(2) : "—"}</td><td>${r.clips}</td>` +
+        `<td>${r.noise_floor != null ? fmt(r.noise_floor) : "—"}</td></tr>`
+    )
+    .join("");
+  document.getElementById("table-view").innerHTML =
+    `<table class="data-table"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+  for (const th of document.querySelectorAll(".data-table th")) {
+    th.addEventListener("click", () => {
+      const key = th.dataset.key;
+      if (tableSort.key === key) tableSort.dir *= -1;
+      else tableSort = { key, dir: key === "name" ? 1 : -1 };
+      renderCompareTable();
     });
   }
-  return cols;
+  document.getElementById("caption").textContent = grouped
+    ? `Typical (${meta.unit || "unitless"}) = median across each group's selected members' ` +
+      `${compareGranularity} series (set on the Time series tab — it still governs this ` +
+      "aggregation even though the granularity control is hidden outside that view); trend is " +
+      "Theil-Sen over calendar time (not career time, which isn't comparable once members are " +
+      "pooled). Click a column header to sort."
+    : `Typical (${meta.unit || "unitless"}) = median of month medians. Trend = Theil-Sen slope ` +
+      "over career months, fit on the talent's own monthly series. Click a column header to sort.";
 }
 
-// Deliberately its own function, not a reuse of tableFormatNumber: that
-// one keys its raw-vs-percentile decision off the talent table's global
-// tableMode, which has nothing to do with this view — group values are
-// always raw native-unit aggregates, never percentiles, regardless of
-// what the talent table's toggle happens to be set to.
-function groupFormatNumber(value, col) {
-  if (col.key.startsWith("metric:")) {
-    return value.toFixed(TABLE_RAW_DECIMALS[col.metricKey] || 0);
-  }
-  return value.toFixed(0);
-}
-
-function groupTableCellValue(members, col) {
-  if (col.key === "n") return members.size;
-  if (col.key.startsWith("metric:")) {
-    const values = [...members]
-      .map((name) => (DATA.talents[name].raw_means || {})[col.metricKey])
-      .filter((v) => v != null);
-    if (values.length === 0) return null;
-    return groupAggFunc === "median" ? median(values) : mean(values);
-  }
-  return null;
-}
-
-function sortGroupTableBy(columnKey) {
-  if (groupSortColumn === columnKey) {
-    groupSortAscending = !groupSortAscending;
-  } else {
-    groupSortColumn = columnKey;
-    groupSortAscending = true;
-  }
-  render();
-}
-
-function renderGroupTable(groups) {
-  const cols = groupTableColumns();
-  const sortCol = cols.find((c) => c.key === groupSortColumn) || cols[0];
-  const rows = [...groups.entries()].map(([name, members]) => ({
-    name,
-    members,
-    values: Object.fromEntries(
-      cols.map((c) => [c.key, c.key === "name" ? name : groupTableCellValue(members, c)])
-    ),
-  }));
-  rows.sort((a, b) => {
-    const av = a.values[sortCol.key];
-    const bv = b.values[sortCol.key];
-    if (av == null && bv == null) return 0;
-    if (av == null) return 1;
-    if (bv == null) return -1;
-    const cmp = sortCol.type === "number" ? av - bv : String(av).localeCompare(String(bv));
-    return groupSortAscending ? cmp : -cmp;
-  });
-
-  const headerHtml = cols
-    .map((c) => {
-      const arrow = c.key === groupSortColumn ? (groupSortAscending ? " ▲" : " ▼") : "";
-      return `<th data-col="${c.key}" title="${c.full}">${c.label}${arrow ? `<span class="sort-arrow">${arrow}</span>` : ""}</th>`;
-    })
-    .join("");
-  const bodyHtml = rows
-    .map((row) => {
-      const cells = cols
-        .map((c) => {
-          const value = row.values[c.key];
-          if (c.key === "name") return `<td class="name-cell">${row.name}</td>`;
-          if (value == null) return "<td>—</td>";
-          return `<td>${c.type === "number" ? groupFormatNumber(value, c) : value}</td>`;
-        })
-        .join("");
-      return `<tr>${cells}</tr>`;
-    })
-    .join("");
-
-  const wrap = document.getElementById("table-view");
-  wrap.innerHTML = `<table class="data-table"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
-  wrap.querySelector("thead").addEventListener("click", (event) => {
-    const th = event.target.closest("th");
-    if (th) sortGroupTableBy(th.dataset.col);
-  });
-}
-
-// Pools every member's points at one granularity/metric into per-bucket
-// (month/quarter/year label) value arrays, then reduces each bucket with
-// groupAggFunc — shared by the group Time Series and Trajectory charts
-// (trajectory always calls this with granularity="yearly"). A member
-// missing a given bucket simply doesn't contribute a value to it, same
-// "excluded, not 0" rule as every other aggregate in this file.
-function groupSeriesPoints(members, granularity, metricKey) {
-  const byBucket = new Map(); // bucket label -> [values]
-  for (const name of members) {
-    const points = ((DATA.talents[name][granularity] || {})[metricKey]) || [];
-    for (const point of points) {
-      const { x, y } = seriesPoint(granularity, point);
-      if (y == null) continue;
-      if (!byBucket.has(x)) byBucket.set(x, []);
-      byBucket.get(x).push(y);
-    }
-  }
-  const buckets = [...byBucket.keys()].sort();
-  return buckets.map((x) => ({
-    x,
-    y: groupAggFunc === "median" ? median(byBucket.get(x)) : mean(byBucket.get(x)),
-  }));
-}
-
-function renderGroupSeries(groups, granularity, metricKey) {
-  const traces = [...groups.entries()].map(([name, members]) => {
-    const points = groupSeriesPoints(members, granularity, metricKey);
-    return {
-      type: "scatter",
-      mode: "lines+markers",
-      name,
-      x: points.map((p) => p.x),
-      y: points.map((p) => p.y),
-      connectgaps: false,
-    };
-  });
+function renderCompareScatter() {
+  const xMeta = METRIC_META[scatterX];
+  const yMeta = METRIC_META[scatterY];
+  const { fg, grid } = chartColors();
+  const entries = selectionEntries();
+  const points = entries
+    .map((entry) => ({
+      name: entry.isGroup ? `${entry.label} (n=${new Set(entry.members).size})` : entry.label,
+      x: summaryFor(entry, scatterX, compareGranularity).typical,
+      y: summaryFor(entry, scatterY, compareGranularity).typical,
+      color: entryColor(entry),
+    }))
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
   Plotly.react(
     "chart",
-    traces,
-    layout({ yLabel: YEARLY_METRICS[metricKey].unit, xType: "category" })
-  );
-}
-
-// Unlike the per-talent radar (percentile vs. the WHOLE corpus, a fixed
-// scale computed once at load), a group's axis range is recomputed from
-// whatever groups are actually on screen right now — with only a
-// handful of groups (a handful of generations, or 2-3 custom groups), a
-// real corpus-wide percentile isn't a meaningful statistic, so this is
-// deliberately relative to the shown groups, not absolute.
-function renderGroupRadar(groups, keys) {
-  const groupValues = new Map(); // group name -> {metricKey: aggregatedValue}
-  for (const [name, members] of groups) {
-    const values = {};
-    for (const key of keys) {
-      const memberValues = [...members]
-        .map((m) => (DATA.talents[m].raw_means || {})[key])
-        .filter((v) => v != null);
-      if (memberValues.length > 0) {
-        values[key] = groupAggFunc === "median" ? median(memberValues) : mean(memberValues);
-      }
-    }
-    groupValues.set(name, values);
-  }
-  const ranges = {};
-  for (const key of keys) {
-    const allValues = [...groupValues.values()].map((v) => v[key]).filter((v) => v != null);
-    if (allValues.length > 0) {
-      ranges[key] = { min: Math.min(...allValues), max: Math.max(...allValues) };
-    }
-  }
-  const traces = [...groupValues.entries()]
-    .map(([name, values]) => {
-      const axisKeys = keys.filter((key) => values[key] != null && ranges[key]);
-      const r = axisKeys.map((key) => {
-        const { min, max } = ranges[key];
-        return max === min ? 50 : (100 * (values[key] - min)) / (max - min);
-      });
-      return {
-        type: "scatterpolar",
-        name,
-        r,
-        theta: axisKeys.map((key) => radarAxisLabel(key)),
-        fill: "toself",
-        opacity: 0.5,
-      };
-    })
-    .filter((trace) => trace.r.length > 0);
-  Plotly.react("chart", traces, polarLayout());
-}
-
-function renderGroupTrajectory(groups, xKey, yKey, sizeKey, fromYear, toYear) {
-  const traces = [...groups.entries()]
-    .map(([name, members]) => {
-      const xByYear = new Map(
-        groupSeriesPoints(members, "yearly", xKey).map((p) => [Number(p.x), p.y])
-      );
-      const yByYear = new Map(
-        groupSeriesPoints(members, "yearly", yKey).map((p) => [Number(p.x), p.y])
-      );
-      const sizeByYear =
-        sizeKey !== "none"
-          ? new Map(groupSeriesPoints(members, "yearly", sizeKey).map((p) => [Number(p.x), p.y]))
-          : null;
-      const years = ALL_YEARS.filter(
-        (y) =>
-          y >= fromYear &&
-          y <= toYear &&
-          xByYear.has(y) &&
-          yByYear.has(y) &&
-          (!sizeByYear || sizeByYear.has(y))
-      );
-      const sizes = sizeByYear ? years.map((y) => sizeByYear.get(y)) : null;
-      const scaledSizes = sizes
-        ? (() => {
-            const lo = Math.min(...sizes);
-            const hi = Math.max(...sizes);
-            return sizes.map((v) => (hi === lo ? 14 : 8 + (22 * (v - lo)) / (hi - lo)));
-          })()
-        : undefined;
-      return {
+    [
+      {
         type: "scatter",
-        mode: "lines+markers+text",
-        name,
-        x: years.map((y) => xByYear.get(y)),
-        y: years.map((y) => yByYear.get(y)),
-        text: years.map((y) => String(y)),
+        mode: "markers+text",
+        x: points.map((p) => p.x),
+        y: points.map((p) => p.y),
+        text: points.map((p) => p.name),
         textposition: "top center",
-        textfont: { size: 9 },
-        marker: {
-          size: scaledSizes || 10,
-          symbol: "arrow",
-          angleref: "previous",
-          standoff: scaledSizes ? undefined : 4,
-        },
-      };
-    })
-    .filter((trace) => trace.x.length > 0);
-  Plotly.react(
-    "chart",
-    traces,
-    layout({
-      yLabel: YEARLY_METRICS[yKey].unit,
-      xLabel: YEARLY_METRICS[xKey].unit,
-      xType: "linear",
-    })
-  );
-}
-
-// Overall mode: axis value = corpus-wide rank percentile (site_data.py,
-// unchanged). Per-year mode: axis value = that year's raw median,
-// min-max scaled into 0-100 against RADAR_AXIS_RANGE — the fixed
-// all-years/all-talents range per axis, computed once at load, so
-// scrubbing the year slider moves the shape within a stable frame
-// instead of the axes rescaling underneath you every year.
-function radarValueForYear(name, key, year) {
-  const points = (DATA.talents[name].yearly && DATA.talents[name].yearly[key]) || [];
-  const point = points.find((p) => Number(p.year) === year);
-  const range = RADAR_AXIS_RANGE[key];
-  if (!point || !range || range.max === range.min) return null;
-  return (100 * (point.median - range.min)) / (range.max - range.min);
-}
-
-function renderRadar(names, restrictToKeys) {
-  const allKeys = restrictToKeys
-    ? presentYearlyKeys().filter((key) => restrictToKeys.includes(key))
-    : presentYearlyKeys();
-  const valueFor = radarOverall
-    ? (name, key) => (DATA.talents[name].percentiles || {})[key]
-    : (name, key) => radarValueForYear(name, key, radarYear);
-  const keys = allKeys.filter((key) =>
-    names.some((name) => valueFor(name, key) != null)
-  );
-  const traces = names
-    .map((name) => {
-      const axisKeys = keys.filter((key) => valueFor(name, key) != null);
-      return {
-        type: "scatterpolar",
-        name,
-        r: axisKeys.map((key) => valueFor(name, key)),
-        theta: axisKeys.map((key) => radarAxisLabel(key)),
-        fill: "toself",
-        opacity: 0.5,
-        line: { color: talentColor(name) },
-        marker: { color: talentColor(name) },
-      };
-    })
-    .filter((trace) => trace.r.length > 0);
-  Plotly.react("chart", traces, polarLayout());
-}
-
-function renderTrajectory(names) {
-  const xKey = trajXKey;
-  const yKey = trajYKey;
-  const traces = names
-    .map((name) => {
-      const yearly = DATA.talents[name].yearly || {};
-      const xByYear = new Map((yearly[xKey] || []).map((p) => [Number(p.year), p.median]));
-      const yByYear = new Map((yearly[yKey] || []).map((p) => [Number(p.year), p.median]));
-      const sizeByYear =
-        trajSizeKey !== "none"
-          ? new Map((yearly[trajSizeKey] || []).map((p) => [Number(p.year), p.median]))
-          : null;
-      const years = ALL_YEARS.filter(
-        (y) =>
-          y >= trajFromYear &&
-          y <= trajToYear &&
-          xByYear.has(y) &&
-          yByYear.has(y) &&
-          (!sizeByYear || sizeByYear.has(y))
-      );
-      const sizes = sizeByYear ? years.map((y) => sizeByYear.get(y)) : null;
-      const scaledSizes = sizes
-        ? (() => {
-            const lo = Math.min(...sizes);
-            const hi = Math.max(...sizes);
-            return sizes.map((v) => (hi === lo ? 14 : 8 + (22 * (v - lo)) / (hi - lo)));
-          })()
-        : undefined;
-      return {
-        type: "scatter",
-        mode: "lines+markers+text",
-        name,
-        x: years.map((y) => xByYear.get(y)),
-        y: years.map((y) => yByYear.get(y)),
-        text: years.map((y) => String(y)),
-        textposition: "top center",
-        textfont: { size: 9 },
-        line: { color: talentColor(name) },
-        marker: {
-          color: talentColor(name),
-          size: scaledSizes || 10,
-          symbol: "arrow",
-          angleref: "previous",
-          standoff: scaledSizes ? undefined : 4,
-        },
-      };
-    })
-    .filter((trace) => trace.x.length > 0);
-  Plotly.react(
-    "chart",
-    traces,
-    layout({
-      yLabel: YEARLY_METRICS[yKey].unit,
-      xLabel: YEARLY_METRICS[xKey].unit,
-      xType: "linear",
-    })
-  );
-}
-
-// Normalizes the three different point shapes site_data.py exports
-// (monthly: [month, value] tuples; quarterly/yearly: {quarter|year,
-// mean|median, min, max, n} dicts) into a common {x, y} — the one place
-// that needs to know the shape difference, so renderSeries itself
-// doesn't have to branch on granularity beyond picking the right data.
-function seriesPoint(granularity, point) {
-  if (granularity === "monthly") return { x: point[0], y: point[1] };
-  if (granularity === "quarterly") return { x: point.quarter, y: point.mean };
-  return { x: point.year, y: point.median };
-}
-
-function renderSeries(names, granularity, metricKey) {
-  const traces = names.map((name) => {
-    const points = ((DATA.talents[name][granularity] || {})[metricKey]) || [];
-    const xy = points.map((p) => seriesPoint(granularity, p));
-    return {
-      type: "scatter",
-      mode: "lines+markers",
-      name,
-      x: xy.map((p) => p.x),
-      y: xy.map((p) => p.y),
-      connectgaps: false,
-      marker: { color: talentColor(name) },
-      line: { color: talentColor(name) },
-    };
-  });
-  Plotly.react(
-    "chart",
-    traces,
-    layout({ yLabel: YEARLY_METRICS[metricKey].unit, xType: "category" })
-  );
-}
-
-// Percentile = this talent's rank (0-100) among every registered talent
-// with QC-pass data on this exact metric (site_data.py's per-axis
-// ranking, independent of the combined cute/mature score) — corpus-wide,
-// so it does not change when the talent filter/selection narrows; only
-// which talents' numbers are shown here does. Absent entirely (empty
-// string) when fewer than 2 talents corpus-wide have this axis at all.
-function percentileSummary(names, key) {
-  const parts = names
-    .filter((name) => key in (DATA.talents[name].percentiles || {}))
-    .map((name) => `${name} ${Math.round(DATA.talents[name].percentiles[key])}`);
-  if (parts.length === 0) return "";
-  return `Percentile vs. corpus (this metric, 0=lowest 100=highest): ${parts.join(" · ")}`;
-}
-
-function renderCuteMature(names) {
-  const rows = names
-    .map((name) => ({ name, point: DATA.cute_mature[name] }))
-    .filter((row) => row.point);
-  const trace = {
-    type: "scatter",
-    mode: "markers+text",
-    text: rows.map((r) => r.name),
-    textposition: "top center",
-    x: rows.map((r) => r.point.f0_mean),
-    y: rows.map((r) => r.point.brightness_mean),
-    marker: { size: 12, color: rows.map((r) => talentColor(r.name)) },
-    hovertemplate:
-      "%{text}<br>F0: %{x:.0f} Hz<br>Brightness: %{y:.0f} Hz<br>Percentile: %{customdata:.0f}<extra></extra>",
-    customdata: rows.map((r) => r.point.percentile),
-  };
-  Plotly.react(
-    "chart",
-    [trace],
-    layout({ yLabel: "Brightness (Hz)", xLabel: "Median F0 (Hz)", xType: "linear" })
-  );
-}
-
-function layout({ yLabel, xLabel, xType }) {
-  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const fg = dark ? "#e6e8ec" : "#1a1d23";
-  const grid = dark ? "#2a2e38" : "#dde1e7";
-  return {
-    autosize: true,
-    height: 480,
-    margin: { t: 20, r: 20, b: 60, l: 60 },
-    paper_bgcolor: "transparent",
-    plot_bgcolor: "transparent",
-    font: { color: fg },
-    xaxis: {
-      type: xType,
-      title: xLabel || "",
-      gridcolor: grid,
-      tickangle: -45,
-      // Plotly's default category order is "first seen across traces",
-      // which interleaves each talent's own months/quarters/years in
-      // whatever order their trace was added — not chronological. Every
-      // category here is a sortable "YYYY-..." string, so ascending
-      // string order IS chronological order.
-      categoryorder: xType === "category" ? "category ascending" : undefined,
+        textfont: { size: 9, color: fg },
+        marker: { size: 12, color: points.map((p) => p.color) },
+      },
+    ],
+    {
+      paper_bgcolor: "transparent",
+      plot_bgcolor: "transparent",
+      font: { color: fg },
+      xaxis: { title: xMeta.label + (xMeta.unit ? ` (${xMeta.unit})` : ""), gridcolor: grid },
+      yaxis: { title: yMeta.label + (yMeta.unit ? ` (${yMeta.unit})` : ""), gridcolor: grid },
+      margin: { t: 20 },
     },
-    yaxis: { title: yLabel || "", gridcolor: grid },
-    legend: { orientation: "h", y: -0.25 },
-  };
+    { responsive: true, displayModeBar: false }
+  );
+  document.getElementById("caption").textContent =
+    (groupBy === "member"
+      ? "Each point is a talent's typical value on each axis (median of month medians)."
+      : `Each point is a group's typical value on each axis, aggregated across its selected ` +
+        `members' ${compareGranularity} series (set on the Time series tab).`) +
+    " Pick any two metrics — replaces v1's hardcoded Cute×Mature pair with a general " +
+    "comparison. A composite index built from correlated axes is exploratory by " +
+    "construction; this plots the raw metrics instead of inventing one.";
 }
-
-function polarLayout() {
-  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const fg = dark ? "#e6e8ec" : "#1a1d23";
-  const grid = dark ? "#2a2e38" : "#dde1e7";
-  return {
-    autosize: true,
-    height: 520,
-    margin: { t: 20, r: 40, b: 40, l: 40 },
-    paper_bgcolor: "transparent",
-    font: { color: fg },
-    polar: {
-      bgcolor: "transparent",
-      radialaxis: { range: [0, 100], gridcolor: grid, color: fg },
-      angularaxis: { gridcolor: grid, color: fg },
-    },
-    legend: { orientation: "h", y: -0.15 },
-    showlegend: true,
-  };
-}
-
-window.addEventListener("resize", () => {
-  const chart = document.getElementById("chart");
-  if (chart && chart.data) Plotly.Plots.resize(chart);
-});
 
 main();
