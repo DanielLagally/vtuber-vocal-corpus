@@ -67,15 +67,19 @@
               pkgs.jq
               pkgs.basedpyright
               pkgs.ruff
-              # Standalone Praat, driven as a subprocess. The pip binding
-              # (praat-parselmouth) embeds a much older Praat, so newer pitch
-              # methods — notably filtered autocorrelation, which exists to
-              # cut octave errors — are unreachable through it. This is the
-              # only way to evaluate them. It is a prebuilt binary from the
-              # cache, NOT the source build that the parselmouth/librosa
-              # nixpkgs packages trigger (see CLAUDE.md).
-              pkgs.praat
-            ];
+            ]
+            # Standalone Praat, driven as a subprocess. The pip binding
+            # (praat-parselmouth) embeds a much older Praat, so newer pitch
+            # methods — notably filtered autocorrelation, which exists to
+            # cut octave errors — are unreachable through it. This is the
+            # only way to evaluate them. It is a prebuilt binary from the
+            # cache, NOT the source build that the parselmouth/librosa
+            # nixpkgs packages trigger (see CLAUDE.md). nixpkgs' `praat`
+            # ships Linux builds only (`meta.platforms`), so the devShell
+            # would otherwise fail to evaluate at all on aarch64-darwin;
+            # `praat_filtered_ac` is simply unavailable there until nixpkgs
+            # (or a separate darwin build) adds one.
+            ++ lib.optional (!stdenv.hostPlatform.isDarwin) pkgs.praat;
 
             venvDir = ".venv";
 

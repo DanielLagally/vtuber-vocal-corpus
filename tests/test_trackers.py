@@ -108,6 +108,26 @@ def test_each_tracker_reports_its_identity_and_parameters(name, tone_file):
     assert track.params.get("floor") == 60.0
 
 
+class TestCrepeDeviceSelection:
+    """CREPE is only worth its cost with acceleration. The separator already
+    picks CUDA/MPS/CoreML per platform (see isolate.py); the tracker's own
+    device choice must not leave Apple Silicon stuck on CPU by omission."""
+
+    def test_prefers_cuda_when_available(self):
+        assert trackers._select_device(cuda_available=True, mps_available=True) == "cuda"
+
+    def test_falls_back_to_mps_on_apple_silicon(self):
+        assert (
+            trackers._select_device(cuda_available=False, mps_available=True) == "mps"
+        )
+
+    def test_falls_back_to_cpu_when_no_accelerator_is_available(self):
+        assert (
+            trackers._select_device(cuda_available=False, mps_available=False)
+            == "cpu"
+        )
+
+
 @pytest.mark.parametrize("name", sorted(trackers.TRACKERS))
 def test_each_tracker_returns_a_track_on_silence_without_raising(name, tmp_path):
     """Silence is ordinary input here — clips get windowed on imperfect audio."""

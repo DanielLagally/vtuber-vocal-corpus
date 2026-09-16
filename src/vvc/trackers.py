@@ -307,6 +307,23 @@ CREPE_PERIODICITY_THRESHOLD = 0.5
 CREPE_BATCH_SIZE = 128
 
 
+def _select_device(*, cuda_available: bool, mps_available: bool) -> str:
+    """CUDA, then Apple Silicon's MPS, then CPU.
+
+    The separator (isolate.py, via audio-separator) already picks CUDA / MPS /
+    CoreML per platform with no code change needed. CREPE is a from-scratch
+    torchcrepe call in this repo, not delegated to a library that does this
+    itself, so it needs the same three-way choice made explicitly — checking
+    only `torch.cuda.is_available()` silently strands Apple Silicon on CPU,
+    which is many times slower for no accuracy gain.
+    """
+    if cuda_available:
+        return "cuda"
+    if mps_available:
+        return "mps"
+    return "cpu"
+
+
 def crepe(
     path: Path | str,
     *,
@@ -341,17 +358,24 @@ def crepe(
             return_periodicity=True,
         )
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = _select_device(
+        cuda_available=torch.cuda.is_available(),
+        mps_available=torch.backends.mps.is_available(),
+    )
     if device == "cpu":
         frequency, periodicity = _predict(device, batch_size)
     else:
         try:
             frequency, periodicity = _predict(device, batch_size)
         except RuntimeError:
-            # A GPU shared with other work can still refuse the allocation.
-            # Falling back to CPU is much slower but returns the same numbers,
-            # which beats failing a measurement because something else was busy.
-            torch.cuda.empty_cache()
+            # A GPU/accelerator shared with other work can still refuse the
+            # allocation. Falling back to CPU is much slower but returns the
+            # same numbers, which beats failing a measurement because
+            # something else was busy.
+            if device == "cuda":
+                torch.cuda.empty_cache()
+            elif device == "mps":
+                torch.mps.empty_cache()
             device = "cpu"
             frequency, periodicity = _predict(device, batch_size)
     freqs = frequency[0].cpu().numpy().astype(float)
