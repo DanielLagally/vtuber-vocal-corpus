@@ -136,6 +136,13 @@ Operational detail and the reasoning behind the fetch hazards live in
   figure-level caption API; a raw text call silently overlaps tick labels.
 - **`nix flake check` / `nix build` only see git-tracked-or-staged files.**
   `git add` new files first.
+- **`scripts/enid_pipeline.sh`'s `check_disk()` silently no-ops on macOS `df`.**
+  It calls `df -g .` (BSD single-letter-GB flag); this environment's `df`
+  rejects `-g`, so the free-space comparison errors with "integer expected"
+  and `set -uo pipefail` (no `-e`) lets the script continue past it rather
+  than stopping. The disk-headroom safety check has effectively never run on
+  this machine. Not yet fixed — verify free disk manually before a long
+  unattended run.
 
 ## Project ethos
 
