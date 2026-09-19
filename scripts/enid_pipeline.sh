@@ -28,7 +28,7 @@ SPECS=("$@")
 # silently failed the plot/registry step under `|| true`.
 VV() { nix develop --command env PYTHONPATH="src:$PLUGDIR" python -m vvc "$@"; }
 
-free_gb() { df -g . | awk 'NR==2{print $4}'; }
+free_gb() { df -Pk . | awk 'NR==2{printf "%d", $4/1024/1024}'; }
 
 check_disk() {
   local f; f=$(free_gb)
@@ -113,7 +113,7 @@ done
 # never falls back to group=branch="Unknown" for every talent because a
 # stale/missing roster.json happened to be lying around on this machine.
 VV roster 2>&1 | grep -E "talents ->" || true
-VV site-data 2>&1 | grep -oE "site data \([^)]*\)" | head -c 120; echo
+VV site-data-v2 2>&1 | grep -oE "site data \([^)]*\)" | head -c 120; echo
 
 echo "======== $(date '+%F %T')  commit ========"
 # Only this generation's members — a blind *_monthly.json glob also

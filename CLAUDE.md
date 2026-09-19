@@ -91,6 +91,14 @@ Operational detail and the reasoning behind the fetch hazards live in
   come from venv pip instead.
 - **Do not `nix-shell -p python3Packages.parselmouth`** (or librosa) to run
   tests — both set `doCheck = true` and compile Praat. Use the venv.
+- **`comm -12` between two independently-`sort`ed file lists can silently drop
+  real matches when the shell locale's collation order doesn't match `comm`'s
+  assumption.** Under `LC_COLLATE=en_GB.UTF-8`, `sort` orders filenames with
+  parens/underscores differently than plain byte order, so two inputs that
+  are each individually "sorted" per that locale still aren't in the order
+  `comm` needs — it degrades silently (no error), not a crash. It under-reported
+  a file-transfer completion count by ~40x this way. Use `LC_ALL=C sort` on
+  both sides, or better, compare with a language set/dict instead of `comm`.
 - **`pkill -f <pattern>` can kill the shell you're running it from.** The
   agent's own wrapper process has the full shell command line as its argv,
   so a pattern that matches a debug flag or path you just used elsewhere in
@@ -136,13 +144,34 @@ Operational detail and the reasoning behind the fetch hazards live in
   figure-level caption API; a raw text call silently overlaps tick labels.
 - **`nix flake check` / `nix build` only see git-tracked-or-staged files.**
   `git add` new files first.
-- **`scripts/enid_pipeline.sh`'s `check_disk()` silently no-ops on macOS `df`.**
-  It calls `df -g .` (BSD single-letter-GB flag); this environment's `df`
-  rejects `-g`, so the free-space comparison errors with "integer expected"
-  and `set -uo pipefail` (no `-e`) lets the script continue past it rather
-  than stopping. The disk-headroom safety check has effectively never run on
-  this machine. Not yet fixed — verify free disk manually before a long
-  unattended run.
+- **`scripts/enid_pipeline.sh`'s `check_disk()` used to silently no-op on
+  Linux `df`.** It called `df -g .` (BSD single-letter-GB flag, macOS-only);
+  Linux `df` rejects `-g`, so the free-space comparison errored with "integer
+  expected" and `set -uo pipefail` (no `-e`) let the script continue past it
+  rather than stopping — the disk-headroom safety check had effectively never
+  run on Linux. Fixed with `df -Pk .` (POSIX portable output, 1024-byte
+  blocks), which both BSD and GNU `df` support; `free_gb()` divides the
+  Available column by 1024² for GB.
+- **`vvc site-data` (no suffix) is the v1 command** — it writes
+  `docs/v1/data.js`, the frozen site. The v2 site's `docs/data.js` needs
+  `vvc site-data-v2`. `scripts/enid_pipeline.sh` called the bare `site-data`
+  at its end-of-run step, so every completed run silently regenerated (and
+  left dirty) the frozen v1 file instead of updating v2's — caught by
+  diffing `docs/v1/data.js` after a run and finding its `generated_at` and
+  percentiles had moved despite the hard rule that v2 work never touches
+  `docs/v1/`. Fixed by changing that line to `site-data-v2`. `docs/v1/data.js`
+  going dirty after ANY v2 pipeline step is the sign this has recurred —
+  restore it from `git show HEAD:docs/v1/data.js` (not `git checkout`,
+  which conflicts with the parallel-agents guard) and check what called
+  plain `site-data`.
+- **`vvc build-v2` (data/measurements/v2/*.json, CREPE-tracked, consumed by
+  `site-data-v2`) is a separate step from `remeasure-praat`.** Densify/
+  retry/rescue only update the `_monthly.json` files; `data/measurements/v2/
+  <slug>.json` goes stale until `build-v2 --talents <slug>...` re-runs for
+  whichever talents changed. Scope it with `--talents` — an unscoped run
+  re-measures the whole corpus with CREPE on the GPU (see the build-v2/CREPE
+  GPU-contention gotcha above) and is far slower than the handful of talents
+  that actually changed.
 
 ## Project ethos
 
