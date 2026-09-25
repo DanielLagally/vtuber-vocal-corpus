@@ -1,0 +1,32 @@
+[
+  {
+    "id": "M9sb87e-IVM",
+    "month": "2026-09",
+    "score": 40.0,
+    "window": {
+      "start_s": 780.0,
+      "end_s": 870.0
+    },
+    "features": {
+      "median_f0": 303.3073251289223,
+      "f0_iqr": 88.74611570848634,
+      "voiced_fraction": 0.3180706823738609,
+      "brightness_hz": 2261.8054328929466,
+      "dynamism_semitones": 0.5746213806480681,
+      "jitter_local": 0.012731204223865408,
+      "shimmer_local": 0.047917751692036256,
+      "hnr_db": 17.02606105263556,
+      "loudness_dynamics_db": 19.478015430373755,
+      "f1_hz": 1138.4083248566922,
+      "f2_hz": 2300.5611939572623,
+      "f3_hz": 3936.936758756486,
+      "f4_hz": 4288.589777781566
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  }
+]
