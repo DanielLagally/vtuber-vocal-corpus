@@ -51,17 +51,14 @@ FAMILIES: tuple[dict, ...] = (
         "key": "pitch_level",
         "label": "Pitch level",
         "robust": True,
-        "note": "The one feature that survives the separation chain cleanly.",
+        "note": "Typical speaking pitch. The most reliable measure here.",
         "metrics": ("median_f0",),
     },
     {
         "key": "pitch_movement",
         "label": "Pitch movement",
         "robust": True,
-        "note": (
-            "Scale-free spread and frame-to-frame movement; inherits any "
-            "octave error in the underlying pitch track."
-        ),
+        "note": "How widely and how quickly pitch moves, in semitones.",
         "metrics": ("f0_iqr_semitones", "dynamism_semitones"),
     },
     {
@@ -69,13 +66,8 @@ FAMILIES: tuple[dict, ...] = (
         "label": "Voice source & timbre",
         "robust": False,
         "note": (
-            "Airy versus full, clear versus breathy: how fast the voice's energy "
-            "falls away above the fundamental and how much breath noise rides "
-            "on it. The spectral-shape measures survive vocal separation well, "
-            "but microphone and EQ still act on them; CPP is raised by "
-            "separation, so compare it like with like. H1*-H2* is "
-            "formant-corrected, since at these pitches the second harmonic "
-            "often sits on F1."
+            "Airy or pressed, soft or bright. Affected by microphone and EQ; "
+            "CPP also reads higher on vocal-separated clips."
         ),
         "metrics": (
             "h1h2_db",
@@ -90,10 +82,8 @@ FAMILIES: tuple[dict, ...] = (
         "label": "Periodicity & noise",
         "robust": False,
         "note": (
-            "Calibrated for a sustained vowel, not conversational speech, and "
-            "altered by the vocal separator — harmonicity in particular is "
-            "inflated by it systematically, since denoising raises harmonicity "
-            "whether or not the voice changed."
+            "Designed for sustained vowels rather than conversation, and "
+            "strongly affected by vocal separation."
         ),
         "metrics": ("jitter_local", "shimmer_local", "hnr_db"),
     },
@@ -102,11 +92,8 @@ FAMILIES: tuple[dict, ...] = (
         "label": "Spectrum & resonance",
         "robust": False,
         "note": (
-            "Reshaped directly by the separator and by mic/EQ differences "
-            "between talents and eras. The four formants move together "
-            "strongly enough to read as one resonance summary rather than "
-            "four independent axes; trust the shape within one talent over a "
-            "cross-talent ranking."
+            "Brightness and vocal-tract resonances. Strongly affected by "
+            "recording setup; formant dispersion is the most stable of these."
         ),
         "metrics": (
             "brightness_hz",
@@ -121,22 +108,14 @@ FAMILIES: tuple[dict, ...] = (
         "key": "tempo",
         "label": "Tempo",
         "robust": False,
-        "note": (
-            "Syllable nuclei per second of voiced speech: an articulation rate, "
-            "not how much of the window was talk. Depends on the voiced mask, "
-            "which separation moves."
-        ),
+        "note": "Syllables per second of voiced speech.",
         "metrics": ("speaking_rate_syl_per_s",),
     },
     {
         "key": "context_quality",
-        "label": "Context & measurement quality",
+        "label": "Recording context",
         "robust": None,
-        "note": (
-            "Describes the recording and the sampling rule, not the voice: "
-            "how much of the window was voiced, how dynamic the loudness "
-            "was, and how much competing sound the source contained."
-        ),
+        "note": "Properties of the recording rather than the voice.",
         "metrics": ("voiced_fraction", "loudness_dynamics_db", "background_ratio_db"),
     },
 )

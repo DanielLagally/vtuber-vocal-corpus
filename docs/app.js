@@ -263,7 +263,7 @@ function sparklineSvg(points, color) {
 
 function talentCardHtml(name) {
   const t = DATA.talents[name];
-  const legacy = t.legacy_fallback ? `<span class="legacy-tag">v1 only</span>` : "";
+  const legacy = t.legacy_fallback ? `<span class="legacy-tag">partial data</span>` : "";
   const spark = sparklineSvg(t.metrics.median_f0.yearly, talentColor(name));
   return (
     `<button class="talent-card" data-name="${escapeHtml(name)}">` +
@@ -429,9 +429,8 @@ function compareSectionHtml() {
     `<ol id="closest-list" class="closest-list"></ol>` +
     `<p id="closest-note" class="control-hint"></p></div>` +
     `<div class="radar-panel"><div id="compare-radar" class="chart"></div>` +
-    `<p class="control-hint">Each axis: distance from the corpus median, in units of how much ` +
-    `a talent varies between their own clips. The ring marked 0 is the median talent; two ` +
-    `shapes overlap only where the voices genuinely measure alike.</p></div></div>` +
+    `<p class="control-hint">Distance from the median talent on each metric, in units of ` +
+    `how much a talent varies between their own clips.</p></div></div>` +
     `<div class="strips-head"><h3>Metric by metric</h3>` +
     `<button id="strips-table-toggle" class="mode-btn" type="button"></button></div>` +
     `<div id="metric-strips"></div>` +
@@ -442,14 +441,12 @@ function compareSectionHtml() {
 function renderProfile(name, others = []) {
   const t = DATA.talents[name];
   const legacyNote = t.legacy_fallback
-    ? `<p class="control-hint">This talent's source audio wasn't available for v2 ` +
-      `re-measurement — every figure below is carried over from v1 rather than remeasured.</p>`
+    ? `<p class="control-hint">Measured with the original pipeline; some metrics are ` +
+      `unavailable.</p>`
     : "";
   const oneOffNote = t.one_off
-    ? `<p class="control-hint">One-off data point: a single stream, measured as consecutive ` +
-      `90 s windows. Its percentiles place it among the other talents without ranking it with ` +
-      `them, and it is left out of the corpus noise floor — windows of one stream are not ` +
-      `independent samples.</p>`
+    ? `<p class="control-hint">Based on a single stream. Shown for comparison; not ranked ` +
+      `against other talents.</p>`
     : "";
   compareState = {
     base: name,
@@ -463,19 +460,17 @@ function renderProfile(name, others = []) {
     `<span class="profile-swatch" style="background:${talentColor(name)}"></span>` +
     `<h2>${escapeHtml(name)}</h2></div>` +
     `<p class="profile-meta">${escapeHtml(t.group.join(", ") || "Unknown")} (${escapeHtml(t.branch)}) &middot; ` +
-    `${t.n_pass}/${t.n_clips} clips passing QC &middot; ${t.months_covered} months covered ` +
-    `(${escapeHtml(t.first_month || "—")} to ${escapeHtml(t.last_month || "—")}) &middot; ` +
-    `${Math.round(t.legacy_fraction * 100)}% legacy features</p>` +
+    `${t.n_pass}/${t.n_clips} clips passing QC &middot; ${t.months_covered} ` +
+    `month${t.months_covered === 1 ? "" : "s"} ` +
+    `(${escapeHtml(t.first_month || "—")} to ${escapeHtml(t.last_month || "—")})` +
+    `</p>` +
     legacyNote +
     oneOffNote +
     compareSectionHtml() +
     `<div class="profile-families">${DATA.families.map((f) => familyCardHtml(name, f)).join("")}</div>` +
-    `<p class="profile-closing">This shows a typical value, its trend, and this talent's own ` +
-    `same-month measurement noise floor for each metric — a trend smaller than the noise floor ` +
-    `is not distinguishable from measurement error. It does not, on its own, establish a change ` +
-    `in anyone's voice: career time and recording era are hard to separate in this material. See ` +
-    `the repository's <code>reference/limitations.md</code> for what this corpus can and cannot ` +
-    `support.</p>`;
+    `<p class="profile-closing">Typical value, 95% confidence interval, percentile, trend, and ` +
+    `noise floor for each metric. A trend smaller than the noise floor is within measurement ` +
+    `error, and trends can reflect changes in recording as well as in voice.</p>`;
 
   const add = document.getElementById("compare-add");
   document.getElementById("compare-add-list").innerHTML = Object.keys(DATA.talents)
@@ -577,12 +572,10 @@ function renderClosest() {
   }
   document.getElementById("closest-note").textContent =
     compareState.route === "voice"
-      ? "Ranked by a speaker-recognition model's sense of how alike two voices sound, " +
-        "with the effect of the language spoken removed. The % is the share of all talent " +
-        "pairs that are further apart. “Close on” names the measured metrics where the pair " +
-        "is unusually close."
-      : "Ranked by the measured voice metrics, each weighed by how stable it is within " +
-        "one talent. The % is the share of all talent pairs that are further apart.";
+      ? "Ranked by a speaker-recognition model, adjusted for language. The percentage is " +
+        "the share of talent pairs that are further apart."
+      : "Ranked by the measured voice metrics. The percentage is the share of talent pairs " +
+        "that are further apart.";
 }
 
 function surfaceColor() {
@@ -1352,17 +1345,14 @@ function renderCompareSeries() {
     nf && nf.median_abs_diff != null
       ? ` Corpus noise floor for this metric: ${fmt(nf.median_abs_diff)} ${meta.unit}` +
         (nf.median_abs_semitones != null ? ` (${nf.median_abs_semitones.toFixed(2)} semitones)` : "") +
-        " — a difference smaller than this is not distinguishable from measurement noise."
+        "."
       : "";
   const bandLine =
     groupBy === "member"
-      ? "Shaded band = 95% bootstrap CI (quarterly/yearly only — a single month's own " +
-        "uncertainty is better read from its noise floor than from a 2-3 clip bootstrap)."
-      : "Shaded band = min–max range across each group's SELECTED members at that period " +
-        "(not a confidence interval); a group with one selected member shows no band. Reflects " +
-        "your current selection, not the whole corpus.";
+      ? "Shaded band: 95% confidence interval (quarterly and yearly views)."
+      : "Shaded band: range across the selected members of each group.";
   const hoverHint =
-    withData.length > 1 ? " Bands fade as more lines overlap — hover a line to isolate its own band." : "";
+    withData.length > 1 ? " Hover a line to highlight it." : "";
   document.getElementById("caption").textContent = bandLine + hoverHint + nfLine;
 }
 
@@ -1433,13 +1423,10 @@ function renderCompareTable() {
     });
   }
   document.getElementById("caption").textContent = grouped
-    ? `Typical (${meta.unit || "unitless"}) = median across each group's selected members' ` +
-      `${compareGranularity} series (set on the Time series tab — it still governs this ` +
-      "aggregation even though the granularity control is hidden outside that view); trend is " +
-      "Theil-Sen over calendar time (not career time, which isn't comparable once members are " +
-      "pooled). Click a column header to sort."
-    : `Typical (${meta.unit || "unitless"}) = median of month medians. Trend = Theil-Sen slope ` +
-      "over career months, fit on the talent's own monthly series. Click a column header to sort.";
+    ? `Typical value: median across each group's selected members. Trend: over calendar ` +
+      "time. Click a column to sort."
+    : `Typical value: median of monthly values. Trend: over each talent's career. Click a ` +
+      "column to sort.";
 }
 
 function renderCompareScatter() {
@@ -1482,12 +1469,8 @@ function renderCompareScatter() {
   );
   document.getElementById("caption").textContent =
     (groupBy === "member"
-      ? "Each point is a talent's typical value on each axis (median of month medians)."
-      : `Each point is a group's typical value on each axis, aggregated across its selected ` +
-        `members' ${compareGranularity} series (set on the Time series tab).`) +
-    " Pick any two metrics — replaces v1's hardcoded Cute×Mature pair with a general " +
-    "comparison. A composite index built from correlated axes is exploratory by " +
-    "construction; this plots the raw metrics instead of inventing one.";
+      ? "Each point is a talent's typical value."
+      : "Each point is a group's typical value across its selected members.");
 }
 
 main();

@@ -1,98 +1,65 @@
 # vtuber-vocal-corpus
 
-Acoustic measurement of VTuber stream speech: pitch (F0), spectral brightness,
-and voice-quality correlates, tracked per talent over time and published as
-aggregate plots.
+Acoustic measurements of hololive stream speech, tracked per talent over time.
 
-Not affiliated with Cover Corporation or any talent agency covered by this
-project. Source material is public YouTube broadcasts.
+Each month of a talent's streams is sampled, and short windows of speech are
+measured for pitch, voice quality, and timbre. The results are published as an
+interactive site where talents can be browsed, compared, and ranked by how
+similar their voices are.
 
-## What is and isn't published
+**Site: https://daniellagally.github.io/vtuber-vocal-corpus/**
 
-Only derived numbers. No audio, video, transcripts, embeddings, or speaker
-models are published or committed.
+Not affiliated with Cover Corporation. Source material is public YouTube
+streams; the repository contains measurements only.
 
-Speaker embeddings are computed locally to rank which voices sound most alike,
-and only those similarity scores are published: an embedding is exactly the
-input a voice-cloning system conditions on, so publishing one would hand out a
-cloning key. No speech of any talent is generated. The only synthesis is a
-local diagnostic that turns the published summary statistics into wordless
-synthetic vowels, to hear whether the numbers capture a voice; neither it nor
-its output is published.
+## What is measured
 
-Audio *is* retained locally and in a private archive, because re-measuring the
-corpus requires it. "Not published or redistributed" is the accurate claim.
+- **Pitch** — typical speaking pitch, its range, and how much it moves
+- **Voice source and timbre** — airiness (H1*–H2*), clarity (CPP), spectral
+  tilt, brightness, and formant spacing
+- **Tempo** — speaking rate
+- **Voice similarity** — how alike two talents sound, from speaker embeddings
+  and from the measured metrics
 
-## Scope
+Pitch is the most reliable measure. The others are affected by microphones,
+recording era, and audio processing, and are marked experimental on the site.
+See [`reference/limitations.md`](reference/limitations.md) before drawing
+conclusions from any number.
 
-- Streams on a talent's own channel. Singing, covers, collabs, and
-  official-org-channel content are excluded.
-- Chatting and talk streams are preferred by the selection score, but **game
-  streams and watchalongs are eligible** and are picked when a month has nothing
-  better. Stream type is recorded on every measurement so it can be controlled
-  for rather than assumed.
-- One acoustic tracker applied uniformly across talents and time, so results are
-  comparable within the corpus.
-- Every measurement passes a documented QC gate. Failing clips are gaps, never
-  zero-filled.
+## Data
 
-## What the numbers support
+- `docs/data.js` — the site's data: per-talent summaries, monthly, quarterly,
+  and yearly series, and closest-voice rankings.
+- `data/measurements/` — per-clip measurements behind the original (v1) site.
 
-Median pitch supports descriptive comparison and long-run trends **in the
-sampled stream voice**. It does not, on its own, establish that anyone's voice
-changed: career time and recording era are hard to separate in this material,
-and the tests that separate them are part of the v2 work. The other metrics —
-brightness, voice quality, formants — are exploratory or experimental.
-
-[`reference/limitations.md`](reference/limitations.md) states this in full, per
-feature. Read it before quoting a number.
-
-## Output
-
-- **Live site: https://daniellagally.github.io/vtuber-vocal-corpus/** — the v2
-  interactive comparison site: a talent directory, a per-talent profile page,
-  and a compare view (time series, table, scatter) organised around the five
-  correlated metric families in [`reference/statistics.md`](reference/statistics.md),
-  with a robust/experimental badge on each. No build step; open
-  `docs/index.html` directly, or serve via GitHub Pages.
-- `docs/v1/` — the original interactive comparison site (talent selection,
-  multiple metrics, cute/mature percentile scatter), frozen but still live at
-  [`/vtuber-vocal-corpus/v1/`](https://daniellagally.github.io/vtuber-vocal-corpus/v1/)
-  and still maintained. No build step; open `docs/v1/index.html` directly, or
-  serve via GitHub Pages. Its own methodology and known defects are documented
-  alongside it in [`docs/v1/METHODOLOGY.md`](docs/v1/METHODOLOGY.md) and
-  [`docs/v1/LIMITATIONS.md`](docs/v1/LIMITATIONS.md).
-- `data/measurements/` — the corpus: one JSON file per talent, tracked in git.
-- `data/plots/runs/` — static per-run PNG plots (gitignored, generated locally).
+The earlier version of the site is at
+[`/v1/`](https://daniellagally.github.io/vtuber-vocal-corpus/v1/).
 
 ## Running
 
-Requires the Nix flake environment (`direnv exec .` or `nix develop`). Supported
-on `x86_64-linux` (CUDA) and `aarch64-darwin` / Apple Silicon (Metal/CoreML).
-The first shell entry builds a project-local `.venv` from pip (~6 GB: torch +
-onnxruntime + audio-separator).
+Requires Nix with flakes. Supported on `x86_64-linux` (CUDA) and Apple Silicon.
+The first shell entry installs a Python environment of roughly 6 GB.
 
 ```
-direnv exec . python -m pytest -q          # test suite
-direnv exec . python -m vvc --help         # CLI
+direnv exec . python -m pytest -q      # tests
+direnv exec . python -m vvc --help     # all commands
 ```
 
-Read-only commands worth knowing about, none of which modify the corpus:
+Commands that read the corpus without changing it:
 
 ```
-python -m vvc reliability   # the measurement's own noise floor + review flags
-python -m vvc bakeoff       # compare pitch trackers; measure encode sensitivity
-python -m vvc analyse       # career trends and the era-confound test
-python -m vvc export        # four flat CSV tables of the whole corpus
+python -m vvc reliability      # measurement noise floor
+python -m vvc voice-validate   # how well the metrics identify speakers
+python -m vvc analyse          # career trends
+python -m vvc export           # flat CSV tables
 ```
+
+The site is static: open `docs/index.html` directly.
 
 ## Documentation
 
-- [`reference/`](reference/README.md) — methodology: sampling, pipeline,
-  measurement, QC, schema, statistics, limitations.
-- [`CLAUDE.md`](CLAUDE.md) — the working contract: build, hard rules, gotchas,
-  and where each kind of writing belongs.
-- `git log` — project history. It is not duplicated in prose.
+[`reference/`](reference/README.md) describes the method: sampling, pipeline,
+measurement, quality control, record format, statistics, and limitations.
 
 ## License
 

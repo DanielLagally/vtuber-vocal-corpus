@@ -1,224 +1,91 @@
 # Statistics
 
-How clip measurements become series, summaries, and claims.
+## Aggregation
 
-## The sampling unit
+A clip is one measurement; a month is the reporting unit. A month's value is the
+median of its clips. Quarters and years are the median of their months' values,
+so a heavily sampled month does not outweigh a sparse one. The same estimator is
+used at every level.
 
-A **clip** is one measurement. A **month** is the reporting unit. Months are
-aggregated into quarters and years.
+A talent's **typical value** is the median of their monthly values. Its 95%
+confidence interval is a bootstrap over those months. Min–max ranges are shown
+as ranges, not as uncertainty.
 
-Aggregation is always **month-first**: a month's value is computed from its
-clips, and a quarter or year is computed from its months' values. Pooling
-clip-level values directly into a year lets a densely sampled month outweigh a
-sparse one, turning uneven sampling effort into apparent signal.
+## Noise floor
 
-One estimator is used at every level. Using a mean at one granularity and a
-median at another makes two views of the same data disagree for reasons that
-have nothing to do with the data. Where a median is used on an even count, it is
-the ordinary median — the lower median introduces a bias whose sign depends on
-the parity of the sample count, which is an artifact with no defensible reading.
-
-Any operation that caps or subsets clips must have a **deterministic tie-break**,
-so the same inputs always produce the same outputs regardless of file order.
-
-## The noise floor
-
-Most months carry more than one clip. **The difference between two clips of the
-same talent in the same month is the instrument's noise floor** — same person,
-same period, same pipeline, so what remains is measurement error plus
-day-to-day variation.
-
-This is computed per metric, per talent, and corpus-wide, and it is the number
-that makes every other number interpretable. A trend is only a finding if it is
-large relative to the noise floor over the span measured; a difference between
-two talents is only a difference if it exceeds it.
-
-It decomposes further when several windows are cut from one stream: variation
-*within* one stream is pure instrument noise, while variation *between* streams
-in a month adds genuine day-to-day variation. Separating the two distinguishes
-"she sounded different that day" from "our measurement is noisy".
-
-Publishing a metric without its noise floor is publishing a number without its
-units.
-
-## Spread and uncertainty
-
-**Min–max is not uncertainty.** It expands with sample size, so a
-well-sampled period looks less certain than a poorly sampled one. It is a range,
-it is labelled as a range, and it is never presented as a confidence interval.
-
-Uncertainty on an aggregate is a bootstrap over the month values that produced
-it. Robust spread and uncertainty are shown as separate things because they
-answer different questions: how variable is this person, versus how well do we
-know their typical value.
+Two clips of the same talent in the same month should measure alike; the
+difference between them is the measurement's noise floor. It is reported per
+metric, per talent, and across the corpus. A trend or a difference between
+talents means little unless it is larger than the noise floor.
 
 ## Trends
 
-Trends are reported with a robust slope estimator alongside the ordinary
-least-squares fit, and with the first-to-last change over comparable spans. A
-slope without a goodness-of-fit figure and without the noise floor beside it
-invites a reader to see a trend that the scatter does not support.
+Trends are fitted over each talent's career time, measured from their first
+month in the corpus. They are reported with their fit quality (r²) next to the
+noise floor.
 
-Two independent clips per month also give a **replication check**: fit the trend
-separately on each month's first and second clip and compare. Agreement in sign
-and magnitude across independent samples is strong evidence the trend is not a
-sampling accident. It is *not* evidence about cause.
+## Metric families
 
-## Correlation
+Related metrics move together, so the site groups them:
 
-Metrics in this corpus fall into a few correlated families — the formants move
-together, the voice-quality measures move together, and pitch spread is
-partly determined by pitch level. A display with many axes therefore shows fewer
-independent things than it appears to, and double-counts whatever the correlated
-family measures.
+1. **Pitch level** — median pitch
+2. **Pitch movement** — pitch spread and dynamism
+3. **Voice source and timbre** — H1*–H2*, CPP, harmonic tilt, alpha ratio,
+   Hammarberg index
+4. **Periodicity and noise** — jitter, shimmer, HNR
+5. **Spectrum and resonance** — brightness, formant dispersion, F1–F4
+6. **Tempo** — speaking rate
+7. **Recording context** — voiced fraction, loudness dynamics, background ratio
 
-Correlations are reported **twice and never pooled**: between talents (do people
-with higher pitch also have higher brightness?) and within a talent over time
-(when this person's pitch rises, does their brightness rise?). These are
-different questions with different answers, and a single pooled correlation is a
-mixture of the two that answers neither.
+Pitch level and movement are marked robust; the others are experimental, and
+recording context describes the recordings rather than the voice.
 
-Composite indices built from correlated axes are exploratory by construction.
-Where one is published, it is titled and captioned as an index, not as a
-measurement of the thing its name evokes.
+Percentiles rank each talent's typical value against all other talents. One-off
+profiles are placed within that ranking without changing anyone else's
+percentile.
 
-### Presenting fewer things than there are columns
+## Voice similarity
 
-The measured correlation structure — not an assumed one — groups the metrics
-into families. The formants move together strongly enough that four axes
-are close to one. The voice-quality measures move together too, with
-harmonicity opposing jitter and shimmer, because all three are reading the same
-periodic-versus-noisy quality. The source measures — H1*-H2*, harmonic tilt,
-alpha ratio, Hammarberg index, CPP — all read how fast a voice's energy falls
-away above the fundamental and how much noise rides on it, so they are one
-family too. Pitch spread is partly determined by pitch level whenever spread is
-expressed in Hz.
+"Closest voices" is computed two ways (`similarity.py`).
 
-So a display is organised as:
+**Sounds like** uses speaker embeddings. Each talent's average embedding is
+compared by cosine similarity. Embeddings respond to the language spoken as well
+as to the voice, so the average embedding of each language group (JP, EN, ID) is
+subtracted first. A one-off in another language can declare its language.
 
-1. **Pitch level** — typical F0, its corpus percentile, its trend.
-2. **Pitch movement** — scale-free spread and frame-to-frame movement.
-3. **Voice source and timbre** — airy versus full, clear versus breathy:
-   H1*-H2*, harmonic tilt, alpha ratio, Hammarberg index, CPP. Labelled
-   experimental until each measure's invariance to separation is established.
-4. **Periodicity and noise** — jitter, shimmer, harmonicity, together and
-   labelled experimental.
-5. **Spectrum and resonance** — brightness, the formants, and formant
-   dispersion as the single resonance summary.
-6. **Tempo** — speaking rate, labelled experimental.
-7. **Context and measurement quality** — voiced fraction, loudness dynamics,
-   coverage, background level, and same-month agreement.
+**Measured** compares talents' typical values on the voice metrics. Each
+difference is scaled by how much that metric varies between one talent's own
+clips, and correlated metrics are accounted for together, so noisy or redundant
+metrics count for less (a Mahalanobis distance under the pooled within-talent
+covariance). Frequencies are compared on a log scale.
 
-Showing every column as an independent axis implies more dimensions than the
-data has, and lets one underlying phenomenon vote several times in anything
-built on top.
+Both are reported as the share of all talent pairs that are further apart. Each
+match lists the metrics on which the pair is unusually close compared with how
+much talents typically differ.
 
-## Similarity between talents
+The radar chart shows each talent's distance from the median talent on each
+voice metric, in units of within-talent variation.
 
-"These two sound alike" is answered by two independent routes, kept apart so
-each checks the other (`similarity.py`):
+## Validation
 
-- **Measured metrics.** Talents are compared on their typical values over the
-  voice families only — never the context family, which describes recordings.
-  Each difference is measured against how much that metric varies between one
-  talent's *own* clips: a Mahalanobis distance under the pooled within-talent
-  covariance. A metric that swings from clip to clip counts for little, a stable
-  one for a lot, and metrics reading the same quality cannot vote several times,
-  because their correlation is in the covariance. Frequencies are compared as
-  ratios, as a listener hears them. The metrics on which a pair sits unusually
-  close — relative to how much talents differ on each — are reported as the
-  reason the pair matched. (Relative to within-talent noise instead, a metric
-  that wanders a lot would make every pair look close on it.)
-- **Embeddings.** Cosine similarity of talent centroids
-  ([`measurement.md`](measurement.md)), **compensated for language**. A speaker
-  model hears language as well as voice: uncompensated, a Japanese-speaking
-  talent's closest voices are all Japanese speakers. Each language group's
-  mean centroid is subtracted before comparing, so what remains is the voice.
-  The group comes from the talent's branch; a one-off may declare its own.
+`vvc voice-validate` checks the metrics and embeddings against the data itself:
 
-Both are reported as "closer than X% of all talent pairs", which reads the same
-way for both and needs no hand-picked threshold. A one-off data point gets its
-own closest voices but is nobody else's, and is not in the pair distribution.
+- **Speaker identification** — each clip is assigned to the talent whose average
+  it is nearest, with that clip left out. Higher accuracy means the metrics
+  capture more of who is speaking.
+- **Between-talent share** — the fraction of each metric's variation explained by
+  which talent is speaking.
+- **Agreement** — rank correlation between the two similarity methods.
+- **Stability** — whether a talent's closest voices stay the same when computed
+  from two random halves of their clips, and from earlier versus later clips.
+- **Separation effect** — how much each metric changes when the same clip is
+  measured with and without separation.
 
-Nobody decides which pairs *should* match. Whether either route measures voice
-identity is checked from the measurements alone (`voice_validate.py`):
+## Career and recording era
 
-1. **Speaker identification** — hold out each clip and ask which talent's
-   profile it lands nearest. A route that captures who is speaking beats chance
-   by a wide margin; adding a metric that measures voice raises it.
-2. **Between-talent share** — per metric, the fraction of clip-to-clip variance
-   explained by which talent is speaking.
-3. **Agreement** — rank correlation between the two routes over every pair.
-4. **Stability** — a talent's closest voices, computed separately from two
-   random halves of their clips, and from their earlier against their later
-   clips. A neighbour list that does not replicate on independent data is not a
-   finding.
-
-## Confounding
-
-### Career time versus calendar time
-
-The corpus's most striking pattern is a change in pitch over career time. A
-corpus-wide change in *recording conditions* — codec, microphone, streaming
-software, or the separator's behaviour on older encodes — produces the same
-pattern as a corpus-wide change in *voices*.
-
-**The obvious test is impossible, and this is a fact about the data rather than
-a missing feature.** Career months = calendar time − debut date. Once a
-talent-specific intercept is in the model, the career and calendar slopes are
-exactly collinear and the design matrix is rank-deficient. This is the
-age-period-cohort identification problem, and staggered debut years do **not**
-rescue it: debut is the cohort term, and it is the third leg of the same
-identity. A two-term fit returns coefficients chosen by the solver's
-pseudo-inverse, not by the data. Reporting them would be worse than reporting
-nothing, because they look like an answer.
-
-Three things can be done instead, and together they bound the problem:
-
-1. **Non-linear period effects are identifiable.** Remove each talent's own
-   linear career trend, then look for calendar-time structure shared across
-   talents who are at different career stages. A shock — everyone moving at the
-   same calendar date — survives this and is strong evidence of an era effect.
-   Talents are weighted equally, not pooled by clip, so a densely sampled
-   talent cannot *become* the common effect.
-2. **A smooth era drift is absorbed by step 1 and stays invisible.** That limit
-   is real and must be stated wherever a trend is published. It is the reason
-   the corpus cannot, by itself, promote "the measured series fell" to "voices
-   changed".
-3. **External measurement breaks the deadlock for one mechanism.** Re-encoding
-   the same audio at different qualities measures the codec component directly,
-   from outside the panel. It is the only way to put a number on part of what
-   step 1 cannot see, which is why the encode-sensitivity experiment is not
-   optional.
-
-A corpus-wide *synchronised* move in any metric is treated as a suspected era
-effect until step 1 says otherwise. Dozens of independent people do not change
-the same way at the same time for biological reasons.
-
-### Encode era
-
-The era confound is also measurable directly: re-encode the same audio through
-the bitrate and loudness profiles characteristic of different eras, run the
-whole pipeline, and report how far each feature moves. This gives a per-feature
-sensitivity in the feature's own units, and it simultaneously tests whether the
-separator behaves differently on degraded input.
-
-A feature whose era sensitivity is comparable to the trend it shows cannot
-support a claim about voices.
-
-### Selection
-
-Window selection maximises voiced fraction, which biases toward continuous,
-confidently-tracked speech (see [`sampling.md`](sampling.md)). Stream type
-varies across a career as a talent's content changes. Both are recorded per clip
-so they can enter an analysis as covariates.
-
-## What gets published
-
-A talent summary answers, in order: the typical value and where it sits in the
-corpus; the trend with its fit quality; coverage, as passing clips over eligible
-months; the same-month disagreement, which is that talent's noise floor; and a
-plain statement of what the series does and does not support.
-
-The last line is not decoration. A reader who sees a number without it will
-assume more than the measurement establishes.
+Career time is calendar time minus debut, so a slow change in recording
+conditions across the whole corpus cannot be separated from a slow change in
+voices. `vvc analyse` removes each talent's own trend and looks for changes
+shared across talents at different career stages, which points to recording
+effects. `vvc bakeoff` re-encodes the same audio at different qualities to
+measure how much encoding alone moves each feature.
