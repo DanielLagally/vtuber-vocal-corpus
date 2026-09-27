@@ -85,25 +85,74 @@ measurement of the thing its name evokes.
 ### Presenting fewer things than there are columns
 
 The measured correlation structure — not an assumed one — groups the metrics
-into five families. The formants move together strongly enough that four axes
+into families. The formants move together strongly enough that four axes
 are close to one. The voice-quality measures move together too, with
 harmonicity opposing jitter and shimmer, because all three are reading the same
-periodic-versus-noisy quality. Pitch spread is partly determined by pitch level
-whenever spread is expressed in Hz.
+periodic-versus-noisy quality. The source measures — H1*-H2*, harmonic tilt,
+alpha ratio, Hammarberg index, CPP — all read how fast a voice's energy falls
+away above the fundamental and how much noise rides on it, so they are one
+family too. Pitch spread is partly determined by pitch level whenever spread is
+expressed in Hz.
 
 So a display is organised as:
 
 1. **Pitch level** — typical F0, its corpus percentile, its trend.
 2. **Pitch movement** — scale-free spread and frame-to-frame movement.
-3. **Periodicity and noise** — jitter, shimmer, harmonicity, together and
+3. **Voice source and timbre** — airy versus full, clear versus breathy:
+   H1*-H2*, harmonic tilt, alpha ratio, Hammarberg index, CPP. Labelled
+   experimental until each measure's invariance to separation is established.
+4. **Periodicity and noise** — jitter, shimmer, harmonicity, together and
    labelled experimental.
-4. **Spectrum and resonance** — brightness and a single formant summary.
-5. **Context and measurement quality** — voiced fraction, loudness dynamics,
+5. **Spectrum and resonance** — brightness, the formants, and formant
+   dispersion as the single resonance summary.
+6. **Tempo** — speaking rate, labelled experimental.
+7. **Context and measurement quality** — voiced fraction, loudness dynamics,
    coverage, background level, and same-month agreement.
 
 Showing every column as an independent axis implies more dimensions than the
 data has, and lets one underlying phenomenon vote several times in anything
 built on top.
+
+## Similarity between talents
+
+"These two sound alike" is answered by two independent routes, kept apart so
+each checks the other (`similarity.py`):
+
+- **Measured metrics.** Talents are compared on their typical values over the
+  voice families only — never the context family, which describes recordings.
+  Each difference is measured against how much that metric varies between one
+  talent's *own* clips: a Mahalanobis distance under the pooled within-talent
+  covariance. A metric that swings from clip to clip counts for little, a stable
+  one for a lot, and metrics reading the same quality cannot vote several times,
+  because their correlation is in the covariance. Frequencies are compared as
+  ratios, as a listener hears them. The metrics on which a pair sits unusually
+  close — relative to how much talents differ on each — are reported as the
+  reason the pair matched. (Relative to within-talent noise instead, a metric
+  that wanders a lot would make every pair look close on it.)
+- **Embeddings.** Cosine similarity of talent centroids
+  ([`measurement.md`](measurement.md)), **compensated for language**. A speaker
+  model hears language as well as voice: uncompensated, a Japanese-speaking
+  talent's closest voices are all Japanese speakers. Each language group's
+  mean centroid is subtracted before comparing, so what remains is the voice.
+  The group comes from the talent's branch; a one-off may declare its own.
+
+Both are reported as "closer than X% of all talent pairs", which reads the same
+way for both and needs no hand-picked threshold. A one-off data point gets its
+own closest voices but is nobody else's, and is not in the pair distribution.
+
+Nobody decides which pairs *should* match. Whether either route measures voice
+identity is checked from the measurements alone (`voice_validate.py`):
+
+1. **Speaker identification** — hold out each clip and ask which talent's
+   profile it lands nearest. A route that captures who is speaking beats chance
+   by a wide margin; adding a metric that measures voice raises it.
+2. **Between-talent share** — per metric, the fraction of clip-to-clip variance
+   explained by which talent is speaking.
+3. **Agreement** — rank correlation between the two routes over every pair.
+4. **Stability** — a talent's closest voices, computed separately from two
+   random halves of their clips, and from their earlier against their later
+   clips. A neighbour list that does not replicate on independent data is not a
+   finding.
 
 ## Confounding
 

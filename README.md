@@ -10,7 +10,15 @@ project. Source material is public YouTube broadcasts.
 ## What is and isn't published
 
 Only derived numbers. No audio, video, transcripts, embeddings, or speaker
-models are published or committed, and no voice synthesis is attempted.
+models are published or committed.
+
+Speaker embeddings are computed locally to rank which voices sound most alike,
+and only those similarity scores are published: an embedding is exactly the
+input a voice-cloning system conditions on, so publishing one would hand out a
+cloning key. No speech of any talent is generated. The only synthesis is a
+local diagnostic that turns the published summary statistics into wordless
+synthetic vowels, to hear whether the numbers capture a voice; neither it nor
+its output is published.
 
 Audio *is* retained locally and in a private archive, because re-measuring the
 corpus requires it. "Not published or redistributed" is the accurate claim.

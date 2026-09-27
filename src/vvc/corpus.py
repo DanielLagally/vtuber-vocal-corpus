@@ -74,6 +74,11 @@ def build_records(
             "window": source.get("window"),
             "corpus_release": release,
         }
+        # A one-off (a named stretch of a single stream) must stay labelled as
+        # one, so corpus-wide rankings can leave it out.
+        for key in ("one_off", "section", "language"):
+            if key in source:
+                row[key] = source[key]
 
         found = metadata_module.clip_metadata(video_id, cache)
         if found is None:
@@ -135,6 +140,46 @@ def build_records(
                 "measured_at": timestamp,
                 "legacy": False,
                 "legacy_reason": None,
+            }
+        )
+        out.append(row)
+    return out
+
+
+def remeasure_records(
+    records: list[dict],
+    *,
+    extract: Callable[[Path, FeatureConfig], dict],
+    audio_exists: Callable[[str], bool] = lambda path: Path(path).is_file(),
+    config: FeatureConfig = DEFAULT_FEATURE_CONFIG,
+    quality_config: QualityConfig = DEFAULT_QUALITY_CONFIG,
+    measured_at: str | None = None,
+) -> list[dict]:
+    """Re-measure existing v2 records from the audio each one names.
+
+    For adding a feature without rebuilding: which audio a clip is measured
+    from, and whether it was separated, was decided once (from a full read of
+    every stem) and is on the record, so it is reused rather than re-decided.
+    Legacy records, and records whose audio has since gone, are returned
+    exactly as they were — a feature they lack is a gap, not a zero. Never
+    mutates ``records``.
+    """
+    timestamp = measured_at or _now()
+    out: list[dict] = []
+    for record in records:
+        audio = record.get("source_audio")
+        if record.get("legacy") or not audio or not audio_exists(audio):
+            out.append(record)
+            continue
+        features = extract(Path(audio), config)
+        passed, reason = verdict(features, config=quality_config, require_contamination=True)
+        row = dict(record)
+        row.update(
+            {
+                "features": features,
+                "qc": {"pass": passed, "reason": reason},
+                "tracker": config.tracker,
+                "measured_at": timestamp,
             }
         )
         out.append(row)
@@ -227,9 +272,14 @@ def extract_many(
                 progress(done, len(jobs))
         return ExtractionResult(out, len(errors), errors)
 
+    import multiprocessing
     from concurrent.futures import ProcessPoolExecutor
 
-    with ProcessPoolExecutor(max_workers=workers) as pool:
+    # Spawned, never forked: a forked worker inherits whatever locks the
+    # parent's threads held (BLAS, OpenMP, CUDA), and if the caller has already
+    # run threaded maths the whole pool deadlocks with every worker idle.
+    context = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=workers, mp_context=context) as pool:
         for path, features, error in pool.map(_extract_one, jobs, chunksize=4):
             record(path, features, error)
             done += 1

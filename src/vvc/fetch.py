@@ -112,7 +112,11 @@ def fetch_audio(
     *,
     runner: Callable[[list[str]], object] | None = None,
     cookies: Path | str | None = None,
+    section: tuple[float, float] | None = None,
 ) -> Path:
+    """``section`` is the (start_s, end_s) stretch of the stream to keep; the
+    default is the corpus's 15:00-30:00 sample. A one-off measurement of a
+    named stretch passes its own."""
     dest = audio_path(video_id, data_dir)
     dest.parent.mkdir(parents=True, exist_ok=True)
     run = runner if runner is not None else _default_runner
@@ -120,7 +124,7 @@ def fetch_audio(
     last_error: subprocess.CalledProcessError | None = None
     for attempt in range(_FETCH_ATTEMPTS):
         try:
-            return _fetch_audio_once(video_id, data_dir, dest, run, cookies)
+            return _fetch_audio_once(video_id, data_dir, dest, run, cookies, section)
         except subprocess.CalledProcessError as exc:
             last_error = exc
     assert last_error is not None
@@ -133,7 +137,9 @@ def _fetch_audio_once(
     dest: Path,
     run: Callable[[list[str]], object],
     cookies: Path | str | None,
+    section: tuple[float, float] | None = None,
 ) -> Path:
+    start_s, end_s = section if section is not None else (_SECTION_START_S, _SECTION_END_S)
     # full compressed audio via yt-dlp's own downloader (fast). mweb +
     # fetch_pot=always: cookies alone dodge the classic bot-check but
     # yt-dlp's default policy never bothers requesting a PO token for an
@@ -183,14 +189,14 @@ def _fetch_audio_once(
                 1, argv, "", "yt-dlp produced no audio"
             )
 
-        # 2. cut the 15:00-30:00 window to wav, locally (instant).
+        # 2. cut the section (15:00-30:00 unless asked) to wav, locally (instant).
         slice_argv = [
             "ffmpeg",
             "-y",
             "-ss",
-            str(_SECTION_START_S),
+            str(start_s),
             "-to",
-            str(_SECTION_END_S),
+            str(end_s),
             "-i",
             str(full[0]),
             "-vn",

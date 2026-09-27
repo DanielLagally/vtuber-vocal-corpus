@@ -1,0 +1,252 @@
+[
+  {
+    "id": "gpB3PsG5vhk@600",
+    "month": "2026-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 0.0,
+      "end_s": 90.0
+    },
+    "section": {
+      "start_s": 600.0,
+      "end_s": 1500.0
+    },
+    "one_off": true,
+    "language": "en",
+    "features": {
+      "median_f0": 257.07916732171947,
+      "f0_iqr": 177.31355264193596,
+      "voiced_fraction": 0.5167815070015559
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt"
+  },
+  {
+    "id": "gpB3PsG5vhk@690",
+    "month": "2026-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 90.0,
+      "end_s": 180.0
+    },
+    "section": {
+      "start_s": 600.0,
+      "end_s": 1500.0
+    },
+    "one_off": true,
+    "language": "en",
+    "features": {
+      "median_f0": 263.89995661673436,
+      "f0_iqr": 144.64541369550864,
+      "voiced_fraction": 0.5245610135585685
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt"
+  },
+  {
+    "id": "gpB3PsG5vhk@780",
+    "month": "2026-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 180.0,
+      "end_s": 270.0
+    },
+    "section": {
+      "start_s": 600.0,
+      "end_s": 1500.0
+    },
+    "one_off": true,
+    "language": "en",
+    "features": {
+      "median_f0": 248.96755463135042,
+      "f0_iqr": 134.41443239346228,
+      "voiced_fraction": 0.5358968659702156
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt"
+  },
+  {
+    "id": "gpB3PsG5vhk@870",
+    "month": "2026-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 270.0,
+      "end_s": 360.0
+    },
+    "section": {
+      "start_s": 600.0,
+      "end_s": 1500.0
+    },
+    "one_off": true,
+    "language": "en",
+    "features": {
+      "median_f0": 252.7185690437177,
+      "f0_iqr": 146.8447384420254,
+      "voiced_fraction": 0.5074460991331406
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt"
+  },
+  {
+    "id": "gpB3PsG5vhk@960",
+    "month": "2026-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 360.0,
+      "end_s": 450.0
+    },
+    "section": {
+      "start_s": 600.0,
+      "end_s": 1500.0
+    },
+    "one_off": true,
+    "language": "en",
+    "features": {
+      "median_f0": 266.60579402894456,
+      "f0_iqr": 142.17889687815915,
+      "voiced_fraction": 0.46365859079795513
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt"
+  },
+  {
+    "id": "gpB3PsG5vhk@1050",
+    "month": "2026-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 450.0,
+      "end_s": 540.0
+    },
+    "section": {
+      "start_s": 600.0,
+      "end_s": 1500.0
+    },
+    "one_off": true,
+    "language": "en",
+    "features": {
+      "median_f0": 280.0718003023217,
+      "f0_iqr": 181.1792525593105,
+      "voiced_fraction": 0.5181151366970438
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt"
+  },
+  {
+    "id": "gpB3PsG5vhk@1140",
+    "month": "2026-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 540.0,
+      "end_s": 630.0
+    },
+    "section": {
+      "start_s": 600.0,
+      "end_s": 1500.0
+    },
+    "one_off": true,
+    "language": "en",
+    "features": {
+      "median_f0": 316.34616337308177,
+      "f0_iqr": 160.01401740695096,
+      "voiced_fraction": 0.44209824405423426
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt"
+  },
+  {
+    "id": "gpB3PsG5vhk@1230",
+    "month": "2026-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 630.0,
+      "end_s": 720.0
+    },
+    "section": {
+      "start_s": 600.0,
+      "end_s": 1500.0
+    },
+    "one_off": true,
+    "language": "en",
+    "features": {
+      "median_f0": 262.3449057875109,
+      "f0_iqr": 161.160918088649,
+      "voiced_fraction": 0.4105356745943543
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt"
+  },
+  {
+    "id": "gpB3PsG5vhk@1320",
+    "month": "2026-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 720.0,
+      "end_s": 810.0
+    },
+    "section": {
+      "start_s": 600.0,
+      "end_s": 1500.0
+    },
+    "one_off": true,
+    "language": "en",
+    "features": {
+      "median_f0": 292.33788976806557,
+      "f0_iqr": 164.8435914385323,
+      "voiced_fraction": 0.40942431651478106
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt"
+  },
+  {
+    "id": "gpB3PsG5vhk@1410",
+    "month": "2026-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 810.0,
+      "end_s": 900.0
+    },
+    "section": {
+      "start_s": 600.0,
+      "end_s": 1500.0
+    },
+    "one_off": true,
+    "language": "en",
+    "features": {
+      "median_f0": 315.2957140629613,
+      "f0_iqr": 208.56524990186804,
+      "voiced_fraction": 0.3740831295843521
+    },
+    "qc": {
+      "pass": false,
+      "reason": "f0_iqr"
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt"
+  }
+]

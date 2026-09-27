@@ -1,7 +1,10 @@
 # vtuber-vocal-corpus
 
 Public acoustic measurements of hololive stream speech. No audio, transcripts,
-or embeddings are published. No voice synthesis.
+embeddings, or speaker models are published. No speech of any talent is ever
+generated, and no synthesized audio is published; the only synthesis allowed is
+a local parametric diagnostic built from summary statistics, kept out of the
+repository (`scripts/local/` is ignored).
 
 This file is the **working contract**: how to build, test, and change things
 here, and where every other kind of writing belongs. It deliberately contains no
@@ -142,6 +145,20 @@ Operational detail and the reasoning behind the fetch hazards live in
 - **`vvc plot` writes into a fresh timestamped run directory.** Never add code
   that writes plot files to a fixed path outside one. Plot captions must use the
   figure-level caption API; a raw text call silently overlaps tick labels.
+- **A cached Holodex channel listing is never refreshed.**
+  `fetch_channel_videos(..., cache_dir=...)` returns an existing
+  `data/catalog/video_cache/<channel>.json` verbatim, and `vvc new-talent` goes
+  through it, so a stream newer than the cache "isn't on the channel". Re-fetch
+  without `cache_dir` and write the result over the cache file.
+- **CREPE on the GPU is not bit-reproducible between runs.** Re-measuring the
+  same clip moves median F0 by up to ~0.3 % (well under the noise floor);
+  Praat-derived features stay identical. A re-measure diff showing only that
+  drift is not a regression.
+- **A forked process pool deadlocks after threaded maths.** If a process has
+  already run scikit-learn / BLAS / OpenMP / CUDA work, forking workers copies
+  locks held by those threads, and every worker waits forever at 0 % CPU
+  (`/proc/<pid>/wchan` shows `__futex_wait`) with no error. `corpus.extract_many`
+  therefore uses a spawn context; any new `ProcessPoolExecutor` should too.
 - **`nix flake check` / `nix build` only see git-tracked-or-staged files.**
   `git add` new files first.
 - **`scripts/enid_pipeline.sh`'s `check_disk()` used to silently no-op on

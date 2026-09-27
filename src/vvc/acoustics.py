@@ -34,6 +34,7 @@ from pathlib import Path
 import numpy as np
 
 from .trackers import TRACKERS, PitchTrack
+from .voice_source import voice_source_features
 
 #: Frequency under which voiced energy is counted as likely contamination.
 #: Not a tracker bound — a diagnostic. The talents in this corpus do not speak
@@ -133,11 +134,12 @@ def _nanmedian(values: np.ndarray) -> float:
 
 def _formants_at_times(
     path: Path | str, times: np.ndarray, config: FeatureConfig
-) -> dict[int, np.ndarray]:
-    """F1-F4 sampled at the pitch track's own frame times.
+) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray]]:
+    """F1-F4 and their bandwidths, sampled at the pitch track's own frame times.
 
     Querying Praat at these times, rather than reading its formant frames and
-    aligning afterwards, is what makes the voiced mask exact.
+    aligning afterwards, is what makes the voiced mask exact. Bandwidths of
+    F1/F2 feed the H1*-H2* formant correction (``voice_source``).
     """
     import parselmouth
 
@@ -149,12 +151,19 @@ def _formants_at_times(
         window_length=config.formant_window_s,
         pre_emphasis_from=config.formant_pre_emphasis_hz,
     )
-    return {
+    values = {
         number: np.array(
             [formant.get_value_at_time(number, float(t)) for t in times], dtype=float
         )
         for number in (1, 2, 3, 4)
     }
+    bandwidths = {
+        number: np.array(
+            [formant.get_bandwidth_at_time(number, float(t)) for t in times], dtype=float
+        )
+        for number in (1, 2)
+    }
+    return values, bandwidths
 
 
 def _spectral_centroid_at_times(
@@ -281,7 +290,7 @@ def clip_features(
         audio, sr, times, config.spectral_window_s
     )
 
-    formants = _formants_at_times(path, times, config)
+    formants, bandwidths = _formants_at_times(path, times, config)
     mask = voiced if gate_formants else np.ones(times.size, bool)
     kept = 0
     total = 0
@@ -294,6 +303,18 @@ def clip_features(
             total = int(_finite(values).size)
     record["formant_voiced_frames"] = kept
     record["formant_total_frames"] = total
+
+    record.update(
+        voice_source_features(
+            audio,
+            sr,
+            times[: voiced.size],
+            track.freqs[: voiced.size],
+            voiced,
+            formants=formants,
+            bandwidths=bandwidths,
+        )
+    )
 
     if voice_quality:
         record.update(_voice_quality(path, config))

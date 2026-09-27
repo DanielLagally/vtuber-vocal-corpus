@@ -22,3 +22,5 @@ fixtures/*.wav
 # macOS Finder metadata (icon positions / view prefs) — dropped into every
 # folder opened in Finder; never belongs in the repo.
 .DS_Store
+# Local-only diagnostics (e.g. the parametric listening check) — never published.
+scripts/local/

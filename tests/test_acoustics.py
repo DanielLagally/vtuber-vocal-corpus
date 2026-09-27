@@ -204,3 +204,37 @@ class TestConfig:
         assert result["tracker_floor_hz"] == 80.0
         assert result["tracker_ceiling_hz"] == 500.0
         assert result["formant_ceiling_hz"] == config.formant_ceiling_hz
+
+
+class TestVoiceSourceFeatures:
+    """The breathiness/tilt/rate features travel on every v2 record, computed
+    from the same pitch track and voiced gate as everything else."""
+
+    KEYS = (
+        "cpp_db", "h1h2_raw_db", "h1h2_db", "h2_near_f1_fraction",
+        "harmonic_tilt_db_per_octave", "alpha_ratio_db", "hammarberg_db",
+        "speaking_rate_syl_per_s", "formant_dispersion_hz",
+    )
+
+    def test_every_record_carries_them(self, voice_only):
+        result = acoustics.clip_features(voice_only)
+        for key in self.KEYS:
+            assert key in result, key
+        # A 1/k harmonic series: H1-H2 is 6 dB, before any formant correction.
+        assert result["h1h2_raw_db"] == pytest.approx(6.02, abs=1.0)
+        assert math.isfinite(result["h1h2_db"])
+
+    def test_they_use_the_same_pitch_track(self, voice_only):
+        track = trackers.praat_ac(voice_only, floor=60.0, ceiling=800.0)
+        a = acoustics.clip_features(voice_only, pitch_track=track)
+        b = acoustics.clip_features(voice_only, pitch_track=track)
+        assert a["cpp_db"] == b["cpp_db"]
+
+    def test_silence_yields_nan_for_them_too(self, tmp_path):
+        import soundfile as sf
+
+        path = tmp_path / "silence.wav"
+        sf.write(path, np.zeros(22050, dtype=np.float32), 22050)
+        result = acoustics.clip_features(path)
+        for key in self.KEYS:
+            assert math.isnan(result[key]), key

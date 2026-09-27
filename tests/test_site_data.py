@@ -552,3 +552,14 @@ def test_write_site_data_emits_a_js_assignment_not_bare_json(tmp_path) -> None:
     body = text[len("window.SITE_DATA = ") : text.rindex(";")]
     parsed = json.loads(body)
     assert set(parsed["talents"]) == {"A"}
+
+
+def test_a_one_off_card_inherits_its_talents_generation():
+    """"Hyakuto Kyoko (English)" is Kyoko on one stream, not a graduate."""
+    from vvc.site_data import _talent_groups_and_branch
+
+    groups, branch = _talent_groups_and_branch(
+        "Hyakuto Kyoko (English)", {"Hyakuto Kyoko": "ASOBI★MAWARI-TAI!"}
+    )
+    assert groups == ["ASOBI★MAWARI-TAI!"]
+    assert branch != "Graduated"

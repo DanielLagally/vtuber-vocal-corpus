@@ -53,9 +53,20 @@ def load_video_cache(cache_dir: Path | str = DEFAULT_CACHE_DIR) -> dict[str, dic
     return index
 
 
+#: Separates a stream's id from a clip's offset into it, for clips cut from a
+#: named stretch of one stream (see ``segment.py``): ``<video_id>@<start_s>``.
+#: YouTube ids never contain it.
+SEGMENT_SEPARATOR = "@"
+
+
+def base_video_id(clip_id: str) -> str:
+    """The stream a clip was cut from. An ordinary clip id is its stream id."""
+    return clip_id.split(SEGMENT_SEPARATOR, 1)[0]
+
+
 def clip_metadata(video_id: str, cache: dict[str, dict]) -> dict | None:
     """Stream facts for one measured clip, or None if the cache lacks it."""
-    video = cache.get(video_id)
+    video = cache.get(base_video_id(video_id))
     if video is None:
         return None
     topic = video.get("topic_id")

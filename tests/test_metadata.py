@@ -118,3 +118,14 @@ class TestEnrich:
         assert len(enriched) == 1
         assert enriched[0]["topic_id"] is None
         assert enriched[0]["metadata_resolved"] is False
+
+
+def test_a_segment_clip_resolves_to_its_source_videos_metadata(cache_dir):
+    """A clip cut from a stream at a given offset ("<id>@<start_s>") is still
+    that stream: same title, air date and reliability band."""
+    cache = metadata.load_video_cache(cache_dir)
+    found = metadata.clip_metadata("talkclip@600", cache)
+    assert found is not None
+    assert found["available_at"] == "2021-03-05T14:55:00.000Z"
+    assert metadata.base_video_id("talkclip@600") == "talkclip"
+    assert metadata.base_video_id("talkclip") == "talkclip"

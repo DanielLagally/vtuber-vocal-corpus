@@ -226,3 +226,108 @@ class TestIsolation:
         corpus.write_talent(out, "alpha", _build(v1_records, cache))
         assert (out / "alpha.json").is_file()
         assert not (out / "alpha_monthly.json").exists()
+
+
+def test_a_one_off_segment_keeps_its_marker_and_section_through_the_v2_build(cache):
+    """A one-off data point must stay labelled as one through the v2 build,
+    so the site can keep it out of corpus-wide rankings."""
+    source = {
+        "id": "clip1@600",
+        "month": "2021-03",
+        "score": 70.0,
+        "window": {"start_s": 0.0, "end_s": 90.0},
+        "section": {"start_s": 600.0, "end_s": 1500.0},
+        "one_off": True,
+        "language": "en",
+        "features": {"median_f0": 300.0},
+        "qc": {"pass": True, "reason": None},
+        "model": "m.ckpt",
+    }
+    built = _build([source], cache, resolve_audio=lambda vid: Path("/fake/x.wav"))
+    row = built[0]
+    assert row["one_off"] is True
+    assert row["language"] == "en"
+    assert row["section"] == {"start_s": 600.0, "end_s": 1500.0}
+    assert row["metadata_resolved"] is True
+
+
+def test_an_ordinary_clip_is_not_marked_one_off(v1_records, cache):
+    built = _build(v1_records, cache)
+    assert all("one_off" not in row for row in built)
+
+
+class TestRemeasure:
+    """Adding a feature re-measures the existing v2 corpus from the audio each
+    record already names. Which audio was measured, and whether it was
+    separated, was decided once and recorded; re-measuring must not quietly
+    re-decide it."""
+
+    def _record(self, **overrides):
+        row = {
+            "id": "clip1",
+            "month": "2021-03",
+            "features": {"median_f0": 300.0},
+            "qc": {"pass": True, "reason": None},
+            "source_audio": "/fake/clip1.wav",
+            "background_ratio_db": -25.0,
+            "separation_applied": False,
+            "measured_at": "old",
+            "legacy": False,
+            "one_off": True,
+        }
+        row.update(overrides)
+        return row
+
+    def test_replaces_features_and_keeps_the_recorded_treatment(self):
+        out = corpus.remeasure_records(
+            [self._record()],
+            extract=lambda path, cfg: _fake_extract(path, cfg),
+            audio_exists=lambda path: True,
+            measured_at="new",
+        )
+        row = out[0]
+        assert row["features"]["median_f0"] == 311.0
+        assert row["separation_applied"] is False
+        assert row["background_ratio_db"] == -25.0
+        assert row["source_audio"] == "/fake/clip1.wav"
+        assert row["one_off"] is True
+        assert row["measured_at"] == "new"
+        assert "pass" in row["qc"]
+
+    def test_legacy_records_and_vanished_audio_are_left_exactly_as_they_were(self):
+        legacy = self._record(id="old", legacy=True, source_audio=None)
+        vanished = self._record(id="gone")
+        out = corpus.remeasure_records(
+            [legacy, vanished],
+            extract=lambda path, cfg: _fake_extract(path, cfg),
+            audio_exists=lambda path: False,
+            measured_at="new",
+        )
+        assert out == [legacy, vanished]
+
+    def test_does_not_mutate_its_input(self):
+        record = self._record()
+        corpus.remeasure_records(
+            [record], extract=_fake_extract, audio_exists=lambda p: True, measured_at="new"
+        )
+        assert record["features"] == {"median_f0": 300.0}
+
+
+def test_parallel_extraction_spawns_fresh_workers(monkeypatch):
+    """Worker processes are spawned, not forked. A forked child inherits every
+    lock the parent's threads held (BLAS, OpenMP, CUDA), and when the parent
+    has already run threaded maths the pool deadlocks with every worker idle
+    — which is how a validation run once hung for 45 minutes on zero CPU."""
+    import concurrent.futures as cf
+
+    seen = {}
+
+    class Recorder:
+        def __init__(self, *args, **kwargs):
+            seen.update(kwargs)
+            raise RuntimeError("stop before starting processes")
+
+    monkeypatch.setattr(cf, "ProcessPoolExecutor", Recorder)
+    with pytest.raises(RuntimeError):
+        corpus.extract_many([Path("/fake/a.wav"), Path("/fake/b.wav")], workers=2)
+    assert seen["mp_context"].get_start_method() == "spawn"

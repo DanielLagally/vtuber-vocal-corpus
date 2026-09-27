@@ -1,8 +1,9 @@
 # Measurement
 
 Every acoustic feature: what it is, how it is computed, and what it is valid
-for. Implementation: `praat_features.py` (pitch and voice quality, via Praat)
-and `features.py` (spectral and amplitude, pure numpy/FFT).
+for. Implementation: `acoustics.py` (the v2 extractor), `voice_source.py`
+(source, timbre and tempo), and `praat_features.py` / `features.py` (v1's
+extractor, frozen).
 
 Praat is the standard phonetics analysis program; the project drives it from
 Python. Its pitch algorithms are named after the signal-processing method they
@@ -26,6 +27,10 @@ that difference matters more than any of their absolute values:
 | Jitter, shimmer | **No** | Also calibrated for sustained vowels, not conversational speech |
 | Brightness | **No** | Separation reshapes the spectrum directly |
 | Formants F1–F4 | **No** — shifts are large and clip-dependent | |
+| H1*–H2*, harmonic tilt, alpha ratio, Hammarberg index | Largely — the shift is a small fraction of the noise floor | Measured by re-running directly-measured clips on their separated stem (`vvc voice-validate`) |
+| CPP | **Partly** — the shift approaches the noise floor, and is one-directional | Separation raises it, as it raises HNR: denoising makes any voice measure clearer. Compare like with like |
+| Formant dispersion | Largely, unlike the individual formants | The spacing survives even where each formant's absolute value moves |
+| Speaking rate | Partly — a sizeable fraction of the noise floor | Depends on the voiced mask, which separation moves |
 
 Everything below inherits this table. It is the reason the site presents pitch
 as a result and the rest as exploratory.
@@ -126,6 +131,61 @@ displays them:
    whether or not the voice changed — so a trend in HNR across the corpus is a
    candidate artifact before it is a finding.
 
+## Voice source and timbre
+
+Pitch and formants place a voice — how high, roughly how long the vocal tract —
+but cannot tell a breathy, soft voice from a pressed, full one at the same
+pitch. That quality lives in the voice *source*: how completely the vocal folds
+close, which sets how fast energy falls away above the fundamental and how much
+aspiration noise rides on the harmonics. Implementation: `voice_source.py`.
+Every measure is taken per voiced frame on the pitch track's own grid and
+summarised by the median.
+
+**H1*–H2* (dB)** — the first harmonic's level over the second's. A breathy
+voice has a dominant fundamental and weak overtones; a pressed voice the
+reverse. Harmonic levels are read from a zero-padded spectrum within a tenth of
+F0 of each harmonic. The raw difference is also recorded, but the published
+value is **formant-corrected** (Iseli and Alwan): the level each harmonic gains
+from F1 and F2, given their measured frequencies and bandwidths, is removed.
+The correction is not optional in this corpus. At the pitches these voices use,
+the second harmonic very often sits on F1, which boosts it by many decibels, so
+the raw value largely measures the vowel. `h2_near_f1_fraction` records how
+often that happened (the second harmonic closer to F1 than half an F0 step),
+because the correction is only as good as the formant estimate beneath it.
+
+**Harmonic tilt (dB per octave)** — the slope of harmonic levels against
+log-frequency, up to 5 kHz. Steeply negative is a soft voice with little
+energy up high; shallow is a bright, full one.
+
+**Alpha ratio and Hammarberg index (dB)** — the same question asked of bands:
+energy in 1–5 kHz over 50 Hz–1 kHz, and the strongest peak below 2 kHz over the
+strongest in 2–5 kHz. Cheaper and less dependent on harmonic resolution than
+tilt; both are standard in the eGeMAPS feature set.
+
+**CPP (dB)** — cepstral peak prominence: how far the voice's periodicity peak
+in the cepstrum stands above a regression line through the cepstral baseline.
+Aspiration noise fills in the spectrum between harmonics and lowers it. It is
+the best-validated breathiness measure for *connected* speech, which is why it
+is preferred here over harmonicity, jitter and shimmer. The peak is searched
+over the tracker's own F0 range.
+
+All of these are spectral, so everything said below about microphones and EQ
+applies to them in full. Separation, by contrast, moves the spectral-shape
+measures little; CPP is the exception, raised by it in a consistent direction
+(see the table at the top). They describe a voice as recorded and
+processed; the invariance column at the top of this file says how much of that
+processing they survive.
+
+## Tempo
+
+**Speaking rate (syllables per voiced second)** — syllable nuclei counted as
+intensity peaks that stand at least a couple of decibels above the dips either
+side, lie within a fixed range of the clip's loudest frame, and fall inside
+voiced speech (after de Jong and Wempe). Dividing by voiced time rather than
+the whole window makes it an articulation rate, not a measure of how much of
+the window was talk — which the window selection rule controls, not the
+speaker.
+
 ## Spectrum
 
 **Brightness (spectral centroid, Hz)** — the magnitude-weighted mean frequency
@@ -182,7 +242,33 @@ Four constraints, all load-bearing:
 
 F1–F4 are correlated with each other strongly enough that four separate
 published axes overstate the dimensionality. They are presented as one resonance
-summary, labelled experimental.
+summary, labelled experimental: **formant dispersion**, the mean spacing
+(F4 − F1) / 3 over voiced frames, the usual single-number correlate of
+vocal-tract length.
+
+## Speaker embeddings
+
+A speaker-recognition network maps a clip to a vector — an embedding — arranged
+so that clips of the same voice land close together. Its geometry is learned
+from thousands of speakers, so the distance between two talents' embeddings is
+the strongest available measure of how alike their voices sound: much stronger
+than a handful of acoustic features, and blind to *why*. The measured features
+answer why; the embedding answers whether. Implementation: `embed.py`.
+
+- The encoder is a **general** speaker model (ECAPA-TDNN trained on VoxCeleb),
+  deliberately not one trained on this corpus. A model trained to tell these
+  talents apart learns to push similar voices apart, which is the opposite of
+  what a similarity ranking needs.
+- Each clip is embedded from the same audio its features were measured on. A
+  talent's voice is the re-normalised mean of their usable clips' embeddings.
+- **Embeddings are never published or committed.** They are exactly the input a
+  zero-shot voice-cloning system conditions on. Only similarity scores derived
+  from them leave the machine.
+- They inherit every recording confound the spectral features have —
+  microphone, EQ, separation — and add one: the network was trained on
+  interview speech in many languages, and a language switch moves an embedding
+  even for the same voice. Early-versus-late splits in the validation report
+  are how the recording-era part is measured.
 
 ## Background-energy index
 

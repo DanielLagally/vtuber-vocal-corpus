@@ -69,6 +69,8 @@ _ROSTER_NAME_ALIASES = {
     "Ririka": "Ichijou Ririka",
     "Vivi": "Kikirara Vivi",
     "FUWAMOCO": "Fuwawa & Mococo Abyssgard",
+    # One-off cards (segment.py) share their talent's generation.
+    "Hyakuto Kyoko (English)": "Hyakuto Kyoko",
 }
 
 

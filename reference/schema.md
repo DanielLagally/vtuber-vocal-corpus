@@ -55,6 +55,27 @@ What v1 lacks and v2 adds, and why each is needed:
 | Tracker identity and full search range | A threshold derived from a tracker parameter must be re-derivable |
 | Lever provenance | Which path produced this clip — first window, second window, stem hunt, second stream |
 | Measured-at timestamp, corpus release id | Snapshot identity, so a published number can be traced to the data that produced it |
+| `one_off`, `section` | Marks a one-off data point (below), so corpus-wide statistics can leave it out |
+
+### One-off data points
+
+A one-off answers "how does this talent sound *here*" — another language, a
+special stream — rather than sampling a career. The operator names a stretch of
+one stream (`vvc segment`), and every consecutive 90 s window of it becomes a
+record:
+
+- `id` is `<video_id>@<start_s>`, with `start_s` in seconds into the stream, so
+  the stream's own metadata still resolves.
+- `window` is relative to the fetched stretch, as on every other record;
+  `section` is the stretch itself, in stream time.
+- `one_off` is `true`. A trailing remainder shorter than a window is dropped,
+  never padded.
+
+The records live under their own talent key and display name (the talent's
+name plus a qualifier). Windows of one stream are not independent samples, so a
+one-off talent is **placed, not ranked**: its percentiles say where it would
+fall among the ranked talents without shifting theirs, and it is left out of
+the corpus noise floor.
 
 ## Rules that hold for both versions
 

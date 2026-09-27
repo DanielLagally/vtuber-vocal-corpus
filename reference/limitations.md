@@ -99,8 +99,15 @@ only derived numbers. Substantial audio is retained **locally and in a private
 archive** to make re-measurement possible. "Not published or committed" is the
 accurate claim; "not stored" is not.
 
-## Not attempted
+## Local only, and not attempted
 
-No voice synthesis, no cloneable embeddings, no speaker models, and no
-identification of anyone behind a character. None of these is published, and
-none is a planned capability.
+Speaker embeddings and a speaker-recognition model exist locally, to rank which
+talents' voices sound most alike and to check that the measured metrics capture
+who is speaking. Neither is published or committed — an embedding is the input a
+voice-cloning system conditions on — and only similarity scores derived from
+them appear on the site. A local diagnostic synthesizes wordless vowels from a
+talent's summary statistics, to hear whether the numbers describe the voice; it
+never takes a talent's audio as input and its output is never published.
+
+Not attempted at all: generating any talent's speech, and identification of
+anyone behind a character.

@@ -468,6 +468,205 @@ def _load_v2_by_talent(v2_dir: Path) -> dict[str, list[dict]]:
     return out
 
 
+#: Metrics whose survival of separation the validation report measures.
+_INVARIANCE_METRICS = (
+    "median_f0", "hnr_db", "h1h2_db", "cpp_db", "harmonic_tilt_db_per_octave",
+    "alpha_ratio_db", "hammarberg_db", "speaking_rate_syl_per_s", "formant_dispersion_hz",
+)
+
+
+def _run_voice_validate(args) -> dict:
+    """See voice_validate.py. Writes report.json and report.md to a new run dir."""
+    import random
+
+    import numpy as np
+
+    from vvc import background, corpus, embed, voice_validate
+    from vvc.reliability import corpus_noise_floor
+    from vvc.series import new_run_dir
+
+    by_talent = _load_v2_by_talent(args.v2_dir)
+    embeddings = {
+        path.stem: embed.load_embeddings(path)
+        for path in sorted(args.embeddings_dir.glob("*.npz"))
+    }
+    print(f"{len(by_talent)} talents, {len(embeddings)} with embeddings", flush=True)
+    report = voice_validate.build_report(by_talent, embeddings)
+
+    if args.invariance_n > 0:
+        candidates = [
+            (record, stem)
+            for records in by_talent.values()
+            for record in records
+            if not record.get("one_off")
+            and embed.usable(record)
+            and record.get("separation_applied") is False
+            and (stem := background.vocals_stem_path(str(record["id"]), args.data_dir / "stems_fast"))
+            is not None
+        ]
+        candidates.sort(key=lambda pair: str(pair[0]["id"]))
+        sample = random.Random(args.seed).sample(candidates, min(args.invariance_n, len(candidates)))
+        print(f"invariance: re-measuring {len(sample)} clips on their separated stem", flush=True)
+        extraction = corpus.extract_many([stem for _, stem in sample], workers=args.workers)
+        pairs = [
+            (record["features"], extraction.features[str(stem)])
+            for record, stem in sample
+            if str(stem) in extraction.features
+        ]
+        ordinary = {t: r for t, r in by_talent.items() if not any(x.get("one_off") for x in r)}
+        floor = {
+            metric: summary["median_abs_diff"]
+            for metric, summary in corpus_noise_floor(
+                ordinary, feature_keys=_INVARIANCE_METRICS
+            ).items()
+        }
+        report["invariance"] = voice_validate.invariance(
+            pairs, floor, metrics=_INVARIANCE_METRICS
+        )
+
+    if args.save_recognizer is not None:
+        from vvc import recognize
+
+        X, y = [], []
+        for talent, records in sorted(by_talent.items()):
+            emb = embeddings.get(talent)
+            if emb is None:
+                continue
+            for record in records:
+                vector = emb.get(str(record.get("id", "")))
+                if vector is not None and embed.usable(record) and not record.get("one_off"):
+                    X.append(vector)
+                    y.append(talent)
+        path = recognize.save(recognize.train(np.array(X), np.array(y)), args.save_recognizer)
+        print(f"recognizer ({len(set(y))} talents, {len(y)} clips) -> {path}")
+
+    run_dir = new_run_dir(args.out_dir)
+    (run_dir / "report.json").write_text(
+        json.dumps(report, indent=2, default=str), encoding="utf-8"
+    )
+    markdown = voice_validate.render_markdown(report)
+    (run_dir / "report.md").write_text(markdown, encoding="utf-8")
+    print(markdown)
+    print(f"-> {run_dir}")
+    return report
+
+
+def _run_embed(args) -> None:
+    """Embed every v2 clip with local audio; see embed.py."""
+    from vvc import embed
+
+    encoder = embed.SpeechBrainEncoder(device=args.device)
+    by_talent = _load_v2_by_talent(args.v2_dir)
+    if args.talents:
+        by_talent = {k: v for k, v in by_talent.items() if k in set(args.talents)}
+    for index, (talent, records) in enumerate(sorted(by_talent.items()), start=1):
+        path = args.out_dir / f"{talent}.npz"
+        existing = embed.load_embeddings(path) if path.is_file() else None
+        result = embed.embed_records(records, encoder, existing=existing)
+        embed.write_embeddings(args.out_dir, talent, result)
+        print(f"[{index}/{len(by_talent)}] {talent:14} {len(result.ids):5} clips", flush=True)
+
+
+def _run_segment(args) -> Path:
+    """One-off measurement of a named stretch; see segment.py."""
+    from vvc import metadata, segment
+    from vvc.fetch import fetch_audio
+    from vvc.measure import stem_features
+
+    video = metadata.load_video_cache(args.cache_dir).get(args.video_id)
+    if video is None:
+        raise SystemExit(
+            f"{args.video_id} is not in {args.cache_dir}; refresh the talent's "
+            "channel listing first (vvc new-talent <existing slug> <channel_id>)"
+        )
+    cookies = args.cookies
+    if cookies is None and (args.data_dir / "youtube.cookies.txt").is_file():
+        cookies = args.data_dir / "youtube.cookies.txt"
+
+    def fetch(video_id: str, data_dir: Path, *, section) -> Path:
+        return fetch_audio(video_id, data_dir, cookies=cookies, section=section)
+
+    def isolate(src: Path, out_dir: Path) -> Path:
+        dest = vocals_path(src, out_dir, model_filename=args.model_filename)
+        if dest.is_file() and dest.stat().st_size > 1_000_000:
+            return dest
+        return isolate_vocals(src, out_dir, model_filename=args.model_filename)
+
+    out = segment.run_segment(
+        args.video_id,
+        talent=args.talent,
+        section=(args.start, args.end),
+        video=video,
+        data_dir=args.data_dir,
+        measurements_dir=args.measurements_dir,
+        fetch=fetch,
+        isolate=isolate,
+        measure=stem_features,
+        model=args.model_filename,
+        window_s=args.window_s,
+        language=args.language,
+    )
+    records = json.loads(out.read_text(encoding="utf-8"))
+    passed = sum(1 for r in records if r["qc"]["pass"])
+    print(f"{len(records)} windows ({passed} pass v1 QC) -> {out}")
+    print(
+        f"next: register {out} in data/measurements/talents.json, then "
+        f"vvc build-v2 --talents {args.talent} && vvc site-data-v2"
+    )
+    return out
+
+
+def _run_features_only(args, config) -> dict:
+    """``build-v2 --features-only``: see corpus.remeasure_records."""
+    from vvc import corpus, plausibility
+
+    by_talent = _load_v2_by_talent(args.out_dir)
+    if args.talents:
+        by_talent = {k: v for k, v in by_talent.items() if k in set(args.talents)}
+    paths = sorted(
+        {
+            Path(r["source_audio"])
+            for records in by_talent.values()
+            for r in records
+            if not r.get("legacy") and r.get("source_audio") and Path(r["source_audio"]).is_file()
+        }
+    )
+    print(f"re-measuring {len(paths)} clips with {config.tracker} on {args.workers} worker(s)", flush=True)
+
+    def progress(done: int, total: int) -> None:
+        if done % 200 == 0 or done == total:
+            print(f"  measured {done}/{total}", flush=True)
+
+    extraction = corpus.extract_many(paths, config=config, workers=args.workers, progress=progress)
+    print(f"measured {extraction.succeeded}/{extraction.attempted} ({extraction.failed} failed)", flush=True)
+    for path, error in list(extraction.errors.items())[:5]:
+        print(f"  ! {Path(path).name}: {error}", flush=True)
+    if extraction.failure_rate > args.max_failure_rate:
+        raise SystemExit(
+            f"extraction failed for {100 * extraction.failure_rate:.1f}% of clips "
+            f"(limit {100 * args.max_failure_rate:.0f}%); corpus left untouched"
+        )
+    measured = extraction.features
+    totals = {"total": 0, "remeasured": 0, "legacy": 0, "qc_pass": 0}
+    for talent, records in sorted(by_talent.items()):
+        built = corpus.remeasure_records(
+            records,
+            extract=lambda path, cfg: measured[str(path)],
+            audio_exists=lambda path: path in measured,
+            config=config,
+        )
+        if not args.no_plausibility:
+            built = plausibility.apply(
+                built, low_semitones=args.plausibility_low, high_semitones=args.plausibility_high
+            )
+        corpus.write_talent(args.out_dir, talent, built)
+        summary = corpus.summarise(built)
+        for key in totals:
+            totals[key] += summary[key]
+    print(f"\n{totals}\n-> {args.out_dir}")
+    return {"totals": totals}
+
+
 def _run_build_v2(args) -> dict:
     """Re-measure local audio into the v2 corpus. Never touches v1."""
     from vvc import background, corpus, metadata, plausibility
@@ -476,6 +675,8 @@ def _run_build_v2(args) -> dict:
     config = FeatureConfig(
         tracker=args.tracker, floor=args.floor, ceiling=args.ceiling
     )
+    if args.features_only:
+        return _run_features_only(args, config)
     cache = metadata.load_video_cache(args.cache_dir)
     by_talent = _load_v1_by_talent(args.measurements_dir)
     if args.talents:
@@ -886,6 +1087,29 @@ def main(argv: list[str] | None = None) -> None:
         "--measurements-dir", type=Path, default=Path("data/measurements")
     )
 
+    seg = sub.add_parser(
+        "segment",
+        help=(
+            "measure a named stretch of one stream as a one-off data point: "
+            "every consecutive 90 s window, written to <talent>_monthly.json"
+        ),
+    )
+    seg.add_argument("video_id")
+    seg.add_argument("--talent", required=True, help='file-path slug, e.g. "kyoko_en"')
+    seg.add_argument("--start", type=float, required=True, help="seconds into the stream")
+    seg.add_argument("--end", type=float, required=True, help="seconds into the stream")
+    seg.add_argument("--window-s", type=float, default=90.0)
+    seg.add_argument("--data-dir", type=Path, default=Path("data"))
+    seg.add_argument("--measurements-dir", type=Path, default=Path("data/measurements"))
+    seg.add_argument("--cache-dir", type=Path, default=Path("data/catalog/video_cache"))
+    seg.add_argument("--cookies", type=Path, default=None)
+    seg.add_argument("--model-filename", default=DEFAULT_MODEL_FILENAME)
+    seg.add_argument(
+        "--language",
+        default=None,
+        help='what the stretch is spoken in, if not the talent\'s usual language (e.g. "en")',
+    )
+
     get = sub.add_parser("fetch", help="download video ids to data/audio/<id>.wav")
     get.add_argument("video_ids", nargs="*")
     get.add_argument("--data-dir", type=Path, default=Path("data"))
@@ -1009,6 +1233,12 @@ def main(argv: list[str] | None = None) -> None:
             "per-talent, per-metric series with bootstrap CI and noise "
             "floor, see vvc.site_data_v2"
         ),
+    )
+    sit2.add_argument(
+        "--embeddings-dir",
+        type=Path,
+        default=Path("data/embeddings"),
+        help="local speaker embeddings for the closest-voices lists (scores only are exported)",
     )
     sit2.add_argument(
         "--registry",
@@ -1354,6 +1584,15 @@ def main(argv: list[str] | None = None) -> None:
             "build where every clip merely lacked audio)"
         ),
     )
+    bld.add_argument(
+        "--features-only",
+        action="store_true",
+        help=(
+            "re-measure the existing v2 records from the audio each already "
+            "names, reusing its recorded separation decision (no background "
+            "scan); for adding a feature"
+        ),
+    )
     bld.add_argument("--release", default="v2-dev")
     bld.add_argument("--talents", nargs="*", default=None)
     bld.add_argument(
@@ -1361,6 +1600,44 @@ def main(argv: list[str] | None = None) -> None:
         type=int,
         default=1,
         help="parallel extraction processes (CPU-bound work; 8 is a good default here)",
+    )
+
+    emb = sub.add_parser(
+        "embed",
+        help=(
+            "speaker embeddings per v2 clip into data/embeddings/ (local only, "
+            "never published; incremental)"
+        ),
+    )
+    emb.add_argument("--v2-dir", type=Path, default=Path("data/measurements/v2"))
+    emb.add_argument("--out-dir", type=Path, default=Path("data/embeddings"))
+    emb.add_argument("--talents", nargs="*", default=None)
+    emb.add_argument("--device", default=None, help="cuda / mps / cpu (default: auto)")
+
+    vv = sub.add_parser(
+        "voice-validate",
+        help=(
+            "measurement-only checks that the metrics and embeddings capture "
+            "voice identity; report into a fresh run dir under data/logs/"
+        ),
+    )
+    vv.add_argument("--v2-dir", type=Path, default=Path("data/measurements/v2"))
+    vv.add_argument("--embeddings-dir", type=Path, default=Path("data/embeddings"))
+    vv.add_argument("--data-dir", type=Path, default=Path("data"))
+    vv.add_argument("--out-dir", type=Path, default=Path("data/logs/voice-validate"))
+    vv.add_argument(
+        "--invariance-n",
+        type=int,
+        default=150,
+        help="directly-measured clips to re-measure on their separated stem (0 skips)",
+    )
+    vv.add_argument("--workers", type=int, default=4)
+    vv.add_argument("--seed", type=int, default=0)
+    vv.add_argument(
+        "--save-recognizer",
+        type=Path,
+        default=None,
+        help="also train the talent recognizer on every usable clip and save it here (local only)",
     )
 
     exp = sub.add_parser(
@@ -1459,6 +1736,15 @@ def main(argv: list[str] | None = None) -> None:
             if record["pick_count"] == 0:
                 print(f"  zero eligible picks: {record['name']} ({record['group']})")
         return
+    if args.cmd == "voice-validate":
+        _run_voice_validate(args)
+        return
+    if args.cmd == "embed":
+        _run_embed(args)
+        return
+    if args.cmd == "segment":
+        _run_segment(args)
+        return
     if args.cmd == "new-talent":
         videos = fetch_channel_videos(
             args.channel_id, api_key=_holodex_key(), cache_dir=args.cache_dir
@@ -1545,8 +1831,16 @@ def main(argv: list[str] | None = None) -> None:
         roster = None
         if args.roster.is_file():
             roster = json.loads(args.roster.read_text(encoding="utf-8")).get("talents")
+        embeddings = None
+        if args.embeddings_dir.is_dir():
+            from vvc import embed
+
+            embeddings = {
+                path.stem: embed.load_embeddings(path)
+                for path in sorted(args.embeddings_dir.glob("*.npz"))
+            } or None
         payload = write_site_data_v2(
-            registry, args.out, v2_dir=args.v2_dir, roster=roster
+            registry, args.out, v2_dir=args.v2_dir, roster=roster, embeddings=embeddings
         )
         fallback = sum(1 for t in payload["talents"].values() if t["legacy_fallback"])
         print(

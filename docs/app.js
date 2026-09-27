@@ -86,13 +86,20 @@ function talentColor(name) {
 // ---------------------------------------------------------------------
 
 const METRIC_META = {
-  median_f0: { label: "Median F0 (pitch)", unit: "Hz" },
-  f0_iqr_semitones: { label: "F0 spread (IQR)", unit: "semitones" },
-  dynamism_semitones: { label: "Pitch dynamism", unit: "semitones" },
-  jitter_local: { label: "Jitter", unit: "fraction" },
-  shimmer_local: { label: "Shimmer", unit: "fraction" },
-  hnr_db: { label: "Harmonics-to-noise ratio", unit: "dB" },
-  brightness_hz: { label: "Brightness", unit: "Hz" },
+  median_f0: { label: "Median F0 (pitch)", unit: "Hz", short: "pitch" },
+  f0_iqr_semitones: { label: "F0 spread (IQR)", unit: "semitones", short: "pitch range" },
+  dynamism_semitones: { label: "Pitch dynamism", unit: "semitones", short: "pitch movement" },
+  jitter_local: { label: "Jitter", unit: "fraction", short: "jitter" },
+  shimmer_local: { label: "Shimmer", unit: "fraction", short: "shimmer" },
+  hnr_db: { label: "Harmonics-to-noise ratio", unit: "dB", short: "harmonicity" },
+  h1h2_db: { label: "H1*–H2* (airiness)", unit: "dB", short: "airiness" },
+  cpp_db: { label: "Cepstral peak prominence (clarity)", unit: "dB", short: "clarity" },
+  harmonic_tilt_db_per_octave: { label: "Harmonic tilt", unit: "dB/oct", short: "tilt" },
+  alpha_ratio_db: { label: "Alpha ratio (upper-band energy)", unit: "dB", short: "upper-band energy" },
+  hammarberg_db: { label: "Hammarberg index", unit: "dB", short: "Hammarberg" },
+  speaking_rate_syl_per_s: { label: "Speaking rate", unit: "syl/s", short: "tempo" },
+  formant_dispersion_hz: { label: "Formant dispersion", unit: "Hz", short: "formant spacing" },
+  brightness_hz: { label: "Brightness", unit: "Hz", short: "brightness" },
   f1_hz: { label: "Formant F1", unit: "Hz" },
   f2_hz: { label: "Formant F2", unit: "Hz" },
   f3_hz: { label: "Formant F3", unit: "Hz" },
@@ -163,6 +170,7 @@ function main() {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       if (currentView === "compare") renderCompare();
+      if (currentView === "profile" && document.getElementById("metric-strips")) renderStrips();
     }, 120);
   });
 }
@@ -170,7 +178,8 @@ function main() {
 function route() {
   const hash = location.hash.slice(1);
   if (hash.startsWith("talent/")) {
-    showProfile(decodeURIComponent(hash.slice("talent/".length)));
+    const { name, others } = parseTalentHash(hash.slice("talent/".length));
+    showProfile(name, others);
   } else if (hash === "compare") {
     showView("compare");
   } else {
@@ -192,7 +201,7 @@ function showView(view) {
   }
 }
 
-function showProfile(name) {
+function showProfile(name, others = []) {
   if (!DATA.talents[name]) {
     showView("home");
     return;
@@ -201,7 +210,7 @@ function showProfile(name) {
   for (const el of document.querySelectorAll(".view")) el.hidden = true;
   document.getElementById("profile-view").hidden = false;
   for (const btn of document.querySelectorAll(".nav-btn")) btn.classList.remove("active");
-  renderProfile(name);
+  renderProfile(name, others);
 }
 
 function wireNav() {
@@ -328,12 +337,127 @@ function familyCardHtml(name, family) {
   );
 }
 
-function renderProfile(name) {
+// ---------------------------------------------------------------------
+// Profile comparison — the talent being viewed is pinned; up to
+// MAX_COMPARE others are added from "Closest voices" or by name. The
+// selection lives in the URL (#talent/<name>?vs=<a>,<b>) so a comparison
+// can be shared. Every number drawn here is precomputed by
+// site_data_v2.py (typical, CI, noise_units, neighbours); nothing is
+// re-derived in the browser.
+// ---------------------------------------------------------------------
+
+const MAX_COMPARE = 4;
+// Identity is talent colour AND a per-slot marker shape, so two talents
+// with near-identical brand colours still read apart (and never by colour
+// alone). Plotly symbol names, with an SVG path for the same shape.
+const SLOT_SYMBOLS = ["circle", "diamond", "square", "triangle-up", "cross"];
+const SLOT_GLYPHS = ["●", "◆", "■", "▲", "✚"];
+
+let compareState = { base: null, others: [], route: "voice", table: false, expanded: new Set() };
+
+function parseTalentHash(rest) {
+  const [namePart, query] = rest.split("?");
+  const name = decodeURIComponent(namePart);
+  const vs = new URLSearchParams(query || "").get("vs");
+  const others = vs ? vs.split(",").map(decodeURIComponent) : [];
+  return { name, others };
+}
+
+function writeCompareHash() {
+  const base = encodeURIComponent(compareState.base);
+  const vs = compareState.others.map(encodeURIComponent).join(",");
+  history.replaceState(null, "", `#talent/${base}${vs ? `?vs=${vs}` : ""}`);
+}
+
+function compareSelection() {
+  return [compareState.base, ...compareState.others];
+}
+
+function slotOf(name) {
+  return compareSelection().indexOf(name);
+}
+
+function svgGlyph(slot, color, size = 12) {
+  const h = size / 2;
+  const shapes = [
+    `<circle cx="${h}" cy="${h}" r="${h - 1.5}"/>`,
+    `<polygon points="${h},1 ${size - 1},${h} ${h},${size - 1} 1,${h}"/>`,
+    `<rect x="2" y="2" width="${size - 4}" height="${size - 4}" rx="1"/>`,
+    `<polygon points="${h},1.5 ${size - 1.5},${size - 1.5} 1.5,${size - 1.5}"/>`,
+    `<path d="M${h - 1.5} 1h3v${h - 3}h${h - 3}v3h-${h - 3}v${h - 3}h-3v-${h - 3}h-${h - 3}v-3h${h - 3}z"/>`,
+  ];
+  return (
+    `<svg class="glyph" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" ` +
+    `aria-hidden="true" fill="${color}">${shapes[slot % shapes.length]}</svg>`
+  );
+}
+
+function metricShort(metric) {
+  const meta = METRIC_META[metric];
+  return meta ? meta.short || meta.label : metric;
+}
+
+function addToCompare(name) {
+  if (name === compareState.base || compareState.others.includes(name)) return;
+  if (compareState.others.length >= MAX_COMPARE) return;
+  compareState.others.push(name);
+  writeCompareHash();
+  renderComparison();
+}
+
+function removeFromCompare(name) {
+  compareState.others = compareState.others.filter((n) => n !== name);
+  writeCompareHash();
+  renderComparison();
+}
+
+function hasVoiceRoute(name) {
+  return Boolean(DATA.talents[name].neighbours && DATA.talents[name].neighbours.voice);
+}
+
+function compareSectionHtml() {
+  return (
+    `<section class="compare-section panel">` +
+    `<div class="compare-bar"><span class="compare-bar-label">Comparing</span>` +
+    `<div id="compare-chips" class="compare-chips"></div>` +
+    `<input id="compare-add" type="text" list="compare-add-list" placeholder="+ add a talent…" ` +
+    `aria-label="Add a talent to the comparison" />` +
+    `<datalist id="compare-add-list"></datalist></div>` +
+    `<div class="compare-grid">` +
+    `<div class="closest-panel"><div class="closest-head"><h3>Closest voices</h3>` +
+    `<div id="route-tabs" class="mode-tabs" role="group" aria-label="Similarity route"></div></div>` +
+    `<ol id="closest-list" class="closest-list"></ol>` +
+    `<p id="closest-note" class="control-hint"></p></div>` +
+    `<div class="radar-panel"><div id="compare-radar" class="chart"></div>` +
+    `<p class="control-hint">Each axis: distance from the corpus median, in units of how much ` +
+    `a talent varies between their own clips. The ring marked 0 is the median talent; two ` +
+    `shapes overlap only where the voices genuinely measure alike.</p></div></div>` +
+    `<div class="strips-head"><h3>Metric by metric</h3>` +
+    `<button id="strips-table-toggle" class="mode-btn" type="button"></button></div>` +
+    `<div id="metric-strips"></div>` +
+    `</section>`
+  );
+}
+
+function renderProfile(name, others = []) {
   const t = DATA.talents[name];
   const legacyNote = t.legacy_fallback
     ? `<p class="control-hint">This talent's source audio wasn't available for v2 ` +
       `re-measurement — every figure below is carried over from v1 rather than remeasured.</p>`
     : "";
+  const oneOffNote = t.one_off
+    ? `<p class="control-hint">One-off data point: a single stream, measured as consecutive ` +
+      `90 s windows. Its percentiles place it among the other talents without ranking it with ` +
+      `them, and it is left out of the corpus noise floor — windows of one stream are not ` +
+      `independent samples.</p>`
+    : "";
+  compareState = {
+    base: name,
+    others: others.filter((n) => n !== name && DATA.talents[n]).slice(0, MAX_COMPARE),
+    route: hasVoiceRoute(name) ? compareState.route : "measured",
+    table: compareState.table,
+    expanded: new Set(),
+  };
   document.getElementById("profile-content").innerHTML =
     `<div class="profile-header">` +
     `<span class="profile-swatch" style="background:${talentColor(name)}"></span>` +
@@ -343,53 +467,361 @@ function renderProfile(name) {
     `(${escapeHtml(t.first_month || "—")} to ${escapeHtml(t.last_month || "—")}) &middot; ` +
     `${Math.round(t.legacy_fraction * 100)}% legacy features</p>` +
     legacyNote +
-    `<div class="profile-grid">` +
+    oneOffNote +
+    compareSectionHtml() +
     `<div class="profile-families">${DATA.families.map((f) => familyCardHtml(name, f)).join("")}</div>` +
-    `<div class="profile-radar-panel panel"><h2>Snapshot</h2>` +
-    `<div id="profile-radar" class="chart" style="min-height:320px"></div>` +
-    `<p class="control-hint">Percentile within the corpus, averaged per family. A family with ` +
-    `no comparable talents sits at the neutral midpoint, not a measured value.</p></div></div>` +
     `<p class="profile-closing">This shows a typical value, its trend, and this talent's own ` +
     `same-month measurement noise floor for each metric — a trend smaller than the noise floor ` +
     `is not distinguishable from measurement error. It does not, on its own, establish a change ` +
     `in anyone's voice: career time and recording era are hard to separate in this material. See ` +
     `the repository's <code>reference/limitations.md</code> for what this corpus can and cannot ` +
     `support.</p>`;
-  renderProfileRadar(name);
+
+  const add = document.getElementById("compare-add");
+  document.getElementById("compare-add-list").innerHTML = Object.keys(DATA.talents)
+    .sort()
+    .map((n) => `<option value="${escapeHtml(n)}"></option>`)
+    .join("");
+  add.addEventListener("change", () => {
+    if (DATA.talents[add.value]) addToCompare(add.value);
+    add.value = "";
+  });
+  document.getElementById("strips-table-toggle").addEventListener("click", () => {
+    compareState.table = !compareState.table;
+    renderStrips();
+  });
+  renderComparison();
 }
 
-function renderProfileRadar(name) {
-  const cats = DATA.families.map((f) => f.label);
-  const vals = DATA.families.map((f) => {
-    const pcts = f.metrics
-      .map((m) => DATA.talents[name].metrics[m] && DATA.talents[name].metrics[m].percentile)
-      .filter((v) => v != null);
-    return pcts.length ? pcts.reduce((a, b) => a + b, 0) / pcts.length : 50;
-  });
+function renderComparison() {
+  renderCompareChips();
+  renderClosest();
+  renderCompareRadar();
+  renderStrips();
+}
+
+function renderCompareChips() {
+  const full = compareState.others.length >= MAX_COMPARE;
+  document.getElementById("compare-chips").innerHTML = compareSelection()
+    .map((name, slot) => {
+      const color = talentColor(name);
+      const remove =
+        slot === 0
+          ? ""
+          : `<button type="button" class="chip-remove" data-remove="${escapeHtml(name)}" ` +
+            `aria-label="Remove ${escapeHtml(name)} from the comparison">×</button>`;
+      const label =
+        slot === 0
+          ? `<span>${escapeHtml(name)}</span>`
+          : `<a href="#talent/${encodeURIComponent(name)}">${escapeHtml(name)}</a>`;
+      return `<span class="chip selected compare-chip">${svgGlyph(slot, color)}${label}${remove}</span>`;
+    })
+    .join("");
+  for (const btn of document.querySelectorAll("#compare-chips [data-remove]")) {
+    btn.addEventListener("click", () => removeFromCompare(btn.dataset.remove));
+  }
+  const add = document.getElementById("compare-add");
+  add.disabled = full;
+  add.placeholder = full ? `up to ${MAX_COMPARE + 1} at once` : "+ add a talent…";
+}
+
+function renderClosest() {
+  const base = compareState.base;
+  const near = DATA.talents[base].neighbours || {};
+  const tabs = document.getElementById("route-tabs");
+  const routes = [];
+  if (near.voice) routes.push(["voice", "Sounds like"]);
+  routes.push(["measured", "Measured"]);
+  tabs.innerHTML = routes
+    .map(
+      ([key, label]) =>
+        `<button type="button" class="mode-btn${compareState.route === key ? " active" : ""}" ` +
+        `data-route="${key}" aria-pressed="${compareState.route === key}">${label}</button>`
+    )
+    .join("");
+  for (const btn of tabs.querySelectorAll("button")) {
+    btn.addEventListener("click", () => {
+      compareState.route = btn.dataset.route;
+      renderClosest();
+    });
+  }
+  const rows = near[compareState.route] || [];
+  const full = compareState.others.length >= MAX_COMPARE;
+  const list = document.getElementById("closest-list");
+  list.innerHTML = rows.length
+    ? rows
+        .map((row) => {
+          const chosen = compareSelection().includes(row.name);
+          const reasons = (row.closest_metrics || []).map(metricShort).join(" · ");
+          const action = chosen
+            ? `<button type="button" class="closest-toggle on" data-remove="${escapeHtml(row.name)}" ` +
+              `aria-label="Remove ${escapeHtml(row.name)} from the comparison">✓</button>`
+            : `<button type="button" class="closest-toggle" data-add="${escapeHtml(row.name)}" ` +
+              `${full ? "disabled" : ""} aria-label="Compare with ${escapeHtml(row.name)}">+</button>`;
+          return (
+            `<li class="closest-row">` +
+            `<span class="closest-swatch" style="background:${talentColor(row.name)}"></span>` +
+            `<span class="closest-body"><a href="#talent/${encodeURIComponent(row.name)}">${escapeHtml(row.name)}</a>` +
+            `<span class="closest-reasons">${reasons ? `close on ${escapeHtml(reasons)}` : ""}</span></span>` +
+            `<span class="closest-score" title="Closer than ${row.closer_than_pct.toFixed(1)}% of all talent pairs">` +
+            `${Math.round(row.closer_than_pct)}%</span>${action}</li>`
+          );
+        })
+        .join("")
+    : `<li class="closest-empty">No comparable talents yet.</li>`;
+  for (const btn of list.querySelectorAll("[data-add]")) {
+    btn.addEventListener("click", () => addToCompare(btn.dataset.add));
+  }
+  for (const btn of list.querySelectorAll("[data-remove]")) {
+    btn.addEventListener("click", () => removeFromCompare(btn.dataset.remove));
+  }
+  document.getElementById("closest-note").textContent =
+    compareState.route === "voice"
+      ? "Ranked by a speaker-recognition model's sense of how alike two voices sound, " +
+        "with the effect of the language spoken removed. The % is the share of all talent " +
+        "pairs that are further apart. “Close on” names the measured metrics where the pair " +
+        "is unusually close."
+      : "Ranked by the measured voice metrics, each weighed by how stable it is within " +
+        "one talent. The % is the share of all talent pairs that are further apart.";
+}
+
+function surfaceColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue("--panel").trim() || "#fff";
+}
+
+function renderCompareRadar() {
+  const metrics = DATA.radar_metrics || [];
+  const el = document.getElementById("compare-radar");
+  if (!metrics.length) {
+    el.innerHTML = `<p class="control-hint">No voice metrics to compare yet.</p>`;
+    return;
+  }
   const { fg, grid } = chartColors();
-  const color = talentColor(name);
+  const labels = metrics.map(metricShort);
+  let extent = 3;
+  const traces = compareSelection().map((name, slot) => {
+    const color = talentColor(name);
+    const r = metrics.map((m) => {
+      const e = DATA.talents[name].metrics[m];
+      const v = e && Number.isFinite(e.noise_units) ? e.noise_units : null;
+      if (v !== null) extent = Math.max(extent, Math.abs(v));
+      return v;
+    });
+    const custom = metrics.map((m) => {
+      const e = DATA.talents[name].metrics[m];
+      return e && Number.isFinite(e.typical) ? `${fmt(e.typical)} ${METRIC_META[m].unit}` : "no data";
+    });
+    return {
+      type: "scatterpolar",
+      name,
+      r: [...r, r[0]],
+      theta: [...labels, labels[0]],
+      customdata: [...custom, custom[0]],
+      mode: "lines+markers",
+      connectgaps: false,
+      fill: "toself",
+      fillcolor: color + "14",
+      line: { color, width: 2 },
+      marker: { color, size: 8, symbol: SLOT_SYMBOLS[slot], line: { color: surfaceColor(), width: 2 } },
+      hovertemplate: `<b>${escapeHtml(name)}</b><br>%{theta}: %{customdata}<br>%{r:.1f} from median<extra></extra>`,
+    };
+  });
+  const lim = Math.min(6, Math.ceil(extent));
+  const ticks = [];
+  for (let v = -lim; v <= lim; v += lim > 4 ? 2 : 1) ticks.push(v);
   Plotly.react(
-    "profile-radar",
-    [
-      {
-        type: "scatterpolar",
-        r: [...vals, vals[0]],
-        theta: [...cats, cats[0]],
-        fill: "toself",
-        line: { color },
-        marker: { color },
-      },
-    ],
+    el,
+    traces,
     {
       polar: {
         bgcolor: "transparent",
-        radialaxis: { range: [0, 100], gridcolor: grid, color: fg },
-        angularaxis: { gridcolor: grid, color: fg },
+        radialaxis: {
+          range: [-lim, lim],
+          tickvals: ticks,
+          ticktext: ticks.map((v) => (v === 0 ? "0 median" : String(v))),
+          gridcolor: grid,
+          color: fg,
+          tickfont: { size: 9 },
+          // Run the scale between the first two axes, not along one of them.
+          angle: 90 - 180 / metrics.length,
+          tickangle: 90 - 180 / metrics.length,
+        },
+        angularaxis: { gridcolor: grid, color: fg, direction: "clockwise" },
       },
       paper_bgcolor: "transparent",
+      font: { color: fg, size: 11 },
+      showlegend: false,
+      margin: el.clientWidth < 480 ? { t: 30, b: 30, l: 62, r: 62 } : { t: 30, b: 30, l: 50, r: 50 },
+    },
+    { displayModeBar: false, responsive: true }
+  );
+}
+
+// Direction hints for metrics whose sign is not obvious from the name.
+const STRIP_HINTS = {
+  median_f0: ["lower", "higher"],
+  h1h2_db: ["pressed", "airy"],
+  cpp_db: ["breathy", "clear"],
+  harmonic_tilt_db_per_octave: ["soft top", "full top"],
+  alpha_ratio_db: ["soft", "bright"],
+  hammarberg_db: ["bright", "soft"],
+  speaking_rate_syl_per_s: ["slower", "faster"],
+};
+
+function stripSvg(metric, width) {
+  width = Math.max(160, Math.round(width || 600));
+  const selection = compareSelection();
+  const lane = 12;
+  const top = 8;
+  const height = top + lane * selection.length + 6;
+  const all = Object.entries(DATA.talents)
+    .map(([n, t]) => [n, t.metrics[metric]])
+    .filter(([, e]) => e && Number.isFinite(e.typical));
+  if (!all.length) return `<span class="control-hint">no data</span>`;
+  let lo = Math.min(...all.map(([, e]) => e.typical));
+  let hi = Math.max(...all.map(([, e]) => e.typical));
+  for (const name of selection) {
+    const e = DATA.talents[name].metrics[metric];
+    if (e && Number.isFinite(e.ci_low)) lo = Math.min(lo, e.ci_low);
+    if (e && Number.isFinite(e.ci_high)) hi = Math.max(hi, e.ci_high);
+  }
+  const pad = (hi - lo) * 0.04 || 1;
+  lo -= pad;
+  hi += pad;
+  const x = (v) => (8 + ((v - lo) / (hi - lo)) * (width - 16)).toFixed(1);
+  const unit = METRIC_META[metric].unit;
+  const ticks = all
+    .filter(([n]) => !selection.includes(n))
+    .map(
+      ([n, e]) =>
+        `<line class="strip-other" x1="${x(e.typical)}" x2="${x(e.typical)}" y1="${top - 4}" ` +
+        `y2="${height - 2}"><title>${escapeHtml(n)}: ${fmt(e.typical)} ${escapeHtml(unit)}</title></line>`
+    )
+    .join("");
+  const marks = selection
+    .map((name, slot) => {
+      const e = DATA.talents[name].metrics[metric];
+      if (!e || !Number.isFinite(e.typical)) return "";
+      const y = top + lane * slot + lane / 2;
+      const color = talentColor(name);
+      const ci = Number.isFinite(e.ci_low)
+        ? `<line x1="${x(e.ci_low)}" x2="${x(e.ci_high)}" y1="${y}" y2="${y}" stroke="${color}" ` +
+          `stroke-width="2" stroke-linecap="round"/>`
+        : "";
+      const cx = Number(x(e.typical));
+      const ciText = Number.isFinite(e.ci_low) ? ` (95% CI ${fmt(e.ci_low)}–${fmt(e.ci_high)})` : "";
+      return (
+        `<g class="strip-mark">${ci}<g transform="translate(${cx - 6},${y - 6})" class="strip-glyph">` +
+        `${svgGlyph(slot, color)}</g>` +
+        `<rect x="${cx - 12}" y="${y - lane / 2}" width="24" height="${lane}" fill="transparent">` +
+        `<title>${escapeHtml(name)}: ${fmt(e.typical)} ${escapeHtml(unit)}${ciText}</title></rect></g>`
+      );
+    })
+    .join("");
+  const hint = STRIP_HINTS[metric];
+  return (
+    `<svg class="strip-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" ` +
+    `role="img" aria-label="${escapeHtml(METRIC_META[metric].label)} for the compared talents">` +
+    `<line class="strip-axis" x1="8" x2="${width - 8}" y1="${height - 2}" y2="${height - 2}"/>` +
+    `${ticks}${marks}</svg>` +
+    `<div class="strip-scale"><span>${fmt(lo + pad)}${hint ? ` · ${hint[0]}` : ""}</span>` +
+    `<span>${hint ? `${hint[1]} · ` : ""}${fmt(hi - pad)} ${escapeHtml(unit)}</span></div>`
+  );
+}
+
+function stripMetrics() {
+  return DATA.radar_metrics && DATA.radar_metrics.length
+    ? DATA.radar_metrics
+    : ["median_f0", "f0_iqr_semitones", "dynamism_semitones"];
+}
+
+function renderStrips() {
+  const el = document.getElementById("metric-strips");
+  const toggle = document.getElementById("strips-table-toggle");
+  toggle.textContent = compareState.table ? "Show strips" : "Show as table";
+  toggle.classList.toggle("active", compareState.table);
+  const selection = compareSelection();
+  if (compareState.table) {
+    el.innerHTML =
+      `<div class="table-view-wrap"><table class="data-table compare-table"><thead><tr><th>Metric</th>` +
+      selection.map((n, s) => `<th>${SLOT_GLYPHS[s]} ${escapeHtml(n)}</th>`).join("") +
+      `</tr></thead><tbody>` +
+      stripMetrics()
+        .map((m) => {
+          const cells = selection
+            .map((n) => {
+              const e = DATA.talents[n].metrics[m];
+              if (!e || !Number.isFinite(e.typical)) return `<td>—</td>`;
+              const ci = Number.isFinite(e.ci_low) ? ` (${fmt(e.ci_low)}–${fmt(e.ci_high)})` : "";
+              return `<td>${fmt(e.typical)}${ci}</td>`;
+            })
+            .join("");
+          return `<tr><td class="name-cell">${escapeHtml(METRIC_META[m].label)} (${escapeHtml(METRIC_META[m].unit)})</td>${cells}</tr>`;
+        })
+        .join("") +
+      `</tbody></table></div><p class="control-hint">Typical value (95% CI).</p>`;
+    return;
+  }
+  el.innerHTML = stripMetrics()
+    .map((m) => {
+      const open = compareState.expanded.has(m);
+      return (
+        `<div class="strip-row"><div class="strip-label">${escapeHtml(METRIC_META[m].label)}` +
+        `<button type="button" class="strip-expand" data-metric="${m}" aria-expanded="${open}">` +
+        `${open ? "▾" : "▸"} over time</button></div>` +
+        `<div class="strip-plot" data-metric="${m}"></div>` +
+        (open ? `<div class="strip-series chart" id="strip-series-${m}"></div>` : "") +
+        `</div>`
+      );
+    })
+    .join("");
+  for (const btn of el.querySelectorAll(".strip-expand")) {
+    btn.addEventListener("click", () => {
+      const m = btn.dataset.metric;
+      if (compareState.expanded.has(m)) compareState.expanded.delete(m);
+      else compareState.expanded.add(m);
+      renderStrips();
+    });
+  }
+  // Drawn at the plot's real pixel width, so marker shapes keep their size
+  // and proportions on a phone instead of being scaled with the viewBox.
+  for (const plot of el.querySelectorAll(".strip-plot")) {
+    plot.innerHTML = stripSvg(plot.dataset.metric, plot.clientWidth);
+  }
+  for (const m of compareState.expanded) renderStripSeries(m);
+}
+
+function renderStripSeries(metric) {
+  const el = document.getElementById(`strip-series-${metric}`);
+  if (!el) return;
+  const { fg, grid } = chartColors();
+  const unit = METRIC_META[metric].unit;
+  const traces = compareSelection().map((name, slot) => {
+    const series = (DATA.talents[name].metrics[metric] || {}).quarterly || [];
+    const color = talentColor(name);
+    return {
+      type: "scatter",
+      mode: "lines+markers",
+      name,
+      x: series.map((p) => p.period),
+      y: series.map((p) => p.median),
+      line: { color, width: 2 },
+      marker: { color, size: 8, symbol: SLOT_SYMBOLS[slot], line: { color: surfaceColor(), width: 2 } },
+      hovertemplate: `<b>${escapeHtml(name)}</b> %{x}<br>%{y:.3~g} ${escapeHtml(unit)}<extra></extra>`,
+    };
+  });
+  Plotly.react(
+    el,
+    traces,
+    {
+      xaxis: periodXAxis(grid),
+      yaxis: { gridcolor: grid, title: { text: unit, font: { size: 10 } }, zeroline: false },
+      paper_bgcolor: "transparent",
+      plot_bgcolor: "transparent",
       font: { color: fg, size: 10 },
       showlegend: false,
-      margin: { t: 30, b: 30, l: 30, r: 30 },
+      hovermode: "x unified",
+      margin: { t: 10, b: 60, l: 50, r: 10 },
     },
     { displayModeBar: false, responsive: true }
   );

@@ -491,3 +491,16 @@ def test_fetch_batch_stops_immediately_on_bot_check(tmp_path: Path) -> None:
         "the partial dest for the bot-checked id must be cleaned up"
     )
     assert not fetch.audio_path("month3never", tmp_path).exists()
+
+
+def test_fetch_audio_cuts_a_requested_section(tmp_path: Path) -> None:
+    """A one-off stretch of a stream (e.g. 10:00-25:00) is cut exactly as
+    asked, rather than the default 15:00-30:00 sample."""
+    calls: list[list[str]] = []
+    runner = _make_fake_runner(calls, tmp_path / "audio" / f"{VIDEO_ID}.wav")
+
+    fetch.fetch_audio(VIDEO_ID, tmp_path, runner=runner, section=(600.0, 1500.0))
+
+    ffmpeg = next(c for c in calls if c[0] == "ffmpeg")
+    assert int(float(ffmpeg[ffmpeg.index("-ss") + 1])) == 600
+    assert int(float(ffmpeg[ffmpeg.index("-to") + 1])) == 1500
