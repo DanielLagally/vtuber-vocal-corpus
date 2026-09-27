@@ -138,6 +138,105 @@ function fillSelect(id, values) {
     .join("");
 }
 
+// Talent name with the characters a fuzzy match hit (fuzzy.js) marked.
+function fuzzyLabelHtml(text, positions) {
+  const hit = new Set(positions);
+  return Array.from(text)
+    .map((c, i) => (hit.has(i) ? `<mark>${escapeHtml(c)}</mark>` : escapeHtml(c)))
+    .join("");
+}
+
+// A search box with a dropdown of fuzzy matches. Enter takes the highlighted
+// match: the first one, unless the arrow keys moved it.
+function attachFuzzyPicker(input, { items, onPick }) {
+  const wrap = document.createElement("span");
+  wrap.className = "fuzzy-wrap";
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+  const list = document.createElement("ul");
+  list.className = "fuzzy-list";
+  list.id = `${input.id}-options`;
+  list.setAttribute("role", "listbox");
+  list.hidden = true;
+  wrap.appendChild(list);
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("aria-controls", list.id);
+  input.setAttribute("aria-expanded", "false");
+  input.autocomplete = "off";
+
+  let results = [];
+  let active = 0;
+
+  function close() {
+    list.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
+  }
+
+  function render() {
+    results = fuzzyFilter(input.value.trim(), items(), (n) => n);
+    active = Math.min(active, Math.max(results.length - 1, 0));
+    if (!results.length || document.activeElement !== input) {
+      close();
+      return;
+    }
+    list.innerHTML = results
+      .map(
+        (r, i) =>
+          `<li id="${list.id}-${i}" role="option" class="fuzzy-option${i === active ? " active" : ""}" ` +
+          `aria-selected="${i === active}" data-index="${i}">` +
+          `<span class="closest-swatch" style="background:${talentColor(r.item)}"></span>` +
+          `<span>${fuzzyLabelHtml(r.item, r.positions)}</span></li>`
+      )
+      .join("");
+    list.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+    input.setAttribute("aria-activedescendant", `${list.id}-${active}`);
+    list.children[active]?.scrollIntoView({ block: "nearest" });
+  }
+
+  function pick(i) {
+    const name = results[i]?.item;
+    if (!name) return;
+    input.value = "";
+    close();
+    onPick(name);
+  }
+
+  input.addEventListener("input", () => {
+    active = 0;
+    render();
+  });
+  input.addEventListener("focus", () => {
+    input.select();
+    render();
+  });
+  input.addEventListener("blur", close);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (list.hidden) return render();
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      active = (active + step + results.length) % results.length;
+      render();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      pick(active);
+    } else if (e.key === "Escape") {
+      if (!list.hidden) close();
+      else input.value = "";
+    }
+  });
+  // mousedown, not click: picking must happen before the input blurs.
+  list.addEventListener("mousedown", (e) => {
+    const option = e.target.closest(".fuzzy-option");
+    if (!option) return;
+    e.preventDefault();
+    pick(Number(option.dataset.index));
+  });
+}
+
 function chartColors() {
   const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   return dark
@@ -246,7 +345,13 @@ function buildHomeFilters() {
 }
 
 function wireHomeControls() {
-  document.getElementById("talent-search").addEventListener("input", buildTalentGrid);
+  const search = document.getElementById("talent-search");
+  search.addEventListener("input", buildTalentGrid);
+  search.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const first = homeGridNames()[0];
+    if (first) location.hash = "talent/" + encodeURIComponent(first);
+  });
   document.getElementById("home-branch-filter").addEventListener("change", buildTalentGrid);
   document.getElementById("home-generation-filter").addEventListener("change", buildTalentGrid);
 }
@@ -282,16 +387,22 @@ function talentCardHtml(name) {
   );
 }
 
-function buildTalentGrid() {
-  const query = (document.getElementById("talent-search").value || "").toLowerCase();
+// The home grid's talents: filtered by branch and generation, then by the
+// search box, best match first.
+function homeGridNames() {
+  const query = document.getElementById("talent-search").value.trim();
   const branch = document.getElementById("home-branch-filter").value;
   const gen = document.getElementById("home-generation-filter").value;
-  const grid = document.getElementById("talent-grid");
   const names = Object.keys(DATA.talents)
     .sort()
-    .filter((name) => name.toLowerCase().includes(query))
     .filter((name) => branch === "All branches" || DATA.talents[name].branch === branch)
     .filter((name) => gen === "All generations" || DATA.talents[name].group.includes(gen));
+  return fuzzyFilter(query, names, (n) => n).map((r) => r.item);
+}
+
+function buildTalentGrid() {
+  const names = homeGridNames();
+  const grid = document.getElementById("talent-grid");
   grid.innerHTML = names.map(talentCardHtml).join("");
   for (const card of grid.querySelectorAll(".talent-card")) {
     card.addEventListener("click", () => {
@@ -316,19 +427,15 @@ function wireHighlightsControls() {
     Object.keys(DATA.highlights.signatures).map((n) => DATA.talents[n].branch)
   );
   fillSelect("highlights-branch-filter", ["All branches", ...[...branches].sort()]);
-  document.getElementById("highlights-focus-list").innerHTML = Object.keys(DATA.highlights.signatures)
-    .sort()
-    .map((n) => `<option value="${escapeHtml(n)}"></option>`)
-    .join("");
   document.getElementById("highlights-branch-filter").addEventListener("change", (e) => {
     highlightsBranch = e.target.value;
     renderHighlights();
   });
-  const focus = document.getElementById("highlights-focus");
-  focus.addEventListener("change", () => {
-    if (DATA.highlights.signatures[focus.value]) {
-      location.hash = "highlights/" + encodeURIComponent(focus.value);
-    }
+  attachFuzzyPicker(document.getElementById("highlights-focus"), {
+    items: () => Object.keys(DATA.highlights.signatures).sort(),
+    onPick: (name) => {
+      location.hash = "highlights/" + encodeURIComponent(name);
+    },
   });
   document.getElementById("highlights-focus-clear").addEventListener("click", () => {
     location.hash = "highlights";
@@ -671,9 +778,8 @@ function compareSectionHtml() {
     `<section class="compare-section panel">` +
     `<div class="compare-bar"><span class="compare-bar-label">Comparing</span>` +
     `<div id="compare-chips" class="compare-chips"></div>` +
-    `<input id="compare-add" type="text" list="compare-add-list" placeholder="+ add a talent…" ` +
-    `aria-label="Add a talent to the comparison" />` +
-    `<datalist id="compare-add-list"></datalist></div>` +
+    `<input id="compare-add" type="text" placeholder="+ add a talent…" ` +
+    `aria-label="Add a talent to the comparison" /></div>` +
     `<div class="compare-grid">` +
     `<div class="closest-panel"><div class="closest-head"><h3>Closest voices</h3>` +
     `<div id="route-tabs" class="mode-tabs" role="group" aria-label="Similarity route"></div></div>` +
@@ -727,14 +833,9 @@ function renderProfile(name, others = []) {
     `noise floor for each metric. A trend smaller than the noise floor is within measurement ` +
     `error, and trends can reflect changes in recording as well as in voice.</p>`;
 
-  const add = document.getElementById("compare-add");
-  document.getElementById("compare-add-list").innerHTML = Object.keys(DATA.talents)
-    .sort()
-    .map((n) => `<option value="${escapeHtml(n)}"></option>`)
-    .join("");
-  add.addEventListener("change", () => {
-    if (DATA.talents[add.value]) addToCompare(add.value);
-    add.value = "";
+  attachFuzzyPicker(document.getElementById("compare-add"), {
+    items: () => Object.keys(DATA.talents).sort().filter((n) => !compareSelection().includes(n)),
+    onPick: addToCompare,
   });
   document.getElementById("strips-table-toggle").addEventListener("click", () => {
     compareState.table = !compareState.table;
@@ -1126,9 +1227,9 @@ function membersOf(token) {
 }
 
 function renderChipPicker() {
-  const query = (document.getElementById("compare-search").value || "").toLowerCase();
+  const query = document.getElementById("compare-search").value.trim();
   const wrap = document.getElementById("chip-picker");
-  const tokens = chipTokens().filter((tok) => tok.label.toLowerCase().includes(query));
+  const tokens = fuzzyFilter(query, chipTokens(), (tok) => tok.label).map((r) => r.item);
   wrap.innerHTML = tokens
     .map((tok) => {
       const members = membersOf(tok);
@@ -1201,7 +1302,16 @@ function buildScatterAxisPickers() {
 }
 
 function wireCompareControls() {
-  document.getElementById("compare-search").addEventListener("input", renderChipPicker);
+  const search = document.getElementById("compare-search");
+  search.addEventListener("input", renderChipPicker);
+  // Enter toggles the best match and clears the box for the next one.
+  search.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const first = document.querySelector("#chip-picker .chip");
+    if (!first) return;
+    search.value = "";
+    first.click();
+  });
   document.getElementById("compare-select-none").addEventListener("click", () => {
     selectedCompare.clear();
     renderChipPicker();

@@ -948,6 +948,66 @@ select {
   margin: 0.75rem 0.25rem;
 }
 
+/* ---------- Fuzzy search dropdown ---------- */
+
+.fuzzy-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.fuzzy-wrap > input {
+  width: 100%;
+}
+
+.fuzzy-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: max(100%, 15rem);
+  max-height: 18rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.fuzzy-list[hidden] {
+  display: none;
+}
+
+.fuzzy-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 5px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fuzzy-option .closest-swatch {
+  height: 1rem;
+}
+
+.fuzzy-option.active,
+.fuzzy-option:hover {
+  background: var(--panel-hover);
+}
+
+.fuzzy-option mark {
+  background: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+
 /* ---------- Highlights ---------- */
 
 .highlights-intro {
