@@ -489,6 +489,24 @@ select {
   text-decoration: underline;
 }
 
+.closest-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.one-off-tag {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 0.45rem;
+  font-weight: 400;
+}
+
 .closest-reasons {
   color: var(--text-dim);
   font-size: 0.74rem;

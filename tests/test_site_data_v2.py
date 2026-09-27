@@ -29,6 +29,7 @@ logic client-side rather than duplicating brand-color data into Python.
 from __future__ import annotations
 
 import json
+import math
 
 import numpy as np
 
@@ -335,7 +336,9 @@ class TestNeighbours:
         )
         near = data["talents"]["Alpha"]["neighbours"]["voice"]
         assert near[0]["name"] == "Beta"
-        assert set(near[0]) == {"name", "similarity", "closer_than_pct", "closest_metrics"}
+        assert set(near[0]) == {
+            "name", "similarity", "match_pct", "closer_than_pct", "one_off", "closest_metrics"
+        }
         for talent in data["talents"].values():
             assert not any("embedding" in key or "centroid" in key for key in talent)
 
@@ -436,3 +439,51 @@ def test_a_one_off_can_declare_its_own_language():
     records = [{"one_off": True, "language": "en"}, {"one_off": True, "language": "en"}]
     assert site_data_v2.declared_language(records) == "EN"
     assert site_data_v2.declared_language([{"id": "x"}]) is None
+
+
+
+class TestVoiceMatchExport:
+    def test_neighbours_carry_an_absolute_match_on_both_routes(self):
+        t = TestNeighbours()
+        store = t._store()
+        v2_loader, v1_loader = _loaders(store, {p: [] for p in t._registry()})
+        data = site_data_v2.build_site_data_v2(
+            t._registry(),
+            v2_loader=v2_loader,
+            v1_loader=v1_loader,
+            embeddings=t._embeddings(store),
+        )
+        voice = data["talents"]["Alpha"]["neighbours"]["voice"]
+        by_name = {r["name"]: r for r in voice}
+        # Beta's voice points almost the same way as Alpha's; Gamma's does not.
+        assert by_name["Beta"]["match_pct"] > 90
+        assert by_name["Gamma"]["match_pct"] < 10
+        for row in data["talents"]["Alpha"]["neighbours"]["measured"]:
+            assert 0.0 <= row["match_pct"] <= 100.0 or math.isnan(row["match_pct"])
+        scale = data["similarity_scale"]
+        assert set(scale) == {"voice", "measured"}
+        assert set(scale["voice"]) == {"zero", "full"}
+
+    def test_a_one_off_shows_up_in_the_lists_of_the_talents_it_matches(self):
+        from vvc.embed import Embeddings
+
+        t = TestNeighbours()
+        store = t._store()
+        registry = t._registry()
+        store["data/measurements/v2/delta.json"] = [
+            {**_v2_rec(f"d@{i}", "2020-01", 301.0), "one_off": True} for i in range(3)
+        ]
+        registry["data/measurements/delta_monthly.json"] = "Delta"
+        embeddings = t._embeddings({k: v for k, v in store.items() if "delta" not in k})
+        embeddings["delta"] = Embeddings(
+            tuple(r["id"] for r in store["data/measurements/v2/delta.json"]),
+            np.array([[1.0, 0.0, 0.0]] * 3),
+            "fake",
+        )
+        v2_loader, v1_loader = _loaders(store, {p: [] for p in registry})
+        data = site_data_v2.build_site_data_v2(
+            registry, v2_loader=v2_loader, v1_loader=v1_loader, embeddings=embeddings
+        )
+        alpha = {r["name"]: r for r in data["talents"]["Alpha"]["neighbours"]["voice"]}
+        assert alpha["Delta"]["one_off"] is True
+        assert alpha["Beta"]["one_off"] is False

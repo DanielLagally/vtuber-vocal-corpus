@@ -61,5 +61,5 @@ speaker.
 
 A one-off covers a chosen stretch of a single stream instead of a monthly
 sample, for example a talent speaking another language. Every consecutive
-90-second window of the stretch is measured. One-offs appear as their own
-profile but are not ranked against other talents.
+90-second window of the stretch is measured. One-offs have their own profile
+and appear in closest-voice lists, but are not ranked against other talents.

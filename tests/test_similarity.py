@@ -9,8 +9,9 @@ Two independent routes, kept separate so each can check the other:
   lot, and several metrics reading the same quality cannot vote several times.
 - **Embeddings.** Cosine similarity of talent centroids.
 
-Scores are reported as "closer than X% of all talent pairs", which reads the
-same way for both routes. Nobody hand-picks which pairs "should" match.
+Scores are reported as an absolute voice match (0% a typical unrelated pair,
+100% as alike as a talent is to themselves) and as "closer than X% of all
+talent pairs". Nobody hand-picks which pairs "should" match.
 """
 
 from __future__ import annotations
@@ -106,16 +107,21 @@ class TestNeighbours:
         # A-B is the closest of 6 pairs: 5 of 6 pairs are further apart.
         assert out["A"][0]["closer_than_pct"] == pytest.approx(100 * 5 / 6)
 
-    def test_a_one_off_has_neighbours_but_is_nobody_elses(self):
+    def test_a_one_off_is_listed_and_tagged_but_does_not_shape_the_scores(self):
+        """A one-off appears in other talents' lists, tagged, so a match is
+        visible from both sides; it stays out of the pair distribution, so
+        nobody else's scores move because of it."""
         dist = self._distances()
-        out = similarity.neighbours(
-            ["A", "B", "C", "D"],
-            lambda a, b: dist[tuple(sorted((a, b)))],
-            k=3,
-            one_off={"B"},
-        )
-        assert "B" not in [n["name"] for n in out["A"]]
-        assert [n["name"] for n in out["B"]][0] == "A"
+        score = lambda a, b: dist[tuple(sorted((a, b)))]
+        with_b = similarity.neighbours(["A", "B", "C", "D"], score, k=3, one_off={"B"})
+        a_row = next(n for n in with_b["A"] if n["name"] == "B")
+        assert a_row["one_off"] is True
+        assert [n["name"] for n in with_b["B"]][0] == "A"
+        without_b = similarity.neighbours(["A", "C", "D"], score, k=3)
+        for row in without_b["A"]:
+            same = next(n for n in with_b["A"] if n["name"] == row["name"])
+            assert same["closer_than_pct"] == row["closer_than_pct"]
+            assert same["one_off"] is False
 
     def test_similarity_can_be_higher_is_closer(self):
         sims = {("A", "B"): 0.9, ("A", "C"): 0.1, ("B", "C"): 0.5}
@@ -160,3 +166,38 @@ def test_explanations_can_be_limited_to_audible_metrics():
     )
     a, b = {"x": 0.0, "y": 1.0, "z": 2.0}, {"x": 0.0, "y": 0.0, "z": 0.0}
     assert space.closest_metrics(a, b, k=2, among=("y", "z")) == ["y", "z"]
+
+
+
+class TestVoiceMatch:
+    """An absolute score: 0% is a typical unrelated pair, 100% is as alike as a
+    talent is to themselves across their own clips. Unlike a rank, it does not
+    saturate: the top matches of every talent are not all near 100%."""
+
+    def test_similarity_scale(self):
+        assert similarity.match_percent(0.0, zero=0.0, full=1.0) == pytest.approx(0.0)
+        assert similarity.match_percent(1.0, zero=0.0, full=1.0) == pytest.approx(100.0)
+        assert similarity.match_percent(0.45, zero=-0.05, full=0.95) == pytest.approx(50.0)
+
+    def test_distance_scale_runs_the_other_way(self):
+        # Smaller distance is closer: zero anchors at the typical pair distance.
+        assert similarity.match_percent(4.0, zero=4.0, full=1.0) == pytest.approx(0.0)
+        assert similarity.match_percent(2.5, zero=4.0, full=1.0) == pytest.approx(50.0)
+
+    def test_it_is_clipped_to_the_scale(self):
+        assert similarity.match_percent(-0.3, zero=0.0, full=1.0) == 0.0
+        assert similarity.match_percent(1.2, zero=0.0, full=1.0) == 100.0
+
+    def test_an_undefined_scale_gives_no_score(self):
+        assert math.isnan(similarity.match_percent(0.5, zero=1.0, full=1.0))
+
+    def test_neighbours_carry_the_match_when_given_a_scale(self):
+        sims = {("A", "B"): 0.9, ("A", "C"): 0.1, ("B", "C"): 0.5}
+        out = similarity.neighbours(
+            ["A", "B", "C"],
+            lambda a, b: sims[tuple(sorted((a, b)))],
+            k=2,
+            higher_is_closer=True,
+            scale=(0.0, 1.0),
+        )
+        assert out["A"][0]["match_pct"] == pytest.approx(90.0)

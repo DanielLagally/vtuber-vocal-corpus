@@ -15,14 +15,15 @@ unusually close — closer than talents typically differ — are *why* it matche
 **Embeddings** (``embed.py``): cosine similarity of talent centroids. Stronger,
 but it cannot say why.
 
-Both are reported as "closer than X% of all talent pairs", so the two read the
-same way and neither needs a threshold picked by hand. Nobody decides which
+Both are reported as an absolute match — 0% a typical unrelated pair, 100% as
+alike as a talent is to themselves — and as "closer than X% of all talent
+pairs", so the two read the same way and neither needs a threshold picked by
+hand. Nobody decides which
 pairs "should" match; ``voice_validate`` checks the routes against each other
 and against speaker-identification accuracy instead.
 
-A one-off data point (``segment.py``) gets its own neighbours but is never
-listed as anyone else's, and never shapes the pair distribution the scores are
-read against.
+A one-off data point (``segment.py``) appears in neighbour lists, tagged, but
+never shapes the pair distribution the scores are read against.
 """
 
 from __future__ import annotations
@@ -159,6 +160,17 @@ def fit_metric_space(
     return MetricSpace(metrics, shrunk)
 
 
+def match_percent(value: float, *, zero: float, full: float) -> float:
+    """An absolute match on a 0-100 scale: ``zero`` scores 0 (a typical
+    unrelated pair), ``full`` scores 100 (as alike as a talent is to
+    themselves). Works for similarities and distances alike, since only the
+    direction from ``zero`` to ``full`` matters. Clipped to the scale;
+    ``nan`` when the scale is undefined."""
+    if not all(math.isfinite(v) for v in (value, zero, full)) or full == zero:
+        return math.nan
+    return float(min(100.0, max(0.0, 100.0 * (value - zero) / (full - zero))))
+
+
 def neighbours(
     names: Sequence[str],
     score: Callable[[str, str], float],
@@ -166,12 +178,16 @@ def neighbours(
     k: int = 8,
     one_off: Iterable[str] = (),
     higher_is_closer: bool = False,
+    scale: tuple[float, float] | None = None,
 ) -> dict[str, list[dict]]:
     """Each talent's ``k`` closest others, closest first.
 
     ``closer_than_pct`` is the share of ordinary talent pairs further apart
-    than this one. One-offs are nobody's neighbour and are not in that
-    reference distribution. An undefined score leaves the pair out.
+    than this one. One-offs appear in other talents' lists, tagged
+    ``one_off``, but are left out of that reference distribution, so they
+    never move anyone else's score. With ``scale`` (zero, full), each row also
+    carries an absolute ``match_pct`` (see ``match_percent``). An undefined
+    score leaves the pair out.
     """
     one_off = set(one_off)
     names = list(names)
@@ -200,12 +216,20 @@ def neighbours(
     for name in names:
         rows = []
         for other in names:
-            if other == name or other in one_off:
+            if other == name:
                 continue
             value = pair_score.get(key(name, other))
             if value is None:
                 continue
-            rows.append({"name": other, "value": value, "closer_than_pct": closer_than_pct(value)})
+            row = {
+                "name": other,
+                "value": value,
+                "closer_than_pct": closer_than_pct(value),
+                "one_off": other in one_off,
+            }
+            if scale is not None:
+                row["match_pct"] = match_percent(value, zero=scale[0], full=scale[1])
+            rows.append(row)
         rows.sort(key=lambda r: (-closeness(r["value"]), r["name"]))
         out[name] = rows[:k]
     return out

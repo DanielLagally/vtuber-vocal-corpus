@@ -556,10 +556,12 @@ function renderClosest() {
           return (
             `<li class="closest-row">` +
             `<span class="closest-swatch" style="background:${talentColor(row.name)}"></span>` +
-            `<span class="closest-body"><a href="#talent/${encodeURIComponent(row.name)}">${escapeHtml(row.name)}</a>` +
+            `<span class="closest-body"><span class="closest-name">` +
+            `<a href="#talent/${encodeURIComponent(row.name)}">${escapeHtml(row.name)}</a>` +
+            `${row.one_off ? `<span class="one-off-tag">one-off</span>` : ""}</span>` +
             `<span class="closest-reasons">${reasons ? `close on ${escapeHtml(reasons)}` : ""}</span></span>` +
-            `<span class="closest-score" title="Closer than ${row.closer_than_pct.toFixed(1)}% of all talent pairs">` +
-            `${Math.round(row.closer_than_pct)}%</span>${action}</li>`
+            `<span class="closest-score" title="Voice match ${fmtPct(row.match_pct)} · closer than ` +
+            `${row.closer_than_pct.toFixed(1)}% of talent pairs">${fmtPct(row.match_pct)}</span>${action}</li>`
           );
         })
         .join("")
@@ -572,10 +574,14 @@ function renderClosest() {
   }
   document.getElementById("closest-note").textContent =
     compareState.route === "voice"
-      ? "Ranked by a speaker-recognition model, adjusted for language. The percentage is " +
-        "the share of talent pairs that are further apart."
-      : "Ranked by the measured voice metrics. The percentage is the share of talent pairs " +
-        "that are further apart.";
+      ? "Voice match from a speaker-recognition model, adjusted for language. 100% means as " +
+        "alike as a talent is to themselves across streams; 0% is a typical unrelated pair."
+      : "Voice match from the measured voice metrics. 100% means as alike as a talent is to " +
+        "themselves across streams; 0% is a typical unrelated pair.";
+}
+
+function fmtPct(x) {
+  return Number.isFinite(x) ? `${Math.round(x)}%` : "—";
 }
 
 function surfaceColor() {

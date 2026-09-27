@@ -253,6 +253,35 @@ def _noise_units(
     return out
 
 
+#: A talent needs at least this many usable clips to be split into two halves
+#: for the "as alike as themselves" anchor of the absolute match score.
+SELF_SPLIT_MIN_CLIPS = 4
+
+
+def _halves(records: list[dict]) -> tuple[list[dict], list[dict]] | None:
+    """A talent's usable clips split in two, deterministically: sorted by id
+    and dealt alternately, so both halves span the whole career."""
+    usable = sorted((r for r in records if _usable(r)), key=lambda r: str(r.get("id", "")))
+    if len(usable) < SELF_SPLIT_MIN_CLIPS:
+        return None
+    return usable[0::2], usable[1::2]
+
+
+def _typical_values(records: list[dict], metrics: tuple[str, ...]) -> dict[str, float]:
+    """Typical value per metric (median of monthly medians), as the site uses."""
+    out = {}
+    for metric in metrics:
+        months = series_v2.monthly_series(records, metric)
+        if months:
+            out[metric] = float(np.median([m["median"] for m in months]))
+    return out
+
+
+def _median(values: list[float]) -> float:
+    finite = [v for v in values if v == v]
+    return float(np.median(finite)) if finite else float("nan")
+
+
 def _measured_neighbours(
     space: similarity.MetricSpace | None,
     talents_records: dict[str, list[dict]],
@@ -260,25 +289,45 @@ def _measured_neighbours(
     one_off: dict[str, bool],
 ) -> dict[str, list[dict]]:
     """Closest voices by the measured route (similarity.py), explained by the
-    metrics on which each pair sits closest."""
+    metrics on which each pair sits closest.
+
+    The absolute match runs from the median distance between two ordinary
+    talents (0%) to the median distance between two halves of one talent's own
+    clips (100%). Returns the lists and that scale."""
     if space is None:
-        return {}
+        return {}, None
     names = [name for name in talents_records if typicals[name]]
-    spread = similarity.between_spread(
-        space, [typicals[n] for n in names if not one_off[n]]
+    ordinary = [n for n in names if not one_off[n]]
+    spread = similarity.between_spread(space, [typicals[n] for n in ordinary])
+    zero = _median(
+        [
+            space.distance(typicals[a], typicals[b])
+            for i, a in enumerate(ordinary)
+            for b in ordinary[i + 1 :]
+        ]
     )
+    selves = []
+    for name in ordinary:
+        halves = _halves(talents_records[name])
+        if halves is not None:
+            first, second = (_typical_values(h, space.metrics) for h in halves)
+            selves.append(space.distance(first, second))
+    scale = (zero, _median(selves))
     lists = similarity.neighbours(
         names,
         lambda a, b: space.distance(typicals[a], typicals[b]),
         k=NEIGHBOURS_K,
         one_off={name for name in names if one_off[name]},
+        scale=scale,
     )
     return {
         name: [
             {
                 "name": row["name"],
                 "distance": row["value"],
+                "match_pct": row["match_pct"],
                 "closer_than_pct": row["closer_than_pct"],
+                "one_off": row["one_off"],
                 "closest_metrics": space.closest_metrics(
                     typicals[name], typicals[row["name"]], k=3, spread=spread, among=RADAR_METRICS
                 ),
@@ -286,7 +335,7 @@ def _measured_neighbours(
             for row in rows
         ]
         for name, rows in lists.items()
-    }
+    }, scale
 
 
 def language_group(branch: str | None) -> str | None:
@@ -342,16 +391,35 @@ def _voice_neighbours(
         ]
         if members:
             group_means[language] = np.mean(members, axis=0)
-    centroids = {
-        n: c - group_means[language_of[n]] if language_of.get(n) in group_means else c
-        for n, c in centroids.items()
-    }
+    def compensate(name: str, vector: np.ndarray) -> np.ndarray:
+        language = language_of.get(name)
+        return vector - group_means[language] if language in group_means else vector
+
+    # The absolute match runs from the median similarity of two ordinary
+    # talents (0%) to the median similarity between two halves of one
+    # talent's own clips (100%), both after language compensation.
+    selves = []
+    for name in centroids:
+        halves = _halves(talents_records[name]) if not one_off[name] else None
+        if halves is None:
+            continue
+        emb = embeddings[slugs[name]]
+        first, second = (talent_centroid(h, emb) for h in halves)
+        if first is not None and second is not None:
+            selves.append(cosine(compensate(name, first), compensate(name, second)))
+    centroids = {n: compensate(n, c) for n, c in centroids.items()}
+    ordinary = [n for n in centroids if not one_off[n]]
+    zero = _median(
+        [cosine(centroids[a], centroids[b]) for i, a in enumerate(ordinary) for b in ordinary[i + 1 :]]
+    )
+    scale = (zero, _median(selves))
     lists = similarity.neighbours(
         list(centroids),
         lambda a, b: cosine(centroids[a], centroids[b]),
         k=NEIGHBOURS_K,
         one_off={name for name in centroids if one_off[name]},
         higher_is_closer=True,
+        scale=scale,
     )
     spread = (
         similarity.between_spread(space, [typicals[n] for n in typicals if not one_off[n]])
@@ -369,13 +437,15 @@ def _voice_neighbours(
             {
                 "name": r["name"],
                 "similarity": r["value"],
+                "match_pct": r["match_pct"],
                 "closer_than_pct": r["closer_than_pct"],
+                "one_off": r["one_off"],
                 "closest_metrics": reasons(name, r["name"]),
             }
             for r in rows
         ]
         for name, rows in lists.items()
-    }
+    }, scale
 
 
 def _legacy_fraction(records: list[dict]) -> float:
@@ -480,13 +550,13 @@ def build_site_data_v2(
             languages[name] = language_group(_branch_for_group(groups[0]))
     languages.update(language_of or {})
     space = _fit_space(talents_records, one_off)
-    measured_near = _measured_neighbours(space, talents_records, typicals, one_off)
-    voice_near = (
+    measured_near, measured_scale = _measured_neighbours(space, talents_records, typicals, one_off)
+    voice_near, voice_scale = (
         _voice_neighbours(
             talents_records, slugs, embeddings, one_off, space, typicals, languages
         )
         if embeddings
-        else {}
+        else ({}, None)
     )
     units = _noise_units(space, typicals, one_off) if space is not None else {}
 
@@ -547,6 +617,11 @@ def build_site_data_v2(
             feature_keys=ALL_METRICS,
         ),
         "generation_order": _generation_order(groups_present),
+        "similarity_scale": {
+            route: {"zero": scale[0], "full": scale[1]}
+            for route, scale in (("voice", voice_scale), ("measured", measured_scale))
+            if scale is not None
+        },
         "radar_metrics": [
             m for m in RADAR_METRICS if space is not None and m in space.metrics
         ],

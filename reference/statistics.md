@@ -42,7 +42,8 @@ recording context describes the recordings rather than the voice.
 
 Percentiles rank each talent's typical value against all other talents. One-off
 profiles are placed within that ranking without changing anyone else's
-percentile.
+percentile. They appear in closest-voice lists, tagged, but do not affect other
+talents' scores.
 
 ## Voice similarity
 
@@ -59,9 +60,12 @@ clips, and correlated metrics are accounted for together, so noisy or redundant
 metrics count for less (a Mahalanobis distance under the pooled within-talent
 covariance). Frequencies are compared on a log scale.
 
-Both are reported as the share of all talent pairs that are further apart. Each
-match lists the metrics on which the pair is unusually close compared with how
-much talents typically differ.
+Both are reported as a **voice match** from 0% to 100%. 0% is the median
+similarity between two unrelated talents; 100% is the median similarity between
+two halves of one talent's own clips, i.e. as alike as a talent is to
+themselves across streams. The rank among all talent pairs is shown on hover.
+Each match lists the metrics on which the pair is unusually close compared with
+how much talents typically differ.
 
 The radar chart shows each talent's distance from the median talent on each
 voice metric, in units of within-talent variation.
