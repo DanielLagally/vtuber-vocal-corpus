@@ -8,6 +8,9 @@
   --robust: #3ddc97;
   --experimental: #f7b955;
   --panel-hover: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  --gold: #e8c15a;
+  --silver: #b8c0cc;
+  --bronze: #d19566;
 }
 
 @media (prefers-color-scheme: light) {
@@ -21,6 +24,9 @@
     --robust: #1d9a6c;
     --experimental: #b3760a;
     --panel-hover: color-mix(in srgb, var(--accent) 10%, var(--panel));
+    --gold: #b8860b;
+    --silver: #7b8494;
+    --bronze: #a0602e;
   }
 }
 
@@ -940,6 +946,265 @@ select {
   font-size: 0.82rem;
   white-space: pre-line;
   margin: 0.75rem 0.25rem;
+}
+
+/* ---------- Highlights ---------- */
+
+.highlights-intro {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  max-width: 80ch;
+  margin: 0 0 1.25rem;
+}
+
+.highlights-clear {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.highlights-section {
+  margin-bottom: 1.75rem;
+}
+
+.highlights-section > h2 {
+  margin: 0 0 0.7rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.highlights-note {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  margin: -0.3rem 0 0.7rem;
+}
+
+.award-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+  gap: 0.8rem;
+  /* An opened card grows alone; its neighbours keep their height. */
+  align-items: start;
+}
+
+.award-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.award-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.award-blurb {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin: 0.2rem 0 0.6rem;
+}
+
+.podium {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.podium-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.3rem;
+  border-top: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.podium-row:first-child {
+  border-top: none;
+}
+
+.podium-row.focus {
+  background: var(--panel-hover);
+}
+
+.podium-place {
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border: 2px solid var(--border);
+  color: var(--text-dim);
+}
+
+.podium-place.place-1 {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.podium-place.place-2 {
+  border-color: var(--silver);
+  color: var(--silver);
+}
+
+.podium-place.place-3 {
+  border-color: var(--bronze);
+  color: var(--bronze);
+}
+
+.podium-swatches {
+  flex: none;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.podium-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.podium-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.podium-name a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.podium-name a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.podium-delta {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+}
+
+.podium-value {
+  flex: none;
+  max-width: 45%;
+  text-align: right;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.podium-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.podium-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.podium-chevron {
+  width: 0.8rem;
+  height: 0.8rem;
+  transition: transform 0.15s ease;
+}
+
+.podium-toggle.open .podium-chevron {
+  transform: rotate(180deg);
+}
+
+.podium-more {
+  position: relative;
+  max-height: 20rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-top: 0.35rem;
+  border-top: 1px solid var(--border);
+}
+
+.podium-more .podium-row:first-child {
+  border-top: none;
+}
+
+.podium-preview {
+  margin-top: 0.35rem;
+}
+
+.too-close {
+  color: var(--text-dim);
+  cursor: help;
+}
+
+.signature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  gap: 0.5rem;
+}
+
+.signature-card {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.signature-card:hover,
+.signature-card.focus {
+  background: var(--panel-hover);
+  border-color: var(--accent);
+}
+
+.signature-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.signature-name {
+  font-size: 0.88rem;
+}
+
+.signature-award {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+}
+
+.profile-signature {
+  margin: -0.2rem 0 0.8rem;
+  font-size: 0.88rem;
 }
 
 .site-footer {

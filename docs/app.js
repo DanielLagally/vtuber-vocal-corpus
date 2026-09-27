@@ -161,6 +161,7 @@ function main() {
 
   wireNav();
   wireHomeControls();
+  wireHighlightsControls();
   wireCompareControls();
 
   route();
@@ -180,6 +181,10 @@ function route() {
   if (hash.startsWith("talent/")) {
     const { name, others } = parseTalentHash(hash.slice("talent/".length));
     showProfile(name, others);
+  } else if (hash === "highlights" || hash.startsWith("highlights/")) {
+    highlightsFocus = decodeURIComponent(hash.slice("highlights/".length));
+    if (!DATA.highlights.signatures[highlightsFocus]) highlightsFocus = "";
+    showView("highlights");
   } else if (hash === "compare") {
     showView("compare");
   } else {
@@ -195,6 +200,7 @@ function showView(view) {
     btn.classList.toggle("active", btn.dataset.view === view);
   }
   if (view === "home") buildTalentGrid();
+  if (view === "highlights") renderHighlights();
   if (view === "compare") {
     renderChipPicker();
     renderCompare();
@@ -292,6 +298,251 @@ function buildTalentGrid() {
       location.hash = "talent/" + encodeURIComponent(card.dataset.name);
     });
   }
+}
+
+// ---------------------------------------------------------------------
+// Highlights view
+//
+// Awards, rankings and signatures all come from DATA.highlights
+// (src/vvc/highlights.py). This view only filters and formats them.
+// ---------------------------------------------------------------------
+
+let highlightsBranch = "All branches";
+let highlightsFocus = "";
+const highlightsExpanded = new Set();
+
+function wireHighlightsControls() {
+  const branches = new Set(
+    Object.keys(DATA.highlights.signatures).map((n) => DATA.talents[n].branch)
+  );
+  fillSelect("highlights-branch-filter", ["All branches", ...[...branches].sort()]);
+  document.getElementById("highlights-focus-list").innerHTML = Object.keys(DATA.highlights.signatures)
+    .sort()
+    .map((n) => `<option value="${escapeHtml(n)}"></option>`)
+    .join("");
+  document.getElementById("highlights-branch-filter").addEventListener("change", (e) => {
+    highlightsBranch = e.target.value;
+    renderHighlights();
+  });
+  const focus = document.getElementById("highlights-focus");
+  focus.addEventListener("change", () => {
+    if (DATA.highlights.signatures[focus.value]) {
+      location.hash = "highlights/" + encodeURIComponent(focus.value);
+    }
+  });
+  document.getElementById("highlights-focus-clear").addEventListener("click", () => {
+    location.hash = "highlights";
+  });
+  document.getElementById("highlights-content").addEventListener("click", (e) => {
+    const btn = e.target.closest(".podium-toggle");
+    if (!btn) return;
+    const key = btn.dataset.award;
+    if (highlightsExpanded.has(key)) highlightsExpanded.delete(key);
+    else highlightsExpanded.add(key);
+    const card = btn.closest(".award-card");
+    card.outerHTML = awardCardHtml(awardByKey(key));
+    revealFocus(document.querySelector(`.award-card[data-award="${key}"]`));
+  });
+}
+
+// Scroll an opened ranking so the focused talent's row is in view.
+function revealFocus(card) {
+  const list = card && card.querySelector(".podium-more");
+  const row = list && list.querySelector(".podium-row.focus");
+  if (row) list.scrollTop = row.offsetTop - list.clientHeight / 2 + row.clientHeight / 2;
+}
+
+function awardByKey(key) {
+  return DATA.highlights.awards.find((a) => a.key === key);
+}
+
+// A row is in the chosen branch when every talent it names is.
+function rowMembers(award, row) {
+  if (award.section === "groups") return row.members;
+  return row.members || [row.name];
+}
+
+function rowInBranch(award, row) {
+  if (highlightsBranch === "All branches") return true;
+  const members = rowMembers(award, row);
+  return award.section === "groups"
+    ? members.some((m) => DATA.talents[m].branch === highlightsBranch)
+    : members.every((m) => DATA.talents[m].branch === highlightsBranch);
+}
+
+function signed(x, digits, unit, up, down) {
+  return `${Math.abs(x).toFixed(digits)}${unit} ${x >= 0 ? up : down}`;
+}
+
+function awardValueText(award, row) {
+  const v = row.value;
+  switch (award.key) {
+    case "one_of_a_kind":
+      return `closest match ${fmtPct(v)} (${escapeHtml(row.closest)})`;
+    case "voice_twins":
+      return `${fmtPct(v)} voice match`;
+    case "most_harmonious_generation":
+    case "most_varied_generation":
+      return `more alike than ${fmtPct(v)} of talent pairs`;
+    case "pitch_journey":
+      return `${Math.round(row.from_hz)} → ${Math.round(row.to_hz)} Hz`;
+    case "longest_record":
+      return `${v} months since ${escapeHtml(row.since)}`;
+  }
+  switch (award.metric) {
+    case "median_f0":
+    case "brightness_hz":
+      return `${Math.round(v)} Hz`;
+    case "voiced_fraction":
+      return `${Math.round(v * 100)}% of the time`;
+    case "speaking_rate_syl_per_s":
+      return `${v.toFixed(1)} syllables/s`;
+    case "dynamism_semitones":
+      return `${v.toFixed(2)} semitones`;
+    default:
+      return `${v.toFixed(1)} ${METRIC_META[award.metric]?.unit || ""}`;
+  }
+}
+
+function awardDeltaText(award, row) {
+  if (award.key === "pitch_journey") {
+    return `${signed(row.value, 1, " semitones", "higher", "lower")} since ${escapeHtml(row.since.slice(0, 4))}`;
+  }
+  if (award.key === "voice_twins") return "";
+  if (award.key.endsWith("_generation")) return row.members.map(escapeHtml).join(", ");
+  if (!Number.isFinite(row.delta)) return "";
+  if (award.delta_unit === "semitones") {
+    return `${signed(row.delta, 1, " semitones", "above", "below")} the typical talent`;
+  }
+  if (award.delta_unit === "percent") {
+    return `${signed(row.delta, 0, "%", "above", "below")} the typical talent`;
+  }
+  const digits = award.metric === "dynamism_semitones" ? 2 : 1;
+  const unit = METRIC_META[award.metric]?.unit || "";
+  return `${signed(row.delta, digits, ` ${unit}`, "above", "below")} the typical talent`;
+}
+
+function talentLink(name) {
+  const duo = DATA.highlights.duos.includes(name) ? `<span class="one-off-tag">duo</span>` : "";
+  return `<a href="#talent/${encodeURIComponent(name)}">${escapeHtml(name)}</a>${duo}`;
+}
+
+function podiumRowHtml(award, row, place) {
+  const members = award.section === "groups" ? [] : rowMembers(award, row);
+  const swatches = members
+    .map((m) => `<span class="closest-swatch" style="background:${talentColor(m)}"></span>`)
+    .join("");
+  const name = award.section === "groups"
+    ? `<span>${escapeHtml(row.name)}</span>`
+    : members.map(talentLink).join(" &amp; ");
+  // Overlap is judged against the neighbour in the full ranking, so it is
+  // only shown when nothing has been filtered out between them.
+  const close = row.too_close && highlightsBranch === "All branches"
+    ? `<span class="too-close" title="Within measurement uncertainty of the place above">≈</span>`
+    : "";
+  const focus = highlightsFocus && members.includes(highlightsFocus) ? " focus" : "";
+  const delta = awardDeltaText(award, row);
+  return (
+    `<li class="podium-row${focus}">` +
+    `<span class="podium-place place-${Math.min(place, 4)}">${place}</span>` +
+    `<span class="podium-swatches">${swatches}</span>` +
+    `<span class="podium-body"><span class="podium-name">${name}${close}</span>` +
+    (delta ? `<span class="podium-delta">${delta}</span>` : "") +
+    `</span><span class="podium-value">${awardValueText(award, row)}</span></li>`
+  );
+}
+
+function awardCardHtml(award) {
+  const rows = award.ranking.filter((row) => rowInBranch(award, row));
+  if (!rows.length) return "";
+  const open = highlightsExpanded.has(award.key);
+  const html = rows.slice(0, 3).map((row, i) => podiumRowHtml(award, row, i + 1)).join("");
+  // The focused talent's place, shown only where they are in the top half:
+  // each scale has an award at both ends, so this is the flattering side.
+  let preview = "";
+  if (!open && highlightsFocus && award.section !== "groups") {
+    const at = rows.findIndex((row) => rowMembers(award, row).includes(highlightsFocus));
+    if (at >= 3 && at < rows.length / 2) {
+      preview = `<ol class="podium podium-preview">${podiumRowHtml(award, rows[at], at + 1)}</ol>`;
+    }
+  }
+  // The toggle sits directly under the podium, with everything that opens or
+  // closes below it, so the arrow stays put in both states.
+  const rest = rows.slice(3);
+  const toggle = rest.length
+    ? `<button type="button" class="podium-toggle${open ? " open" : ""}" data-award="${award.key}" ` +
+      `aria-expanded="${open}" aria-controls="more-${award.key}">` +
+      `<span>${open ? "Hide full ranking" : `Show all ${rows.length}`}</span>` +
+      `<svg class="podium-chevron" viewBox="0 0 12 12" aria-hidden="true">` +
+      `<path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" ` +
+      `stroke-linecap="round" stroke-linejoin="round"/></svg></button>`
+    : "";
+  const more = open
+    ? `<ol class="podium podium-more" id="more-${award.key}">` +
+      rest.map((row, i) => podiumRowHtml(award, row, i + 4)).join("") +
+      `</ol>`
+    : "";
+  return (
+    `<article class="award-card panel" data-award="${award.key}">` +
+    `<header class="award-head"><h3>${escapeHtml(award.title)}</h3></header>` +
+    `<p class="award-blurb">${escapeHtml(award.blurb)}</p>` +
+    `<ol class="podium">${html}</ol>${toggle}${preview}${more}</article>`
+  );
+}
+
+function signatureText(name) {
+  const sig = DATA.highlights.signatures[name];
+  if (!sig) return "";
+  return `${escapeHtml(awardByKey(sig.award).title)} · #${sig.rank} of ${sig.of}`;
+}
+
+function signaturesHtml() {
+  const names = Object.keys(DATA.highlights.signatures)
+    .filter((n) => highlightsBranch === "All branches" || DATA.talents[n].branch === highlightsBranch)
+    .sort();
+  return (
+    `<section class="highlights-section"><h2>Signatures</h2>` +
+    `<p class="highlights-note">Every talent's best placing across the awards above.</p>` +
+    `<div class="signature-grid">` +
+    names
+      .map(
+        (n) =>
+          `<a class="signature-card${n === highlightsFocus ? " focus" : ""}" ` +
+          `href="#highlights/${encodeURIComponent(n)}">` +
+          `<span class="closest-swatch" style="background:${talentColor(n)}"></span>` +
+          `<span class="signature-body"><span class="signature-name">${escapeHtml(n)}</span>` +
+          `<span class="signature-award">${signatureText(n)}</span></span></a>`
+      )
+      .join("") +
+    `</div></section>`
+  );
+}
+
+function renderHighlights() {
+  const hl = DATA.highlights;
+  document.getElementById("highlights-branch-filter").value = highlightsBranch;
+  document.getElementById("highlights-focus").value = highlightsFocus;
+  document.getElementById("highlights-focus-clear").hidden = !highlightsFocus;
+  document.getElementById("highlights-intro").innerHTML = highlightsFocus
+    ? `${talentLink(highlightsFocus)}'s signature: <strong>${signatureText(highlightsFocus)}</strong>. ` +
+      `Their place is shown on every card where they rank in the top half.`
+    : `Fun facts from the measurements. Talents with at least ${hl.min_clips} clips over ` +
+      `${hl.min_months} months take part, and everyone gets a signature: the award they place ` +
+      `highest in. Tone, pace and volume are also shaped by each talent's microphone and setup.`;
+  document.getElementById("highlights-content").innerHTML =
+    hl.sections
+      .map((section) => {
+        const cards = hl.awards
+          .filter((a) => a.section === section.key)
+          .map(awardCardHtml)
+          .join("");
+        return cards
+          ? `<section class="highlights-section"><h2>${escapeHtml(section.label)}</h2>` +
+            `<div class="award-grid">${cards}</div></section>`
+          : "";
+      })
+      .join("") + signaturesHtml();
+  for (const card of document.querySelectorAll(".award-card")) revealFocus(card);
 }
 
 // ---------------------------------------------------------------------
@@ -464,6 +715,10 @@ function renderProfile(name, others = []) {
     `month${t.months_covered === 1 ? "" : "s"} ` +
     `(${escapeHtml(t.first_month || "—")} to ${escapeHtml(t.last_month || "—")})` +
     `</p>` +
+    (DATA.highlights.signatures[name]
+      ? `<p class="profile-signature">Signature: <a href="#highlights/${encodeURIComponent(name)}">` +
+        `${signatureText(name)}</a></p>`
+      : "") +
     legacyNote +
     oneOffNote +
     compareSectionHtml() +

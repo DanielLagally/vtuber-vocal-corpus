@@ -70,6 +70,33 @@ how much talents typically differ.
 The radar chart shows each talent's distance from the median talent on each
 voice metric, in units of within-talent variation.
 
+## Highlights
+
+The Highlights page (`highlights.py`) condenses the same numbers into awards.
+It computes nothing new about a voice: every award reads a talent's typical
+value, the voice similarities above, or the monthly series.
+
+- **Who takes part.** A talent needs `MIN_CLIPS` usable clips spread over
+  `MIN_MONTHS` months. One-offs and talents still on original-pipeline records
+  are left out. Ineligible talents are removed before ranking, so they move
+  nobody's place.
+- **Both ends of every scale.** Each metric award has a counterpart at the
+  other end with its own positive name (highest and deepest voice, fastest and
+  most unhurried). A talent's place is shown only where they rank in the top half.
+- **Too close to call.** A place whose confidence interval overlaps the place
+  above it is marked as within measurement uncertainty.
+- **Signature.** Every eligible talent's best placing across the metric awards,
+  as a share of the field. Ties go to robust metrics.
+- **Voice identity** uses the embedding route. *Voice twins* are the pairs with
+  the highest voice match. *One of a kind* ranks talents by their closest
+  match, lowest first. A generation's score is the share of all talent pairs
+  less alike than its average member pair. Most generations sit below a typical
+  pair, where the 0–100% voice match would read 0% for all of them.
+- **Pitch journey** compares the median pitch of a talent's first and latest
+  `JOURNEY_WINDOW_MONTHS` measured months. It lists changes of at least
+  `JOURNEY_MIN_SEMITONES`.
+- Entries that are two people measured as one voice are tagged as a duo.
+
 ## Validation
 
 `vvc voice-validate` checks the metrics and embeddings against the data itself:

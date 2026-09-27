@@ -5,7 +5,8 @@ Acoustic measurements of hololive stream speech, tracked per talent over time.
 Each month of a talent's streams is sampled, and short windows of speech are
 measured for pitch, voice quality, and timbre. The results are published as an
 interactive site where talents can be browsed, compared, and ranked by how
-similar their voices are.
+similar their voices are. A Highlights page condenses the results into awards,
+such as highest voice, fastest talker, and voice twins.
 
 **Site: https://daniellagally.github.io/vtuber-vocal-corpus/**
 

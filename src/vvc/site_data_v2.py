@@ -34,7 +34,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import series_v2, similarity
+from . import highlights, series_v2, similarity
 from .quality import verdict_any
 from .reliability import corpus_noise_floor, noise_floor
 from .site_data import _branch_for_group, _generation_order, _talent_groups_and_branch
@@ -362,9 +362,11 @@ def _voice_neighbours(
     space: similarity.MetricSpace | None = None,
     typicals: dict[str, dict[str, float]] | None = None,
     language_of: dict[str, str | None] | None = None,
-) -> dict[str, list[dict]]:
+) -> tuple[dict[str, list[dict]], tuple[float, float], dict]:
     """Closest voices by embedding (embed.py). Only the similarity of talent
-    centroids leaves this function — never a vector. The embedding cannot say
+    centroids leaves this function — never a vector. Besides the neighbour
+    lists and the match scale, it returns the raw similarity of every ordinary
+    pair, which the Highlights page ranks. The embedding cannot say
     why two voices match, so each row borrows the measured route's closest
     metrics for that pair as the explanation.
 
@@ -398,7 +400,7 @@ def _voice_neighbours(
     # The absolute match runs from the median similarity of two ordinary
     # talents (0%) to the median similarity between two halves of one
     # talent's own clips (100%), both after language compensation.
-    selves = []
+    selves = {}
     for name in centroids:
         halves = _halves(talents_records[name]) if not one_off[name] else None
         if halves is None:
@@ -406,13 +408,15 @@ def _voice_neighbours(
         emb = embeddings[slugs[name]]
         first, second = (talent_centroid(h, emb) for h in halves)
         if first is not None and second is not None:
-            selves.append(cosine(compensate(name, first), compensate(name, second)))
+            selves[name] = cosine(compensate(name, first), compensate(name, second))
     centroids = {n: compensate(n, c) for n, c in centroids.items()}
     ordinary = [n for n in centroids if not one_off[n]]
-    zero = _median(
-        [cosine(centroids[a], centroids[b]) for i, a in enumerate(ordinary) for b in ordinary[i + 1 :]]
-    )
-    scale = (zero, _median(selves))
+    pairs = {
+        (a, b): cosine(centroids[a], centroids[b])
+        for i, a in enumerate(ordinary)
+        for b in ordinary[i + 1 :]
+    }
+    scale = (_median(list(pairs.values())), _median(list(selves.values())))
     lists = similarity.neighbours(
         list(centroids),
         lambda a, b: cosine(centroids[a], centroids[b]),
@@ -445,7 +449,7 @@ def _voice_neighbours(
             for r in rows
         ]
         for name, rows in lists.items()
-    }, scale
+    }, scale, {"scale": scale, "pairs": pairs}
 
 
 def _legacy_fraction(records: list[dict]) -> float:
@@ -551,12 +555,12 @@ def build_site_data_v2(
     languages.update(language_of or {})
     space = _fit_space(talents_records, one_off)
     measured_near, measured_scale = _measured_neighbours(space, talents_records, typicals, one_off)
-    voice_near, voice_scale = (
+    voice_near, voice_scale, voice_identity = (
         _voice_neighbours(
             talents_records, slugs, embeddings, one_off, space, typicals, languages
         )
         if embeddings
-        else ({}, None)
+        else ({}, None, None)
     )
     units = _noise_units(space, typicals, one_off) if space is not None else {}
 
@@ -625,6 +629,7 @@ def build_site_data_v2(
         "radar_metrics": [
             m for m in RADAR_METRICS if space is not None and m in space.metrics
         ],
+        "highlights": highlights.build_highlights(talents, FAMILIES, voice_identity),
         "talents": talents,
     }
 
