@@ -28,5 +28,95 @@
     },
     "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
     "tracker": "praat_ac"
+  },
+  {
+    "id": "-4_GMEGhyBk",
+    "month": "2026-09",
+    "score": 70.0,
+    "window": {
+      "start_s": 810.0,
+      "end_s": 900.0
+    },
+    "features": {
+      "median_f0": 274.68951952166736,
+      "f0_iqr": 106.33508140491097,
+      "voiced_fraction": 0.48521893754167594,
+      "brightness_hz": 2021.9546049984262,
+      "dynamism_semitones": 0.7560341310346453,
+      "jitter_local": 0.017273734063253887,
+      "shimmer_local": 0.0814540527343214,
+      "hnr_db": 14.804624791776872,
+      "loudness_dynamics_db": 16.177156634499745,
+      "f1_hz": 771.0868445494507,
+      "f2_hz": 1718.7094750913298,
+      "f3_hz": 2885.9997122107457,
+      "f4_hz": 4171.475330415309
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "23xGIcuHdLs",
+    "month": "2026-10",
+    "score": 70.0,
+    "window": {
+      "start_s": 285.0,
+      "end_s": 375.0
+    },
+    "features": {
+      "median_f0": 313.72680041788675,
+      "f0_iqr": 135.91606276157208,
+      "voiced_fraction": 0.5136697043787508,
+      "brightness_hz": 2318.823719518361,
+      "dynamism_semitones": 0.7116463283611882,
+      "jitter_local": 0.013392091542151128,
+      "shimmer_local": 0.06883513008842077,
+      "hnr_db": 16.11512142024533,
+      "loudness_dynamics_db": 15.660104957762192,
+      "f1_hz": 771.261117357976,
+      "f2_hz": 1733.2246123971402,
+      "f3_hz": 2920.0942269524417,
+      "f4_hz": 4165.607577253423
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
+  },
+  {
+    "id": "kLsldZDUa70",
+    "month": "2026-10",
+    "score": 70.0,
+    "window": {
+      "start_s": 45.0,
+      "end_s": 135.0
+    },
+    "features": {
+      "median_f0": 276.4658346268207,
+      "f0_iqr": 153.89508149226242,
+      "voiced_fraction": 0.38141809290953543,
+      "brightness_hz": 1765.040285761605,
+      "dynamism_semitones": 0.7902115993195054,
+      "jitter_local": 0.016818881389434347,
+      "shimmer_local": 0.07008478067953298,
+      "hnr_db": 15.965267514322193,
+      "loudness_dynamics_db": 15.248745616190249,
+      "f1_hz": 817.3563804764779,
+      "f2_hz": 1873.8943757496272,
+      "f3_hz": 3130.0263071663044,
+      "f4_hz": 4240.42407734389
+    },
+    "qc": {
+      "pass": true,
+      "reason": null
+    },
+    "model": "bs_roformer_vocals_resurrection_unwa.ckpt",
+    "tracker": "praat_ac"
   }
 ]
